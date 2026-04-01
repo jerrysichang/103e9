@@ -1,6 +1,7 @@
 /**
  * Touch + mouse drag-and-drop for list reordering.
  * Works on iPhone and desktop via Pointer Events.
+ * Requires a minimum drag distance before activating to avoid jank on taps.
  *
  * Usage:
  *   const sort = makeSortable(listEl, (orderedIds) => { ... })
@@ -8,6 +9,7 @@
  */
 export function makeSortable(listEl, onSort) {
   let state = null
+  const DRAG_THRESHOLD = 5 // px before drag activates
 
   function getItems() {
     return [...listEl.querySelectorAll('[data-sort-id]')]
@@ -21,8 +23,31 @@ export function makeSortable(listEl, onSort) {
     if (!item) return
 
     e.preventDefault()
+    handle.setPointerCapture(e.pointerId)
 
     const rect = item.getBoundingClientRect()
+
+    state = {
+      item,
+      ghost: null,
+      placeholder: null,
+      startY:   e.clientY,
+      ghostTop: rect.top,
+      rect,
+      dragging: false,
+      pointerId: e.pointerId,
+    }
+
+    document.addEventListener('pointermove', onPointerMove, { passive: false })
+    document.addEventListener('pointerup',   onPointerUp)
+    document.addEventListener('pointercancel', onPointerUp)
+  }
+
+  function activateDrag() {
+    if (!state || state.dragging) return
+    state.dragging = true
+
+    const { item, rect } = state
 
     // Ghost (visual drag proxy)
     const ghost = item.cloneNode(true)
@@ -38,26 +63,24 @@ export function makeSortable(listEl, onSort) {
     placeholder.className    = 'sort-placeholder'
     placeholder.style.height = rect.height + 'px'
     item.after(placeholder)
-    item.style.visibility = 'hidden'
+    item.style.display = 'none'
 
-    state = {
-      item,
-      ghost,
-      placeholder,
-      startY:   e.clientY,
-      ghostTop: rect.top,
-    }
-
-    document.addEventListener('pointermove', onPointerMove, { passive: false })
-    document.addEventListener('pointerup',   onPointerUp)
-    document.addEventListener('pointercancel', onPointerUp)
+    state.ghost = ghost
+    state.placeholder = placeholder
   }
 
   function onPointerMove(e) {
     if (!state) return
     e.preventDefault()
 
-    const dy  = e.clientY - state.startY
+    const dy = e.clientY - state.startY
+
+    // Don't start dragging until threshold is met
+    if (!state.dragging) {
+      if (Math.abs(dy) < DRAG_THRESHOLD) return
+      activateDrag()
+    }
+
     const top = state.ghostTop + dy
     state.ghost.style.top = top + 'px'
 
@@ -82,18 +105,20 @@ export function makeSortable(listEl, onSort) {
   function onPointerUp() {
     if (!state) return
 
-    const { item, ghost, placeholder } = state
+    const { item, ghost, placeholder, dragging } = state
     state = null
-
-    // Drop item where placeholder is
-    placeholder.before(item)
-    item.style.visibility = ''
-    placeholder.remove()
-    ghost.remove()
 
     document.removeEventListener('pointermove', onPointerMove)
     document.removeEventListener('pointerup',   onPointerUp)
     document.removeEventListener('pointercancel', onPointerUp)
+
+    if (!dragging) return // was just a tap, not a drag
+
+    // Drop item where placeholder is
+    placeholder.before(item)
+    item.style.display = ''
+    placeholder.remove()
+    ghost.remove()
 
     const orderedIds = getItems().map(el => el.dataset.sortId)
     onSort(orderedIds)

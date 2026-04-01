@@ -1,13 +1,13 @@
 /* ─── Design Tokens ─────────────────────────────────────────────────────── */
 :root {
-  --bg:              #0a0a0a;
-  --surface:         #131313;
-  --surface-raised:  #1c1c1c;
-  --border:          #252525;
-  --border-subtle:   #181818;
-  --text:            #f0f0f0;
-  --text-secondary:  #a0a0a0;
-  --text-muted:      #707070;
+  --bg:              #000000;
+  --surface:         #111111;
+  --surface-raised:  #1a1a1a;
+  --border:          #2a2a2a;
+  --border-subtle:   #1a1a1a;
+  --text:            #ffffff;
+  --text-secondary:  #b0b0b0;
+  --text-muted:      #888888;
   --accent:          #ffffff;
   --achieved:        #22c55e;
   --achieved-dim:    #16a34a33;
@@ -80,21 +80,23 @@ h1, h2, h3 {
   flex-shrink: 0;
   position: relative;
   z-index: 10;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .header-title {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   color: var(--text);
 }
 
 .header-subtitle {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-bottom: 2px;
 }
 
@@ -227,20 +229,22 @@ h1, h2, h3 {
   align-items: center;
   gap: 10px;
   padding: 28px 20px 10px;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .section-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .section-count {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   background: var(--surface);
   padding: 2px 8px;
   border-radius: 100px;
@@ -260,6 +264,8 @@ h1, h2, h3 {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .item {
@@ -324,13 +330,11 @@ h1, h2, h3 {
 
 .item-title {
   flex: 1;
-  font-size: 17px;
-  font-weight: 500;
+  font-size: 18px;
+  font-weight: 600;
   color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   line-height: 1.3;
+  word-break: break-word;
 }
 
 .achieved-item .item-title {
@@ -416,10 +420,10 @@ h1, h2, h3 {
 }
 
 .modal-title {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 800;
   margin-bottom: 16px;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .modal-actions {
@@ -482,9 +486,9 @@ textarea.input {
 }
 
 .detail-title {
-  font-size: 30px;
+  font-size: 36px;
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
   color: var(--text);
   line-height: 1.15;
   background: none;
@@ -533,11 +537,11 @@ textarea.input {
 .prompt-item:last-child { border-bottom: none; }
 
 .prompt-question {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-bottom: 10px;
 }
 
@@ -583,18 +587,18 @@ textarea.input {
 }
 
 .home-eyebrow {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-bottom: 6px;
 }
 
 .home-title {
-  font-size: 38px;
+  font-size: 44px;
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
 }
 
 .tools-grid {
@@ -628,33 +632,33 @@ textarea.input {
 }
 
 .tool-card-name {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 800;
   color: var(--text);
   margin-bottom: 4px;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .tool-card-desc {
   font-size: 14px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   line-height: 1.45;
 }
 
 /* ─── Passphrase Screen ─────────────────────────────────────────────────── */
 .passphrase-eyebrow {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
 .passphrase-title {
-  font-size: 34px;
+  font-size: 40px;
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
   line-height: 1.1;
   margin-bottom: 12px;
 }
@@ -691,7 +695,18 @@ textarea.input {
     border-right: 1px solid var(--border-subtle);
   }
 
-  body { background: #050505; }
+  body { background: #000000; }
 
   .tools-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ─── Danger Zone (bottom of detail view) ───────────────────────────────── */
+.danger-zone {
+  margin: 40px 20px 20px;
+  padding: 20px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.danger-zone .btn-danger {
+  width: 100%;
 }

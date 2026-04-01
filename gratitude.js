@@ -68,24 +68,24 @@ export function renderGratitudeList(container, { navigate }) {
         </header>
 
         <div class="scroll">
-          <!-- Pursuing section -->
-          <div class="section-header">
-            <span class="section-label">Pursuing</span>
-            <span class="section-count">${pursuing.length}</span>
-          </div>
-
-          <ul class="item-list" id="list-pursuing">
-            ${pursuing.length === 0 ? renderEmpty('Nothing yet — tap + to add your first goal') : pursuing.map(renderItem).join('')}
-          </ul>
-
           <!-- Achieved section -->
-          <div class="section-header" style="margin-top:12px">
+          <div class="section-header">
             <span class="section-label">Achieved</span>
             <span class="section-count">${achieved.length}</span>
           </div>
 
           <ul class="item-list" id="list-achieved">
             ${achieved.length === 0 ? renderEmpty('Your achievements will appear here') : achieved.map(i => renderItem(i, true)).join('')}
+          </ul>
+
+          <!-- Pursuing section -->
+          <div class="section-header" style="margin-top:12px">
+            <span class="section-label">Pursuing</span>
+            <span class="section-count">${pursuing.length}</span>
+          </div>
+
+          <ul class="item-list" id="list-pursuing">
+            ${pursuing.length === 0 ? renderEmpty('Nothing yet — tap + to add your first goal') : pursuing.map(renderItem).join('')}
           </ul>
         </div>
 
@@ -141,7 +141,6 @@ function renderItem(item, isAchieved = false) {
     >
       <span class="item-handle" data-sort-handle aria-hidden="true">${ICONS.handle}</span>
       <div class="item-body" data-open="${item.id}">
-        <span class="item-status-dot"></span>
         <span class="item-title">${escHtml(item.title)}</span>
       </div>
       <span class="item-chevron" data-open="${item.id}">${ICONS.chevron}</span>
@@ -231,9 +230,7 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
               ${ICONS.back} Back
             </button>
           </div>
-          <div class="header-right">
-            <button class="btn btn-icon" id="btn-delete" aria-label="Delete" style="color:var(--danger);font-size:16px;font-weight:400">✕</button>
-          </div>
+          <div class="header-right"></div>
         </header>
 
         <div class="scroll">
@@ -268,6 +265,10 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
 
           <div class="prompts">
             ${PROMPTS.map(p => renderPrompt(p, item)).join('')}
+          </div>
+
+          <div class="danger-zone">
+            <button class="btn btn-danger" id="btn-delete">Delete Goal</button>
           </div>
         </div>
       </div>
