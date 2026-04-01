@@ -6,8 +6,8 @@
   --border:          #252525;
   --border-subtle:   #181818;
   --text:            #f0f0f0;
-  --text-secondary:  #888;
-  --text-muted:      #444;
+  --text-secondary:  #a0a0a0;
+  --text-muted:      #707070;
   --accent:          #ffffff;
   --achieved:        #22c55e;
   --achieved-dim:    #16a34a33;
@@ -22,6 +22,9 @@
   --header-h:        60px;
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
 }
+
+/* ─── Utility ────────────────────────────────────────────────────────────── */
+.hidden { display: none !important; }
 
 /* ─── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after {
@@ -457,7 +460,7 @@ h1, h2, h3 {
 }
 
 .input::placeholder {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 textarea.input {
