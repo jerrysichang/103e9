@@ -83,14 +83,14 @@ h1, h2, h3 {
 }
 
 .header-title {
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text);
 }
 
 .header-subtitle {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -117,7 +117,7 @@ h1, h2, h3 {
   border: none;
   cursor: pointer;
   font-family: var(--font);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   transition: opacity 0.15s, transform 0.1s;
   user-select: none;
@@ -140,7 +140,7 @@ h1, h2, h3 {
 .btn-back {
   background: none;
   color: var(--text-secondary);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   padding: 8px 0;
   border-radius: 8px;
@@ -230,15 +230,15 @@ h1, h2, h3 {
 }
 
 .section-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .section-count {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-muted);
   background: var(--surface);
@@ -324,7 +324,7 @@ h1, h2, h3 {
 
 .item-title {
   flex: 1;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 500;
   color: var(--text);
   white-space: nowrap;
@@ -381,7 +381,7 @@ h1, h2, h3 {
 }
 
 .empty-state p {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
 }
 
@@ -416,7 +416,7 @@ h1, h2, h3 {
 }
 
 .modal-title {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   margin-bottom: 16px;
   letter-spacing: -0.02em;
@@ -448,8 +448,8 @@ h1, h2, h3 {
   border-radius: var(--radius-sm);
   color: var(--text);
   font-family: var(--font);
-  font-size: 15px;
-  padding: 13px 15px;
+  font-size: 17px;
+  padding: 14px 16px;
   outline: none;
   transition: border-color 0.15s;
   caret-color: var(--accent);
@@ -482,7 +482,7 @@ textarea.input {
 }
 
 .detail-title {
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--text);
@@ -504,7 +504,7 @@ textarea.input {
 }
 
 .detail-date {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
   margin-top: 6px;
 }
@@ -516,8 +516,8 @@ textarea.input {
 }
 
 .detail-actions .btn {
-  font-size: 13px;
-  padding: 9px 16px;
+  font-size: 15px;
+  padding: 11px 18px;
 }
 
 /* ─── Prompts ────────────────────────────────────────────────────────────── */
@@ -533,9 +533,9 @@ textarea.input {
 .prompt-item:last-child { border-bottom: none; }
 
 .prompt-question {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 10px;
@@ -571,7 +571,7 @@ textarea.input {
 }
 
 .achieved-banner-text {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--achieved);
   font-weight: 500;
   line-height: 1.4;
@@ -583,7 +583,7 @@ textarea.input {
 }
 
 .home-eyebrow {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -592,7 +592,7 @@ textarea.input {
 }
 
 .home-title {
-  font-size: 34px;
+  font-size: 38px;
   font-weight: 800;
   letter-spacing: -0.03em;
 }
@@ -628,7 +628,7 @@ textarea.input {
 }
 
 .tool-card-name {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text);
   margin-bottom: 4px;
@@ -636,9 +636,49 @@ textarea.input {
 }
 
 .tool-card-desc {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
   line-height: 1.45;
+}
+
+/* ─── Passphrase Screen ─────────────────────────────────────────────────── */
+.passphrase-eyebrow {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.passphrase-title {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-bottom: 12px;
+}
+
+.passphrase-desc {
+  font-size: 16px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 28px;
+}
+
+.passphrase-input {
+  font-size: 18px;
+  padding: 16px;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+
+.passphrase-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 16px;
+  line-height: 1.5;
 }
 
 /* ─── Desktop adjustments ────────────────────────────────────────────────── */

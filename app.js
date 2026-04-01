@@ -10,6 +10,8 @@
  */
 
 import { renderGratitudeList, renderGratitudeDetail } from './gratitude.js'
+import { onRemoteUpdate, handleRemoteData } from './storage.js'
+import { hasPassphrase, getPassphrase, connect, disconnect } from './firebase-sync.js'
 
 // ─── Tool Registry ────────────────────────────────────────────────────────
 
@@ -22,14 +24,6 @@ const TOOLS = [
     defaultView: 'list',
   },
   // Add more tools here — a home screen will appear automatically.
-  // Example:
-  // {
-  //   id:          'journal',
-  //   name:        'Journal',
-  //   description: 'Daily reflection and writing',
-  //   icon:        '✎',
-  //   defaultView: 'entries',
-  // },
 ]
 
 // ─── Router ───────────────────────────────────────────────────────────────
@@ -39,13 +33,22 @@ const root = document.getElementById('root')
 
 /**
  * Navigate to a view.
- * @param {string} view  - e.g. 'home' | 'list' | 'detail'
+ * @param {string} view  - e.g. 'home' | 'list' | 'detail' | 'passphrase'
  * @param {object} params
  */
 function navigate(view, params = {}) {
   currentRoute = { view, params }
   renderApp()
 }
+
+// ─── Remote update handling ──────────────────────────────────────────────
+
+onRemoteUpdate(() => {
+  // Re-render current view when remote data arrives
+  if (currentRoute && (currentRoute.view === 'list' || currentRoute.view === 'detail')) {
+    renderApp()
+  }
+})
 
 // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -54,6 +57,11 @@ function renderApp() {
 
   root.innerHTML = `<div class="app"></div>`
   const app = root.querySelector('.app')
+
+  if (view === 'passphrase') {
+    renderPassphrase(app)
+    return
+  }
 
   if (view === 'home') {
     renderHome(app)
@@ -70,6 +78,68 @@ function renderApp() {
     renderGratitudeDetail(app, { navigate, itemId: params.itemId })
     return
   }
+}
+
+// ─── Passphrase Screen ──────────────────────────────────────────────────
+
+function renderPassphrase(container) {
+  container.innerHTML = `
+    <div class="view">
+      <div class="scroll" style="display:flex;flex-direction:column;justify-content:center;min-height:100%">
+        <div style="padding:0 28px">
+          <div class="passphrase-eyebrow">Personal Tools</div>
+          <h1 class="passphrase-title">Enter your<br>sync phrase</h1>
+          <p class="passphrase-desc">Use the same phrase on all your devices to keep everything in sync.</p>
+          <input
+            class="input passphrase-input"
+            id="passphrase-input"
+            type="text"
+            placeholder="Your secret phrase"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          <button class="btn btn-primary" id="btn-connect" style="margin-top:16px">Connect</button>
+          <p class="passphrase-hint">This phrase is hashed — we never store it in the cloud.</p>
+        </div>
+      </div>
+    </div>
+  `
+
+  const input = container.querySelector('#passphrase-input')
+  const btn = container.querySelector('#btn-connect')
+
+  async function doConnect() {
+    const phrase = input.value.trim()
+    if (!phrase) {
+      input.focus()
+      return
+    }
+
+    btn.textContent = 'Connecting...'
+    btn.style.opacity = '0.5'
+
+    try {
+      await connect(phrase, handleRemoteData)
+      // Go to the app
+      if (TOOLS.length === 1) {
+        navigate(TOOLS[0].defaultView)
+      } else {
+        navigate('home')
+      }
+    } catch (err) {
+      console.error('Connection failed:', err)
+      btn.textContent = 'Connect'
+      btn.style.opacity = '1'
+    }
+  }
+
+  btn.addEventListener('click', doConnect)
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doConnect()
+  })
+
+  setTimeout(() => input.focus(), 100)
 }
 
 // ─── Home Screen (shown when multiple tools exist) ────────────────────────
@@ -105,12 +175,23 @@ function renderHome(container) {
 
 // ─── Boot ─────────────────────────────────────────────────────────────────
 
-function boot() {
-  // If there's only one tool, skip home and go straight to it
-  if (TOOLS.length === 1) {
-    navigate(TOOLS[0].defaultView)
+async function boot() {
+  if (hasPassphrase()) {
+    // Already connected before — reconnect silently
+    try {
+      await connect(getPassphrase(), handleRemoteData)
+    } catch (err) {
+      console.warn('Auto-reconnect failed, continuing with local data:', err)
+    }
+
+    if (TOOLS.length === 1) {
+      navigate(TOOLS[0].defaultView)
+    } else {
+      navigate('home')
+    }
   } else {
-    navigate('home')
+    // First time — show passphrase screen
+    navigate('passphrase')
   }
 }
 

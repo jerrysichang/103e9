@@ -1,22 +1,34 @@
 /**
- * Storage layer — LocalStorage adapter.
+ * Storage layer — LocalStorage + Firebase Firestore sync.
  *
- * To add cross-device sync with Supabase (free tier):
- *  1. Create a project at supabase.com
- *  2. Run this SQL:
- *       create table gratitude_items (
- *         id text primary key,
- *         data jsonb not null,
- *         updated_at timestamptz default now()
- *       );
- *  3. Replace the methods below to call the Supabase JS client instead.
- *  4. The method signatures stay the same — no changes needed in gratitude.js.
- *
- * Supabase is free for personal use (500 MB DB, 50k monthly active users).
+ * All writes go to localStorage immediately (fast) and then sync to Firestore.
+ * When remote changes arrive, localStorage is updated and the app re-renders.
  */
+
+import { syncToCloud } from './firebase-sync.js'
 
 const KEYS = {
   gratitude: 'ps_gratitude_v1',
+}
+
+// ─── Re-render hook ──────────────────────────────────────────────────────
+
+let _onRemoteUpdate = null
+
+/**
+ * Register a callback for when remote data arrives.
+ * The app shell calls this so it can re-render.
+ */
+export function onRemoteUpdate(fn) {
+  _onRemoteUpdate = fn
+}
+
+/**
+ * Called by firebase-sync when remote data arrives.
+ */
+export function handleRemoteData(items) {
+  localStorage.setItem(KEYS.gratitude, JSON.stringify(items))
+  if (_onRemoteUpdate) _onRemoteUpdate()
 }
 
 // ─── Gratitude Storage ────────────────────────────────────────────────────
@@ -35,6 +47,8 @@ export const gratitudeStorage = {
   /** @param {GratitudeItem[]} items */
   _saveAll(items) {
     localStorage.setItem(KEYS.gratitude, JSON.stringify(items))
+    // Fire-and-forget sync to cloud
+    syncToCloud(items)
   },
 
   /** @param {string} title @returns {GratitudeItem} */
@@ -81,7 +95,6 @@ export const gratitudeStorage = {
     if (idx === -1) return
     items[idx].achieved = achieved
     items[idx].achievedAt = achieved ? new Date().toISOString() : null
-    // Re-number order within new section
     const section = items.filter(i => i.achieved === achieved)
     section.forEach((item, i) => { item.order = i })
     this._saveAll(items)
