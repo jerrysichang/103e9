@@ -329,7 +329,7 @@ h1, h2, h3 {
 }
 
 .achieved-item .item-title {
-  color: var(--text-secondary);
+  color: var(--text);
 }
 
 .item-chevron {
