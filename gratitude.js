@@ -4,13 +4,12 @@ import { makeSortable }      from './sortable.js'
 // ─── Journal Prompts ──────────────────────────────────────────────────────
 
 const PROMPTS = [
-  { key: 'why',       question: 'Why do you want this?' },
-  { key: 'feeling',   question: 'What will it feel like when you achieve this?' },
-  { key: 'important', question: 'Why is this important to you?' },
-  { key: 'steps',     question: 'What steps are you taking toward this?' },
-  { key: 'after',     question: 'What will you do when you achieve this?' },
-  { key: 'obstacles', question: 'What obstacles might you face, and how will you overcome them?' },
-  { key: 'grateful',  question: 'What are you already grateful for on this journey?' },
+  { key: 'why',      question: 'Why do you want this?' },
+  { key: 'hard',     question: "What's hard about not having it?" },
+  { key: 'good',     question: "What would be so good about it?" },
+  { key: 'daily',    question: 'What would change day-to-day?' },
+  { key: 'fear',     question: 'What if you never get it?' },
+  { key: 'letter',   question: 'Write to your future self.' },
 ]
 
 // ─── Icons ────────────────────────────────────────────────────────────────
