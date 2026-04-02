@@ -488,6 +488,11 @@ textarea.input {
   font-family: var(--font);
   outline: none;
   caret-color: var(--accent);
+  resize: none;
+  overflow: hidden;
+  min-height: 42px;
+  padding: 0;
+  word-break: break-word;
 }
 
 .detail-title.achieved-title {

@@ -235,15 +235,14 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
         <div class="scroll">
           <div class="detail-hero">
             <div class="detail-title-wrap">
-              <input
+              <textarea
                 class="detail-title${item.achieved ? ' achieved-title' : ''}"
                 id="detail-title-input"
-                type="text"
-                value="${escHtml(item.title)}"
                 placeholder="Goal title"
                 maxlength="120"
+                rows="1"
                 autocomplete="off"
-              />
+              >${escHtml(item.title)}</textarea>
               <div class="detail-date">${achievedDate}</div>
             </div>
 
@@ -309,8 +308,10 @@ function bindDetailEvents(navigate, rerender, item) {
       gratitudeStorage.update(item.id, { title: val })
     }
   }
+  autoResize(titleInput)
+  titleInput.addEventListener('input', () => autoResize(titleInput))
   titleInput.addEventListener('blur', saveTitle)
-  titleInput.addEventListener('keydown', e => { if (e.key === 'Enter') titleInput.blur() })
+  titleInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); titleInput.blur() } })
 
   // Toggle achieved
   root.querySelector('#btn-toggle-achieved').addEventListener('click', () => {
