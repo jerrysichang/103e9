@@ -1,4 +1,4 @@
-import { gratitudeStorage } from './storage.js'
+import { gratitudeStorage, suppressRemoteRender } from './storage.js'
 import { makeSortable }      from './sortable.js'
 
 // ─── Journal Prompts ──────────────────────────────────────────────────────
@@ -56,9 +56,7 @@ export function renderGratitudeList(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-list">
         <header class="header">
-          <div class="header-left"></div>
-          <div>
-            <div class="header-subtitle">Personal</div>
+          <div class="header-left">
             <div class="header-title">Gratitude</div>
           </div>
           <div class="header-right">
@@ -118,11 +116,13 @@ export function renderGratitudeList(container, { navigate }) {
 
     if (pursuing.length > 1) {
       pursuingSortable = makeSortable(pursuingList, ids => {
+        suppressRemoteRender()
         gratitudeStorage.reorder(ids, false)
       })
     }
     if (achieved.length > 1) {
       achievedSortable = makeSortable(achievedList, ids => {
+        suppressRemoteRender()
         gratitudeStorage.reorder(ids, true)
       })
     }

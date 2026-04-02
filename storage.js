@@ -14,6 +14,7 @@ const KEYS = {
 // ─── Re-render hook ──────────────────────────────────────────────────────
 
 let _onRemoteUpdate = null
+let _suppressRemoteUpdate = false
 
 /**
  * Register a callback for when remote data arrives.
@@ -28,7 +29,15 @@ export function onRemoteUpdate(fn) {
  */
 export function handleRemoteData(items) {
   localStorage.setItem(KEYS.gratitude, JSON.stringify(items))
-  if (_onRemoteUpdate) _onRemoteUpdate()
+  if (_onRemoteUpdate && !_suppressRemoteUpdate) _onRemoteUpdate()
+}
+
+/**
+ * Temporarily suppress remote-update re-renders (e.g. during drag reorder).
+ */
+export function suppressRemoteRender(ms = 1500) {
+  _suppressRemoteUpdate = true
+  setTimeout(() => { _suppressRemoteUpdate = false }, ms)
 }
 
 // ─── Gratitude Storage ────────────────────────────────────────────────────
