@@ -260,7 +260,11 @@ export function renderCoachChat(container, { navigate }) {
 
       let updates = {}
       try {
-        updates = JSON.parse(raw)
+        // Strip markdown code fences if the model wrapped the JSON
+        const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
+        // Extract the first {...} block in case there's surrounding text
+        const match = stripped.match(/\{[\s\S]*\}/)
+        updates = match ? JSON.parse(match[0]) : {}
       } catch {
         console.warn('Could not parse extraction response:', raw)
       }
