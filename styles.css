@@ -824,45 +824,9 @@ textarea.input {
   width: auto;
 }
 
-.coach-send:disabled,
-.coach-end:disabled {
+.coach-send:disabled {
   opacity: 0.35;
   pointer-events: none;
-}
-
-.coach-actions-row {
-  display: flex;
-  justify-content: center;
-}
-
-.coach-end {
-  font-size: 15px;
-  padding: 9px 22px;
-}
-
-/* Updating overlay */
-.coach-updating {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-}
-
-.coach-updating-inner {
-  text-align: center;
-  padding: 32px;
-}
-
-.coach-updating-text {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.02em;
 }
 
 /* ─── Coach — Profile View ───────────────────────────────────────────────── */

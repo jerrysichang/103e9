@@ -10,6 +10,7 @@ import { getProfile, patchProfile } from './coach-profile.js'
 // ─── Config ───────────────────────────────────────────────────────────────
 
 const WORKER_URL = 'https://jos.jerry-si-chang.workers.dev'
+const CONVERSATION_KEY = 'ps_coach_messages_v1'
 
 // ─── Prompts ──────────────────────────────────────────────────────────────
 
@@ -81,10 +82,57 @@ const PROFILE_DOMAINS = [
   },
 ]
 
+// ─── Conversation persistence ─────────────────────────────────────────────
+
+function loadConversation() {
+  try {
+    const raw = localStorage.getItem(CONVERSATION_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function saveConversation(messages) {
+  localStorage.setItem(CONVERSATION_KEY, JSON.stringify(messages))
+}
+
+// ─── Background profile extraction ────────────────────────────────────────
+
+async function extractAndUpdateProfile(messages) {
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: EXTRACTION_SYSTEM_PROMPT + '\n\n## Current profile\n\n' + JSON.stringify(getProfile(), null, 2),
+        messages,
+      }),
+    })
+
+    const data = await res.json()
+    const raw = data?.content?.[0]?.text || '{}'
+
+    // Strip markdown code fences if the model wrapped the JSON
+    const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
+    // Extract the first {...} block in case there's surrounding text
+    const match = stripped.match(/\{[\s\S]*\}/)
+    const updates = match ? JSON.parse(match[0]) : {}
+
+    if (Object.keys(updates).length > 0) {
+      await patchProfile(updates)
+    }
+  } catch (err) {
+    console.warn('Background profile extraction failed:', err)
+  }
+}
+
 // ─── Chat View ────────────────────────────────────────────────────────────
 
 export function renderCoachChat(container, { navigate }) {
-  let messages = []
+  let messages = loadConversation()
   let isWaiting = false
 
   function render() {
@@ -104,13 +152,9 @@ export function renderCoachChat(container, { navigate }) {
           </div>
         </header>
 
-        <div class="coach-messages" id="coach-messages">
-          <div class="coach-empty" id="coach-empty">
-            <p>Start a conversation. Your coach knows your profile and remembers what you tell it.</p>
-          </div>
-        </div>
+        <div class="coach-messages" id="coach-messages"></div>
 
-        <div class="coach-input-bar" id="coach-input-bar">
+        <div class="coach-input-bar">
           <div class="coach-input-row">
             <textarea
               class="input coach-input"
@@ -122,31 +166,51 @@ export function renderCoachChat(container, { navigate }) {
             ></textarea>
             <button class="btn btn-primary coach-send" id="coach-send">Send</button>
           </div>
-          <div class="coach-actions-row">
-            <button class="btn btn-secondary coach-end" id="coach-end">End session</button>
-          </div>
-        </div>
-
-        <div class="coach-updating hidden" id="coach-updating">
-          <div class="coach-updating-inner">
-            <div class="coach-updating-text" id="coach-updating-text">Updating your profile…</div>
-          </div>
         </div>
       </div>
     `
 
+    renderAllMessages()
     bindChatEvents()
+  }
+
+  function renderAllMessages() {
+    const messagesEl = document.getElementById('coach-messages')
+    if (!messagesEl) return
+    messagesEl.innerHTML = ''
+
+    if (messages.length === 0) {
+      messagesEl.innerHTML = `
+        <div class="coach-empty">
+          <p>Start a conversation. Your coach knows your profile and remembers what you tell it.</p>
+        </div>
+      `
+      return
+    }
+
+    messages.forEach(msg => {
+      const div = document.createElement('div')
+      div.className = `coach-message ${msg.role}`
+      const bubble = document.createElement('div')
+      bubble.className = 'coach-bubble'
+      bubble.textContent = msg.content
+      div.appendChild(bubble)
+      messagesEl.appendChild(div)
+    })
+
+    scrollToBottom()
   }
 
   function appendMessage(role, text) {
     const messagesEl = document.getElementById('coach-messages')
-    const emptyEl = document.getElementById('coach-empty')
+    if (!messagesEl) return
+
+    // Clear empty state if present
+    const emptyEl = messagesEl.querySelector('.coach-empty')
     if (emptyEl) emptyEl.remove()
 
     const div = document.createElement('div')
     div.className = `coach-message ${role}`
-    div.dataset.index = messages.length - 1
-
     const bubble = document.createElement('div')
     bubble.className = 'coach-bubble'
     bubble.textContent = text
@@ -157,13 +221,14 @@ export function renderCoachChat(container, { navigate }) {
 
   function appendLoading() {
     const messagesEl = document.getElementById('coach-messages')
-    const emptyEl = document.getElementById('coach-empty')
+    if (!messagesEl) return
+
+    const emptyEl = messagesEl.querySelector('.coach-empty')
     if (emptyEl) emptyEl.remove()
 
     const div = document.createElement('div')
     div.className = 'coach-message assistant'
     div.id = 'coach-loading'
-
     const bubble = document.createElement('div')
     bubble.className = 'coach-bubble coach-bubble-loading'
     bubble.innerHTML = '<span></span><span></span><span></span>'
@@ -183,12 +248,10 @@ export function renderCoachChat(container, { navigate }) {
   }
 
   function setInputState(disabled) {
-    const input  = document.getElementById('coach-input')
-    const send   = document.getElementById('coach-send')
-    const end    = document.getElementById('coach-end')
+    const input = document.getElementById('coach-input')
+    const send  = document.getElementById('coach-send')
     if (input) input.disabled = disabled
     if (send)  send.disabled  = disabled
-    if (end)   end.disabled   = disabled
   }
 
   async function sendMessage() {
@@ -197,6 +260,7 @@ export function renderCoachChat(container, { navigate }) {
     if (!text || isWaiting) return
 
     messages.push({ role: 'user', content: text })
+    saveConversation(messages)
     appendMessage('user', text)
     inputEl.value = ''
     inputEl.style.height = 'auto'
@@ -220,13 +284,19 @@ export function renderCoachChat(container, { navigate }) {
       const data = await res.json()
       const reply = data?.content?.[0]?.text || 'No response received.'
       messages.push({ role: 'assistant', content: reply })
+      saveConversation(messages)
       removeLoading()
       appendMessage('assistant', reply)
+
+      // Update profile silently in the background — no UI blocking
+      extractAndUpdateProfile(messages)
     } catch (err) {
       console.error('Coach fetch error:', err)
-      messages.push({ role: 'assistant', content: 'Something went wrong — check your Worker URL and try again.' })
+      const errMsg = 'Something went wrong — check your Worker URL and try again.'
+      messages.push({ role: 'assistant', content: errMsg })
+      saveConversation(messages)
       removeLoading()
-      appendMessage('assistant', 'Something went wrong — check your Worker URL and try again.')
+      appendMessage('assistant', errMsg)
     }
 
     isWaiting = false
@@ -236,66 +306,6 @@ export function renderCoachChat(container, { navigate }) {
     if (inputEl2) inputEl2.focus()
   }
 
-  async function endSession() {
-    if (messages.length === 0) return
-
-    const updatingEl = document.getElementById('coach-updating')
-    const updatingText = document.getElementById('coach-updating-text')
-    if (updatingEl) updatingEl.classList.remove('hidden')
-
-    try {
-      const res = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1024,
-          system: EXTRACTION_SYSTEM_PROMPT + '\n\n## Current profile\n\n' + JSON.stringify(getProfile(), null, 2),
-          messages,
-        }),
-      })
-
-      const data = await res.json()
-      const raw = data?.content?.[0]?.text || '{}'
-
-      let updates = {}
-      try {
-        // Strip markdown code fences if the model wrapped the JSON
-        const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
-        // Extract the first {...} block in case there's surrounding text
-        const match = stripped.match(/\{[\s\S]*\}/)
-        updates = match ? JSON.parse(match[0]) : {}
-      } catch {
-        console.warn('Could not parse extraction response:', raw)
-      }
-
-      await patchProfile(updates)
-
-      if (updatingText) updatingText.textContent = 'Profile updated'
-      await new Promise(resolve => setTimeout(resolve, 2000))
-    } catch (err) {
-      console.error('Extraction error:', err)
-      if (updatingText) updatingText.textContent = 'Could not update profile'
-      await new Promise(resolve => setTimeout(resolve, 2000))
-    }
-
-    // Reset to fresh session
-    messages = []
-    if (updatingEl) updatingEl.classList.add('hidden')
-
-    const messagesEl = document.getElementById('coach-messages')
-    if (messagesEl) {
-      messagesEl.innerHTML = `
-        <div class="coach-empty" id="coach-empty">
-          <p>Session ended. Your profile has been updated.</p>
-        </div>
-      `
-    }
-
-    isWaiting = false
-    setInputState(false)
-  }
-
   function bindChatEvents() {
     const view = document.getElementById('view-coach-chat')
     if (!view) return
@@ -303,15 +313,8 @@ export function renderCoachChat(container, { navigate }) {
     view.querySelector('#btn-back-coach').addEventListener('click', () => navigate('home'))
     view.querySelector('#btn-coach-profile').addEventListener('click', () => navigate('coach-profile'))
     view.querySelector('#coach-send').addEventListener('click', sendMessage)
-    view.querySelector('#coach-end').addEventListener('click', endSession)
 
     const inputEl = view.querySelector('#coach-input')
-    inputEl.addEventListener('keydown', e => {
-      // Enter always inserts a newline — use the Send button to submit
-      if (e.key === 'Enter') {
-        autoResize(inputEl)
-      }
-    })
     inputEl.addEventListener('input', () => autoResize(inputEl))
   }
 
