@@ -307,9 +307,9 @@ export function renderCoachChat(container, { navigate }) {
 
     const inputEl = view.querySelector('#coach-input')
     inputEl.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        sendMessage()
+      // Enter always inserts a newline — use the Send button to submit
+      if (e.key === 'Enter') {
+        autoResize(inputEl)
       }
     })
     inputEl.addEventListener('input', () => autoResize(inputEl))
