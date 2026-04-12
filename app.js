@@ -10,6 +10,7 @@
  */
 
 import { renderGratitudeList, renderGratitudeDetail } from './gratitude.js'
+import { renderCoachChat, renderCoachProfile } from './coach.js'
 import { onRemoteUpdate, handleRemoteData } from './storage.js'
 import { hasPassphrase, getPassphrase, connect, disconnect } from './firebase-sync.js'
 
@@ -23,7 +24,13 @@ const TOOLS = [
     icon:        '✦',
     defaultView: 'list',
   },
-  // Add more tools here — a home screen will appear automatically.
+  {
+    id:          'coach',
+    name:        'Coach',
+    description: 'A personal coach that knows your life and learns over time',
+    icon:        '◈',
+    defaultView: 'coach-chat',
+  },
 ]
 
 // ─── Router ───────────────────────────────────────────────────────────────
@@ -76,6 +83,17 @@ function renderApp() {
 
   if (view === 'detail') {
     renderGratitudeDetail(app, { navigate, itemId: params.itemId })
+    return
+  }
+
+  // Coach views
+  if (view === 'coach-chat') {
+    renderCoachChat(app, { navigate })
+    return
+  }
+
+  if (view === 'coach-profile') {
+    renderCoachProfile(app, { navigate })
     return
   }
 }

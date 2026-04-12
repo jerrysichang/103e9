@@ -93,6 +93,12 @@ export async function connect(passphrase, onChange) {
       const localData = localStorage.getItem(LOCAL_DATA_KEY)
       const items = localData ? JSON.parse(localData) : []
       await setDoc(vaultRef, { gratitude: items, updatedAt: Date.now() })
+    } else {
+      // Vault exists — load profile if present on this device for the first time
+      const data = snap.data()
+      if (data.profile && !localStorage.getItem('ps_profile_v1')) {
+        localStorage.setItem('ps_profile_v1', JSON.stringify(data.profile))
+      }
     }
   } catch (err) {
     console.warn('Firebase initial sync failed, using local data:', err)
@@ -128,6 +134,21 @@ export async function syncToCloud(items) {
     await setDoc(vaultRef, { gratitude: items, updatedAt: Date.now() })
   } catch (err) {
     console.warn('Failed to sync to cloud:', err)
+  }
+}
+
+/**
+ * Save profile to Firestore using merge so gratitude data is preserved.
+ * @param {Object} profile
+ */
+export async function syncProfileToCloud(profile) {
+  if (!vaultHash) return
+
+  try {
+    const vaultRef = doc(db, 'vaults', vaultHash)
+    await setDoc(vaultRef, { profile, updatedAt: Date.now() }, { merge: true })
+  } catch (err) {
+    console.warn('Failed to sync profile to cloud:', err)
   }
 }
 
