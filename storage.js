@@ -72,6 +72,7 @@ export const gratitudeStorage = {
       createdAt: new Date().toISOString(),
       achievedAt: null,
       answers: {},
+      promptEntries: {},
     }
     items.push(item)
     this._saveAll(items)
@@ -93,7 +94,107 @@ export const gratitudeStorage = {
     const items = this.getAll()
     const idx = items.findIndex(i => i.id === id)
     if (idx === -1) return
-    items[idx].answers = { ...items[idx].answers, [promptKey]: answer }
+    const item = items[idx]
+    const now = new Date().toISOString()
+    const text = String(answer ?? '')
+    const existing = this.getPromptEntries(item, promptKey)
+
+    if (!text.trim()) {
+      item.answers = { ...(item.answers || {}), [promptKey]: '' }
+      item.promptEntries = { ...(item.promptEntries || {}), [promptKey]: [] }
+      this._saveAll(items)
+      return
+    }
+
+    if (existing.length === 0) {
+      const entry = {
+        id: crypto.randomUUID(),
+        text,
+        createdAt: now,
+        updatedAt: now,
+      }
+      item.promptEntries = { ...(item.promptEntries || {}), [promptKey]: [entry] }
+    } else {
+      const [first, ...rest] = existing
+      const updated = { ...first, text, updatedAt: now }
+      item.promptEntries = { ...(item.promptEntries || {}), [promptKey]: [updated, ...rest] }
+    }
+    item.answers = { ...(item.answers || {}), [promptKey]: text }
+    this._saveAll(items)
+  },
+
+  /**
+   * Get normalized prompt entries for rendering/editing.
+   * Falls back to legacy single-answer data.
+   * @param {GratitudeItem} item
+   * @param {string} promptKey
+   * @returns {PromptEntry[]}
+   */
+  getPromptEntries(item, promptKey) {
+    const list = item?.promptEntries?.[promptKey]
+    if (Array.isArray(list) && list.length > 0) {
+      return list.map(entry => ({
+        id: entry.id || crypto.randomUUID(),
+        text: String(entry.text || ''),
+        createdAt: entry.createdAt || item.createdAt || new Date().toISOString(),
+        updatedAt: entry.updatedAt || entry.createdAt || item.createdAt || new Date().toISOString(),
+      }))
+    }
+
+    const legacy = String(item?.answers?.[promptKey] || '')
+    if (!legacy.trim()) return []
+    const when = item?.createdAt || new Date().toISOString()
+    return [{
+      id: crypto.randomUUID(),
+      text: legacy,
+      createdAt: when,
+      updatedAt: when,
+    }]
+  },
+
+  /** @param {string} id @param {string} promptKey @returns {PromptEntry|null} */
+  addPromptEntry(id, promptKey) {
+    const items = this.getAll()
+    const idx = items.findIndex(i => i.id === id)
+    if (idx === -1) return null
+    const now = new Date().toISOString()
+    const entry = { id: crypto.randomUUID(), text: '', createdAt: now, updatedAt: now }
+    const item = items[idx]
+    const existing = this.getPromptEntries(item, promptKey)
+    item.promptEntries = { ...(item.promptEntries || {}), [promptKey]: [...existing, entry] }
+    this._saveAll(items)
+    return entry
+  },
+
+  /** @param {string} id @param {string} promptKey @param {string} entryId @param {string} text */
+  updatePromptEntry(id, promptKey, entryId, text) {
+    const items = this.getAll()
+    const idx = items.findIndex(i => i.id === id)
+    if (idx === -1) return
+    const item = items[idx]
+    const existing = this.getPromptEntries(item, promptKey)
+    const now = new Date().toISOString()
+    let matched = false
+    const next = existing.map(entry => {
+      if (entry.id !== entryId) return entry
+      matched = true
+      return { ...entry, text: String(text ?? ''), updatedAt: now }
+    })
+
+    if (!matched) {
+      if (next.length > 0) {
+        next[0] = { ...next[0], text: String(text ?? ''), updatedAt: now }
+      } else {
+        next.push({
+          id: entryId || crypto.randomUUID(),
+          text: String(text ?? ''),
+          createdAt: now,
+          updatedAt: now,
+        })
+      }
+    }
+
+    item.promptEntries = { ...(item.promptEntries || {}), [promptKey]: next }
     this._saveAll(items)
   },
 
@@ -144,4 +245,13 @@ export const gratitudeStorage = {
  * @property {string}      createdAt
  * @property {string|null} achievedAt
  * @property {Object}      answers   - keyed by prompt key
+ * @property {Object}      promptEntries - keyed by prompt key (PromptEntry[])
+ */
+
+/**
+ * @typedef {Object} PromptEntry
+ * @property {string} id
+ * @property {string} text
+ * @property {string} createdAt
+ * @property {string} updatedAt
  */

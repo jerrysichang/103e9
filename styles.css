@@ -542,6 +542,12 @@ textarea.input {
   line-height: 1.4;
 }
 
+.prompt-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .prompt-answer {
   font-size: 17px;
   background: var(--surface-raised);
@@ -552,6 +558,22 @@ textarea.input {
 
 .prompt-answer:focus {
   border-color: var(--text-muted);
+}
+
+.prompt-empty {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border);
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.prompt-add-line {
+  margin-top: 10px;
+  width: 100%;
+  justify-content: center;
 }
 
 /* ─── Achieved Banner ────────────────────────────────────────────────────── */
