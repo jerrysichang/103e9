@@ -57,6 +57,7 @@ export function renderGratitudeList(container, { navigate }) {
       <div class="view" id="view-list">
         <header class="header">
           <div class="header-left">
+            <button class="btn btn-back" id="btn-home-list">Menu</button>
             <div class="header-title">Gratitude</div>
           </div>
           <div class="header-right">
@@ -161,6 +162,8 @@ function bindListEvents(navigate, rerender) {
   const root = document.getElementById('view-list')
   if (!root) return
 
+  root.querySelector('#btn-home-list').addEventListener('click', () => navigate('home'))
+
   // Open item
   root.addEventListener('click', e => {
     const opener = e.target.closest('[data-open]')
@@ -229,7 +232,9 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
               ${ICONS.back} Back
             </button>
           </div>
-          <div class="header-right"></div>
+          <div class="header-right">
+            <button class="btn btn-back" id="btn-home-detail">Menu</button>
+          </div>
         </header>
 
         <div class="scroll">
@@ -279,16 +284,27 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
 }
 
 function renderPrompt(prompt, item) {
-  const answer = item.answers?.[prompt.key] || ''
-  return `
-    <div class="prompt-item">
-      <div class="prompt-question">${prompt.question}</div>
+  const entries = gratitudeStorage.getPromptEntries(item, prompt.key)
+  const entryMarkup = entries.length > 0
+    ? entries.map((entry, index) => `
       <textarea
         class="input prompt-answer"
         data-prompt-key="${prompt.key}"
+        data-entry-id="${entry.id}"
+        data-entry-index="${index + 1}"
         placeholder="Write your thoughts…"
         rows="1"
-      >${escHtml(answer)}</textarea>
+      >${escHtml(entry.text)}</textarea>
+    `).join('')
+    : `<p class="prompt-empty">No entries yet. Add a line when this prompt comes up for you.</p>`
+
+  return `
+    <div class="prompt-item">
+      <div class="prompt-question">${prompt.question}</div>
+      <div class="prompt-entries">
+        ${entryMarkup}
+      </div>
+      <button class="btn btn-secondary prompt-add-line" data-add-line="${prompt.key}">+ Add line</button>
     </div>
   `
 }
@@ -299,6 +315,7 @@ function bindDetailEvents(navigate, rerender, item) {
 
   // Back
   root.querySelector('#btn-back').addEventListener('click', () => navigate('list'))
+  root.querySelector('#btn-home-detail').addEventListener('click', () => navigate('home'))
 
   // Title save on blur / enter
   const titleInput = root.querySelector('#detail-title-input')
@@ -328,16 +345,38 @@ function bindDetailEvents(navigate, rerender, item) {
     }
   })
 
-  // Prompt autosave + autoresize
-  const textareas = root.querySelectorAll('textarea[data-prompt-key]')
-  textareas.forEach(ta => {
-    autoResize(ta)
-    ta.addEventListener('input',  () => autoResize(ta))
-    ta.addEventListener('change', () => {
-      gratitudeStorage.updateAnswer(item.id, ta.dataset.promptKey, ta.value)
+  function setupPromptTextareas() {
+    const textareas = root.querySelectorAll('textarea[data-prompt-key][data-entry-id]')
+    textareas.forEach(ta => {
+      if (ta.dataset.bound === '1') return
+      ta.dataset.bound = '1'
+      autoResize(ta)
+      ta.addEventListener('input',  () => autoResize(ta))
+      const saveEntry = () => {
+        gratitudeStorage.updatePromptEntry(item.id, ta.dataset.promptKey, ta.dataset.entryId, ta.value)
+      }
+      ta.addEventListener('change', saveEntry)
+      ta.addEventListener('blur', saveEntry)
     })
-    ta.addEventListener('blur', () => {
-      gratitudeStorage.updateAnswer(item.id, ta.dataset.promptKey, ta.value)
+  }
+
+  setupPromptTextareas()
+
+  // Add new line to prompt
+  root.querySelectorAll('[data-add-line]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const promptKey = btn.dataset.addLine
+      const entry = gratitudeStorage.addPromptEntry(item.id, promptKey)
+      if (!entry) return
+      rerender()
+      requestAnimationFrame(() => {
+        const nextRoot = document.getElementById('view-detail')
+        const nextInput = nextRoot?.querySelector(`textarea[data-prompt-key="${promptKey}"][data-entry-id="${entry.id}"]`)
+        if (nextInput) {
+          nextInput.focus()
+          nextInput.setSelectionRange(nextInput.value.length, nextInput.value.length)
+        }
+      })
     })
   })
 }
