@@ -12,6 +12,7 @@
 import { renderGratitudeList, renderGratitudeDetail } from './gratitude.js'
 import { renderCoachChat, renderCoachProfile } from './coach.js'
 import { renderDietTracker, renderDietGoals } from './diet.js'
+import { renderIssuesList } from './issues.js'
 import { onRemoteUpdate, handleRemoteData } from './storage.js'
 import { hasPassphrase, getPassphrase, connect, disconnect } from './firebase-sync.js'
 
@@ -39,6 +40,13 @@ const TOOLS = [
     icon:        '◎',
     defaultView: 'diet',
   },
+  {
+    id:          'issues',
+    name:        'Issues',
+    description: 'Track fixes and changes for 103e3',
+    icon:        '□',
+    defaultView: 'issues',
+  },
 ]
 
 // ─── Router ───────────────────────────────────────────────────────────────
@@ -64,7 +72,8 @@ onRemoteUpdate(() => {
     currentRoute.view === 'list' ||
     currentRoute.view === 'detail' ||
     currentRoute.view === 'diet' ||
-    currentRoute.view === 'diet-goals'
+    currentRoute.view === 'diet-goals' ||
+    currentRoute.view === 'issues'
   )) {
     renderApp()
   }
@@ -117,6 +126,11 @@ function renderApp() {
 
   if (view === 'diet-goals') {
     renderDietGoals(app, { navigate })
+    return
+  }
+
+  if (view === 'issues') {
+    renderIssuesList(app, { navigate })
     return
   }
 }

@@ -5,11 +5,12 @@
  * When remote changes arrive, localStorage is updated and the app re-renders.
  */
 
-import { syncToCloud } from './firebase-sync.js'
+import { syncToCloud, syncIssuesToCloud } from './firebase-sync.js'
 import { applyRemoteDiet } from './diet-storage.js'
 
 const KEYS = {
   gratitude: 'ps_gratitude_v1',
+  issues: 'ps_issues_v1',
 }
 
 // ─── Re-render hook ──────────────────────────────────────────────────────
@@ -39,6 +40,9 @@ export function handleRemoteData(vaultData) {
     }
     if (data.diet !== undefined) {
       applyRemoteDiet(data.diet)
+    }
+    if (Array.isArray(data.issues)) {
+      localStorage.setItem(KEYS.issues, JSON.stringify(data.issues))
     }
   }
   if (_onRemoteUpdate && !_suppressRemoteUpdate) _onRemoteUpdate()
@@ -248,6 +252,59 @@ export const gratitudeStorage = {
   },
 }
 
+// ─── Issues Storage ───────────────────────────────────────────────────────
+
+export const issueStorage = {
+  /** @returns {IssueItem[]} */
+  getAll() {
+    try {
+      const raw = localStorage.getItem(KEYS.issues)
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  },
+
+  /** @param {IssueItem[]} items */
+  _saveAll(items) {
+    localStorage.setItem(KEYS.issues, JSON.stringify(items))
+    syncIssuesToCloud(items)
+  },
+
+  /** @param {string} text @returns {IssueItem} */
+  create(text) {
+    const items = this.getAll()
+    const now = new Date().toISOString()
+    const issue = {
+      id: crypto.randomUUID(),
+      text: text.trim(),
+      completed: false,
+      order: items.filter(item => !item.completed).length,
+      createdAt: now,
+      updatedAt: now,
+      completedAt: null,
+    }
+    items.push(issue)
+    this._saveAll(items)
+    return issue
+  },
+
+  /** @param {string} id @param {boolean} completed */
+  setCompleted(id, completed) {
+    const items = this.getAll()
+    const idx = items.findIndex(item => item.id === id)
+    if (idx === -1) return
+    const now = new Date().toISOString()
+    items[idx].completed = completed
+    items[idx].completedAt = completed ? now : null
+    items[idx].updatedAt = now
+
+    const section = items.filter(item => item.completed === completed)
+    section.forEach((item, index) => { item.order = index })
+    this._saveAll(items)
+  },
+}
+
 /**
  * @typedef {Object} GratitudeItem
  * @property {string}      id
@@ -266,4 +323,15 @@ export const gratitudeStorage = {
  * @property {string} text
  * @property {string} createdAt
  * @property {string} updatedAt
+ */
+
+/**
+ * @typedef {Object} IssueItem
+ * @property {string} id
+ * @property {string} text
+ * @property {boolean} completed
+ * @property {number} order
+ * @property {string} createdAt
+ * @property {string} updatedAt
+ * @property {string|null} completedAt
  */

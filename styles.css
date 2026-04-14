@@ -1285,3 +1285,57 @@ textarea.coach-input {
 .diet-field .input {
   font-size: 17px;
 }
+
+/* ─── Issues ─────────────────────────────────────────────────────────────── */
+.issues-add-wrap {
+  padding: 16px 20px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.issues-add-btn {
+  width: 100%;
+}
+
+.issue-item {
+  cursor: default;
+}
+
+.issue-check-wrap {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.issue-check {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.issue-check-ui {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--achieved);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.issue-title {
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.issue-completed .issue-title {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+}

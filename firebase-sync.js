@@ -42,6 +42,7 @@ let onDataChange = null  // callback when remote data arrives
 
 const PASSPHRASE_KEY = 'ps_sync_passphrase'
 const LOCAL_DATA_KEY = 'ps_gratitude_v1'
+const LOCAL_ISSUES_KEY = 'ps_issues_v1'
 
 // ─── Hash ─────────────────────────────────────────────────────────────────
 
@@ -95,6 +96,7 @@ export async function connect(passphrase, onChange) {
       const items = localData ? JSON.parse(localData) : []
       await setDoc(vaultRef, {
         gratitude: items,
+        issues: [],
         diet: getDietForInitialVault(),
         updatedAt: Date.now(),
       })
@@ -122,6 +124,9 @@ export async function connect(passphrase, onChange) {
       if (data.diet) {
         applyRemoteDiet(data.diet)
       }
+      if (Array.isArray(data.issues)) {
+        localStorage.setItem(LOCAL_ISSUES_KEY, JSON.stringify(data.issues))
+      }
       // Notify app
       if (onDataChange) onDataChange(data)
     }
@@ -145,6 +150,23 @@ export async function syncToCloud(items) {
     await setDoc(vaultRef, { gratitude: items, updatedAt: Date.now() }, { merge: true })
   } catch (err) {
     console.warn('Failed to sync to cloud:', err)
+  }
+}
+
+/**
+ * Save issues to Firestore + localStorage.
+ * @param {Array} issues - full issues array
+ */
+export async function syncIssuesToCloud(issues) {
+  localStorage.setItem(LOCAL_ISSUES_KEY, JSON.stringify(issues))
+
+  if (!vaultHash) return
+
+  try {
+    const vaultRef = doc(db, 'vaults', vaultHash)
+    await setDoc(vaultRef, { issues, updatedAt: Date.now() }, { merge: true })
+  } catch (err) {
+    console.warn('Failed to sync issues to cloud:', err)
   }
 }
 
