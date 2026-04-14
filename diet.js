@@ -1,0 +1,473 @@
+/**
+ * Diet tracker — goals, daily log, AI estimates from text and/or photos.
+ * Uses the same Cloudflare worker as Coach (Anthropic Messages API).
+ */
+
+import {
+  load,
+  save,
+  todayKey,
+  getDay,
+  addEntry,
+  removeEntry,
+  setGoals,
+  dayTotals,
+} from './diet-storage.js'
+
+// ─── Config (match coach.js worker) ───────────────────────────────────────
+
+const WORKER_URL = 'https://jos.jerry-si-chang.workers.dev'
+const DIET_MODEL = 'claude-sonnet-4-20250514'
+
+const ANALYSIS_SYSTEM = `You estimate calories and macronutrients for a single eating occasion.
+
+The user may describe food in text, attach a photo of a meal, or both. Use every clue you have. If portions are unclear, make your best reasonable guess and say so briefly in the summary.
+
+Return ONLY valid JSON (no markdown, no code fences) with exactly these keys:
+{
+  "calories": <number, total kcal>,
+  "protein_g": <number, grams>,
+  "carbs_g": <number, grams>,
+  "fat_g": <number, grams>,
+  "summary": <string, one short sentence suitable for a daily log>
+}
+
+All numbers must be non-negative. Round calories to the nearest integer, macros to one decimal place if needed.`
+
+// ─── Icons ────────────────────────────────────────────────────────────────
+
+const ICONS = {
+  back: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+    <polyline points="10 4 6 8 10 12"/>
+  </svg>`,
+  target: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+    <circle cx="8" cy="8" r="5.5"/>
+    <circle cx="8" cy="8" r="2"/>
+  </svg>`,
+}
+
+// ─── AI ───────────────────────────────────────────────────────────────────
+
+/**
+ * @param {string} description
+ * @param {{ dataUrl: string, mediaType: string, base64: string } | null} image
+ */
+async function analyzeMeal(description, image) {
+  const content = []
+  const text = description.trim() || '(No text — infer only from the image.)'
+  content.push({ type: 'text', text })
+
+  if (image) {
+    content.push({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: image.mediaType,
+        data: image.base64,
+      },
+    })
+  }
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: DIET_MODEL,
+      max_tokens: 512,
+      system: ANALYSIS_SYSTEM,
+      messages: [{ role: 'user', content }],
+    }),
+  })
+
+  const data = await res.json()
+  const raw = data?.content?.[0]?.text || '{}'
+  const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
+  const match = stripped.match(/\{[\s\S]*\}/)
+  const parsed = match ? JSON.parse(match[0]) : {}
+
+  return {
+    calories: Math.max(0, Math.round(Number(parsed.calories) || 0)),
+    proteinG: Math.max(0, Number(parsed.protein_g) || 0),
+    carbsG: Math.max(0, Number(parsed.carbs_g) || 0),
+    fatG: Math.max(0, Number(parsed.fat_g) || 0),
+    summary: typeof parsed.summary === 'string' ? parsed.summary : 'Logged meal',
+  }
+}
+
+/**
+ * @param {File | null} file
+ * @returns {Promise<{ dataUrl: string, mediaType: string, base64: string } | null>}
+ */
+function readImageFile(file) {
+  if (!file || !file.type.startsWith('image/')) return Promise.resolve(null)
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '')
+      const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+      if (!m) {
+        resolve(null)
+        return
+      }
+      const mediaType = m[1]
+      if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(mediaType)) {
+        resolve(null)
+        return
+      }
+      resolve({ dataUrl, mediaType, base64: m[2] })
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+// ─── UI bits ──────────────────────────────────────────────────────────────
+
+function macroBar(label, consumed, goal, pct) {
+  const over = goal > 0 && consumed > goal
+  return `
+    <div class="diet-macro">
+      <div class="diet-macro-head">
+        <span class="diet-macro-label">${label}</span>
+        <span class="diet-macro-values ${over ? 'diet-macro-over' : ''}">${formatVal(label, consumed)} / ${formatVal(label, goal)}</span>
+      </div>
+      <div class="diet-bar-track">
+        <div class="diet-bar-fill ${over ? 'diet-bar-over' : ''}" style="width:${Math.min(100, pct)}%"></div>
+      </div>
+    </div>
+  `
+}
+
+function formatVal(label, n) {
+  if (label === 'Calories') return `${Math.round(n)}`
+  return n % 1 === 0 ? `${Math.round(n)}g` : `${n.toFixed(1)}g`
+}
+
+// ─── Main tracker view ────────────────────────────────────────────────────
+
+export function renderDietTracker(container, { navigate }) {
+  function render() {
+    const dateKey = todayKey()
+    const state = load()
+    const goals = state.goals
+    const day = getDay(dateKey)
+    const { consumed, pct } = dayTotals(dateKey, goals)
+
+    container.innerHTML = `
+      <div class="view" id="view-diet">
+        <header class="header">
+          <div class="header-left">
+            <button class="btn btn-back" id="btn-diet-back">${ICONS.back} Menu</button>
+            <div class="header-title">Diet</div>
+          </div>
+          <div class="header-right">
+            <button class="btn btn-icon" id="btn-diet-goals" aria-label="Edit goals">${ICONS.target}</button>
+          </div>
+        </header>
+
+        <div class="scroll">
+          <p class="diet-date-line">${formatDateHeading(dateKey)}</p>
+
+          <div class="diet-summary-card">
+            ${macroBar('Calories', consumed.calories, goals.calories, pct.calories)}
+            ${macroBar('Protein', consumed.proteinG, goals.proteinG, pct.proteinG)}
+            ${macroBar('Carbs', consumed.carbsG, goals.carbsG, pct.carbsG)}
+            ${macroBar('Fat', consumed.fatG, goals.fatG, pct.fatG)}
+          </div>
+
+          <div class="section-header" style="margin-top:8px">
+            <span class="section-label">Today</span>
+            <span class="section-count">${day.entries.length}</span>
+          </div>
+
+          <ul class="diet-entry-list">
+            ${day.entries.length === 0
+              ? `<li class="diet-empty">Nothing logged yet. Add food with text, a photo, or both.</li>`
+              : day.entries.map(e => renderEntryRow(e, dateKey)).join('')}
+          </ul>
+        </div>
+
+        <div class="diet-footer">
+          <button class="btn btn-primary diet-log-btn" id="btn-open-log">Log food</button>
+        </div>
+
+        <div class="modal-backdrop hidden" id="diet-log-modal">
+          <div class="modal diet-log-modal-inner">
+            <div class="modal-handle"></div>
+            <div class="modal-title">Log food</div>
+            <p class="diet-modal-hint">Describe what you ate and/or add a photo. We’ll estimate calories and macros.</p>
+            <textarea class="input diet-log-textarea" id="diet-log-desc" rows="3" placeholder="e.g. Greek yogurt, berries, coffee with milk…"></textarea>
+            <div class="diet-photo-row">
+              <input type="file" id="diet-log-photo" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
+              <button type="button" class="btn" id="btn-pick-photo">Photo</button>
+              <span class="diet-photo-name" id="diet-photo-label"></span>
+            </div>
+            <div id="diet-preview-wrap" class="hidden"></div>
+            <div id="diet-analysis-preview" class="diet-analysis-preview hidden"></div>
+            <div class="modal-actions">
+              <button type="button" class="btn" id="diet-cancel">Cancel</button>
+              <button type="button" class="btn btn-primary" id="diet-analyze">Analyze</button>
+              <button type="button" class="btn btn-primary hidden" id="diet-save-entry">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+
+    bindMainEvents()
+  }
+
+  function renderEntryRow(entry, dk) {
+    const thumb = entry.imageDataUrl
+      ? `<div class="diet-entry-thumb"><img src="${entry.imageDataUrl}" alt="" /></div>`
+      : `<div class="diet-entry-thumb diet-entry-thumb-placeholder">◇</div>`
+    const desc = entry.description.trim()
+      ? escapeHtml(desc.slice(0, 120)) + (desc.length > 120 ? '…' : '')
+      : '<span class="diet-entry-no-desc">Photo log</span>'
+    return `
+      <li class="diet-entry" data-id="${entry.id}">
+        ${thumb}
+        <div class="diet-entry-body">
+          <div class="diet-entry-summary">${escapeHtml(entry.analysis.summary)}</div>
+          <div class="diet-entry-meta">${desc}</div>
+          <div class="diet-entry-macros">
+            ${Math.round(entry.analysis.calories)} kcal ·
+            P ${fmtMacro(entry.analysis.proteinG)} ·
+            C ${fmtMacro(entry.analysis.carbsG)} ·
+            F ${fmtMacro(entry.analysis.fatG)}
+          </div>
+        </div>
+        <button type="button" class="btn diet-entry-remove" data-remove="${entry.id}" aria-label="Remove">×</button>
+      </li>
+    `
+  }
+
+  function bindMainEvents() {
+    container.querySelector('#btn-diet-back')?.addEventListener('click', () => navigate('home'))
+    container.querySelector('#btn-diet-goals')?.addEventListener('click', () => navigate('diet-goals'))
+
+    container.querySelector('#btn-open-log')?.addEventListener('click', () => {
+      openLogModal()
+    })
+
+    container.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation()
+        const id = btn.getAttribute('data-remove')
+        if (id) removeEntry(todayKey(), id)
+        render()
+      })
+    })
+  }
+
+  let pendingImage = /** @type {Awaited<ReturnType<typeof readImageFile>>} */ (null)
+  let pendingAnalysis = /** @type {null | { calories: number, proteinG: number, carbsG: number, fatG: number, summary: string }} */ (null)
+  let pendingDescription = ''
+  /** @type {AbortController | null} */
+  let logModalAbort = null
+
+  function openLogModal() {
+    logModalAbort?.abort()
+    logModalAbort = new AbortController()
+    const { signal } = logModalAbort
+
+    pendingImage = null
+    pendingAnalysis = null
+    pendingDescription = ''
+    const backdrop = container.querySelector('#diet-log-modal')
+    const desc = container.querySelector('#diet-log-desc')
+    const photoInput = container.querySelector('#diet-log-photo')
+    const label = container.querySelector('#diet-photo-label')
+    const previewWrap = container.querySelector('#diet-preview-wrap')
+    const analysisEl = container.querySelector('#diet-analysis-preview')
+    const btnAnalyze = container.querySelector('#diet-analyze')
+    const btnSave = container.querySelector('#diet-save-entry')
+
+    backdrop?.classList.remove('hidden')
+    if (desc) desc.value = ''
+    if (photoInput) photoInput.value = ''
+    if (label) label.textContent = ''
+    if (previewWrap) {
+      previewWrap.classList.add('hidden')
+      previewWrap.innerHTML = ''
+    }
+    if (analysisEl) {
+      analysisEl.classList.add('hidden')
+      analysisEl.innerHTML = ''
+    }
+    btnAnalyze?.classList.remove('hidden')
+    btnSave?.classList.add('hidden')
+    if (btnAnalyze) {
+      btnAnalyze.textContent = 'Analyze'
+      btnAnalyze.disabled = false
+    }
+
+    function closeLogModal() {
+      logModalAbort?.abort()
+      logModalAbort = null
+      container.querySelector('#diet-log-modal')?.classList.add('hidden')
+    }
+
+    container.querySelector('#diet-cancel')?.addEventListener('click', closeLogModal, { signal })
+
+    container.querySelector('#btn-pick-photo')?.addEventListener('click', () => photoInput?.click(), { signal })
+
+    photoInput?.addEventListener('change', async () => {
+      const file = photoInput.files?.[0] || null
+      if (!file) return
+      if (label) label.textContent = file.name
+      try {
+        pendingImage = await readImageFile(file)
+        if (pendingImage && previewWrap) {
+          previewWrap.innerHTML = `<img class="diet-preview-img" src="${pendingImage.dataUrl}" alt="Preview" />`
+          previewWrap.classList.remove('hidden')
+        }
+      } catch (err) {
+        console.warn(err)
+        pendingImage = null
+      }
+    }, { signal })
+
+    btnAnalyze?.addEventListener('click', async () => {
+      const text = (desc?.value || '').trim()
+      if (!text && !pendingImage) {
+        desc?.focus()
+        return
+      }
+      if (!btnAnalyze || !analysisEl) return
+      btnAnalyze.disabled = true
+      btnAnalyze.textContent = '…'
+      try {
+        const result = await analyzeMeal(text, pendingImage)
+        pendingAnalysis = result
+        pendingDescription = text
+        analysisEl.innerHTML = `
+          <div class="diet-analysis-title">Estimate</div>
+          <p class="diet-analysis-line">${escapeHtml(result.summary)}</p>
+          <p class="diet-analysis-macros">
+            ${Math.round(result.calories)} kcal ·
+            P ${fmtMacro(result.proteinG)} ·
+            C ${fmtMacro(result.carbsG)} ·
+            F ${fmtMacro(result.fatG)}
+          </p>
+        `
+        analysisEl.classList.remove('hidden')
+        btnAnalyze.classList.add('hidden')
+        btnSave?.classList.remove('hidden')
+      } catch (err) {
+        console.error(err)
+        btnAnalyze.textContent = 'Retry'
+        btnAnalyze.disabled = false
+        if (analysisEl) {
+          analysisEl.innerHTML = `<p class="diet-analysis-err">Couldn’t analyze. Check your connection and try again.</p>`
+          analysisEl.classList.remove('hidden')
+        }
+      }
+    }, { signal })
+
+    btnSave?.addEventListener('click', () => {
+      if (!pendingAnalysis) return
+      const entry = {
+        id: crypto.randomUUID(),
+        loggedAt: new Date().toISOString(),
+        description: pendingDescription,
+        imageDataUrl: pendingImage?.dataUrl,
+        analysis: {
+          calories: pendingAnalysis.calories,
+          proteinG: pendingAnalysis.proteinG,
+          carbsG: pendingAnalysis.carbsG,
+          fatG: pendingAnalysis.fatG,
+          summary: pendingAnalysis.summary,
+        },
+      }
+      addEntry(todayKey(), entry)
+      closeLogModal()
+      render()
+    }, { signal })
+
+    backdrop?.addEventListener('click', e => {
+      if (e.target === backdrop) closeLogModal()
+    }, { signal })
+  }
+
+  render()
+}
+
+function fmtMacro(n) {
+  return n % 1 === 0 ? `${Math.round(n)}g` : `${n.toFixed(1)}g`
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function formatDateHeading(key) {
+  const [y, m, d] = key.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  const now = new Date()
+  const isToday = dt.toDateString() === now.toDateString()
+  const weekday = dt.toLocaleDateString(undefined, { weekday: 'long' })
+  const md = dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return isToday ? `Today · ${weekday}, ${md}` : `${weekday}, ${md}`
+}
+
+// ─── Goals view ───────────────────────────────────────────────────────────
+
+export function renderDietGoals(container, { navigate }) {
+  function render() {
+    const g = load().goals
+    container.innerHTML = `
+      <div class="view" id="view-diet-goals">
+        <header class="header">
+          <div class="header-left">
+            <button class="btn btn-back" id="btn-goals-back">${ICONS.back} Diet</button>
+            <div class="header-title">Goals</div>
+          </div>
+        </header>
+        <div class="scroll">
+          <p class="diet-goals-intro">Daily targets reset at midnight (local time). Logs are grouped by calendar day.</p>
+          <div class="diet-goals-form">
+            <label class="diet-field">
+              <span>Calories (kcal)</span>
+              <input class="input" type="number" min="0" step="1" id="goal-cal" value="${g.calories}" />
+            </label>
+            <label class="diet-field">
+              <span>Protein (g)</span>
+              <input class="input" type="number" min="0" step="1" id="goal-p" value="${g.proteinG}" />
+            </label>
+            <label class="diet-field">
+              <span>Carbs (g)</span>
+              <input class="input" type="number" min="0" step="1" id="goal-c" value="${g.carbsG}" />
+            </label>
+            <label class="diet-field">
+              <span>Fat (g)</span>
+              <input class="input" type="number" min="0" step="1" id="goal-f" value="${g.fatG}" />
+            </label>
+            <button class="btn btn-primary" id="btn-save-goals" style="margin-top:12px">Save goals</button>
+          </div>
+        </div>
+      </div>
+    `
+
+    container.querySelector('#btn-goals-back')?.addEventListener('click', () => navigate('diet'))
+    container.querySelector('#btn-save-goals')?.addEventListener('click', () => {
+      const cal = Number(container.querySelector('#goal-cal')?.value)
+      const p = Number(container.querySelector('#goal-p')?.value)
+      const c = Number(container.querySelector('#goal-c')?.value)
+      const f = Number(container.querySelector('#goal-f')?.value)
+      setGoals({
+        calories: Number.isFinite(cal) ? cal : 2000,
+        proteinG: Number.isFinite(p) ? p : 150,
+        carbsG: Number.isFinite(c) ? c : 200,
+        fatG: Number.isFinite(f) ? f : 65,
+      })
+      navigate('diet')
+    })
+  }
+
+  render()
+}
