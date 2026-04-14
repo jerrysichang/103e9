@@ -306,9 +306,32 @@ export function renderCoachChat(container, { navigate }) {
     if (inputEl2) inputEl2.focus()
   }
 
+  function bindCoachVisualViewport(view) {
+    const vv = window.visualViewport
+    if (!vv || window.matchMedia('(min-width: 600px)').matches) return
+
+    const apply = () => {
+      if (!view.isConnected) {
+        vv.removeEventListener('resize', apply)
+        vv.removeEventListener('scroll', apply)
+        return
+      }
+      view.classList.add('vv-fit')
+      view.style.top = `${vv.offsetTop}px`
+      view.style.height = `${vv.height}px`
+      view.style.bottom = 'auto'
+    }
+
+    vv.addEventListener('resize', apply)
+    vv.addEventListener('scroll', apply)
+    apply()
+  }
+
   function bindChatEvents() {
     const view = document.getElementById('view-coach-chat')
     if (!view) return
+
+    bindCoachVisualViewport(view)
 
     view.querySelector('#btn-back-coach').addEventListener('click', () => navigate('home'))
     view.querySelector('#btn-coach-profile').addEventListener('click', () => navigate('coach-profile'))
