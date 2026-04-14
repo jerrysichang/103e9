@@ -34,7 +34,7 @@ const TOOLS = [
   },
   {
     id:          'diet',
-    name:        'Diet',
+    name:        'Fuel',
     description: 'Log meals, track macros and calories against daily goals',
     icon:        '◎',
     defaultView: 'diet',

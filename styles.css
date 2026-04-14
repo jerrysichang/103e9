@@ -215,7 +215,7 @@ h1, h2, h3 {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding-bottom: calc(var(--safe-bottom) + 24px);
+  padding-bottom: var(--safe-bottom);
 }
 
 /* ─── Section Headers ────────────────────────────────────────────────────── */
