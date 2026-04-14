@@ -532,10 +532,7 @@ textarea.input {
 }
 
 .prompt-item {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 16px;
+  padding: 0;
 }
 
 .prompt-question {
@@ -835,7 +832,7 @@ textarea.input {
   position: sticky;
   bottom: 0;
   z-index: 20;
-  padding: 8px 12px calc(4px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 12px calc(env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border-subtle);
   background: var(--bg);
   display: flex;
@@ -849,7 +846,7 @@ textarea.input {
   align-items: flex-end;
 }
 
-.coach-input {
+textarea.coach-input {
   flex: 1;
   min-height: 44px;
   max-height: 160px;

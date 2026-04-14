@@ -190,8 +190,7 @@ function renderHome(container) {
     <div class="view">
       <div class="scroll">
         <div class="home-header">
-          <div class="home-eyebrow">Personal</div>
-          <h1 class="home-title">Tools</h1>
+          <h1 class="home-title">103e9</h1>
         </div>
         <div class="tools-grid">
           ${TOOLS.map(tool => `
