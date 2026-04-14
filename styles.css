@@ -36,6 +36,7 @@
 
 html, body {
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
@@ -47,6 +48,7 @@ html, body {
 
 #root {
   height: 100%;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -64,6 +66,8 @@ h1, h2, h3 {
   display: flex;
   flex-direction: column;
   height: 100%;
+  height: 100dvh;
+  min-height: 0;
   overflow: hidden;
   position: relative;
 }
@@ -710,18 +714,29 @@ textarea.input {
     max-width: 480px;
     margin: 0 auto;
     height: 100vh;
+    height: 100dvh;
     border-left: 1px solid var(--border-subtle);
     border-right: 1px solid var(--border-subtle);
   }
 
   body { background: #000000; }
 
-  .tools-grid { grid-template-columns: 1fr 1fr; }
+  .tools-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 900px) {
+  .tools-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 /* ─── Coach — Chat View ─────────────────────────────────────────────────── */
+#view-coach-chat {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .coach-messages {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -734,6 +749,7 @@ textarea.input {
 
 .coach-empty {
   flex: 1;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -747,17 +763,21 @@ textarea.input {
 .coach-message {
   display: flex;
   flex-direction: column;
-  max-width: 82%;
 }
 
 .coach-message.user {
   align-self: flex-end;
   align-items: flex-end;
+  max-width: 82%;
 }
 
 .coach-message.assistant {
-  align-self: flex-start;
-  align-items: flex-start;
+  align-self: stretch;
+  align-items: stretch;
+  max-width: none;
+  width: auto;
+  margin-left: -16px;
+  margin-right: -16px;
 }
 
 .coach-bubble {
@@ -776,10 +796,12 @@ textarea.input {
 }
 
 .coach-message.assistant .coach-bubble {
+  width: 100%;
+  box-sizing: border-box;
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
-  border-bottom-left-radius: var(--radius-sm);
+  border-radius: var(--radius-sm);
 }
 
 /* Loading dots */
@@ -807,15 +829,18 @@ textarea.input {
   40%            { opacity: 1;    transform: scale(1.1); }
 }
 
-/* Input bar */
+/* Input bar — stays at bottom of chat column; sticky backup if an ancestor scrolls */
 .coach-input-bar {
   flex-shrink: 0;
-  padding: 10px 14px calc(var(--safe-bottom) + 14px);
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  padding: 8px 12px calc(4px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border-subtle);
   background: var(--bg);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .coach-input-row {
@@ -975,4 +1000,291 @@ textarea.input {
 
 .danger-zone .btn-danger {
   width: 100%;
+}
+
+/* ─── Diet tracker ───────────────────────────────────────────────────────── */
+#view-diet {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#view-diet > .scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 20px 100px;
+}
+
+.diet-date-line {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.diet-summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.diet-macro-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.diet-macro-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.diet-macro-values {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.diet-macro-over {
+  color: var(--danger);
+}
+
+.diet-bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+
+.diet-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--achieved-dim), var(--achieved));
+  transition: width 0.25s ease;
+}
+
+.diet-bar-fill.diet-bar-over {
+  background: linear-gradient(90deg, var(--danger-dim), var(--danger));
+}
+
+.diet-footer {
+  flex-shrink: 0;
+  padding: 10px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg);
+}
+
+.diet-log-btn {
+  width: 100%;
+  padding: 14px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+}
+
+.diet-entry-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.diet-empty {
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1.55;
+  padding: 8px 0 20px;
+}
+
+.diet-entry {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+
+.diet-entry-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-raised);
+}
+
+.diet-entry-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.diet-entry-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 18px;
+}
+
+.diet-entry-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.diet-entry-summary {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.diet-entry-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: 6px;
+}
+
+.diet-entry-no-desc {
+  font-style: italic;
+}
+
+.diet-entry-macros {
+  font-size: 12px;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.diet-entry-remove {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.diet-entry-remove:active {
+  color: var(--danger);
+}
+
+.diet-log-modal-inner {
+  max-height: min(90dvh, 620px);
+  overflow-y: auto;
+}
+
+.diet-modal-hint {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.diet-log-textarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  margin-bottom: 12px;
+}
+
+.diet-photo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.diet-photo-name {
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diet-preview-img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  background: var(--surface-raised);
+}
+
+.diet-analysis-preview {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.diet-analysis-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.diet-analysis-line {
+  font-size: 15px;
+  color: var(--text);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.diet-analysis-macros {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.diet-analysis-err {
+  font-size: 14px;
+  color: var(--danger);
+  line-height: 1.45;
+}
+
+.diet-goals-intro {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-bottom: 20px;
+}
+
+.diet-goals-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.diet-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.diet-field .input {
+  font-size: 17px;
 }

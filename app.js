@@ -11,6 +11,7 @@
 
 import { renderGratitudeList, renderGratitudeDetail } from './gratitude.js'
 import { renderCoachChat, renderCoachProfile } from './coach.js'
+import { renderDietTracker, renderDietGoals } from './diet.js'
 import { onRemoteUpdate, handleRemoteData } from './storage.js'
 import { hasPassphrase, getPassphrase, connect, disconnect } from './firebase-sync.js'
 
@@ -30,6 +31,13 @@ const TOOLS = [
     description: 'A personal coach that knows your life and learns over time',
     icon:        '◈',
     defaultView: 'coach-chat',
+  },
+  {
+    id:          'diet',
+    name:        'Diet',
+    description: 'Log meals, track macros and calories against daily goals',
+    icon:        '◎',
+    defaultView: 'diet',
   },
 ]
 
@@ -52,7 +60,12 @@ function navigate(view, params = {}) {
 
 onRemoteUpdate(() => {
   // Re-render current view when remote data arrives
-  if (currentRoute && (currentRoute.view === 'list' || currentRoute.view === 'detail')) {
+  if (currentRoute && (
+    currentRoute.view === 'list' ||
+    currentRoute.view === 'detail' ||
+    currentRoute.view === 'diet' ||
+    currentRoute.view === 'diet-goals'
+  )) {
     renderApp()
   }
 })
@@ -94,6 +107,16 @@ function renderApp() {
 
   if (view === 'coach-profile') {
     renderCoachProfile(app, { navigate })
+    return
+  }
+
+  if (view === 'diet') {
+    renderDietTracker(app, { navigate })
+    return
+  }
+
+  if (view === 'diet-goals') {
+    renderDietGoals(app, { navigate })
     return
   }
 }

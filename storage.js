@@ -6,6 +6,7 @@
  */
 
 import { syncToCloud } from './firebase-sync.js'
+import { applyRemoteDiet } from './diet-storage.js'
 
 const KEYS = {
   gratitude: 'ps_gratitude_v1',
@@ -25,10 +26,21 @@ export function onRemoteUpdate(fn) {
 }
 
 /**
- * Called by firebase-sync when remote data arrives.
+ * Called by firebase-sync when remote vault data arrives.
+ * @param {object|Array} vaultData - full Firestore document fields, or legacy gratitude array
  */
-export function handleRemoteData(items) {
-  localStorage.setItem(KEYS.gratitude, JSON.stringify(items))
+export function handleRemoteData(vaultData) {
+  if (Array.isArray(vaultData)) {
+    localStorage.setItem(KEYS.gratitude, JSON.stringify(vaultData))
+  } else if (vaultData && typeof vaultData === 'object') {
+    const data = /** @type {Record<string, unknown>} */ (vaultData)
+    if (Array.isArray(data.gratitude)) {
+      localStorage.setItem(KEYS.gratitude, JSON.stringify(data.gratitude))
+    }
+    if (data.diet !== undefined) {
+      applyRemoteDiet(data.diet)
+    }
+  }
   if (_onRemoteUpdate && !_suppressRemoteUpdate) _onRemoteUpdate()
 }
 

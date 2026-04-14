@@ -17,6 +17,7 @@ import {
   setDoc,
   onSnapshot,
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js'
+import { applyRemoteDiet, getDietForInitialVault } from './diet-storage.js'
 
 // ─── Firebase Config ──────────────────────────────────────────────────────
 
@@ -92,12 +93,19 @@ export async function connect(passphrase, onChange) {
       // First time — push local data to cloud
       const localData = localStorage.getItem(LOCAL_DATA_KEY)
       const items = localData ? JSON.parse(localData) : []
-      await setDoc(vaultRef, { gratitude: items, updatedAt: Date.now() })
+      await setDoc(vaultRef, {
+        gratitude: items,
+        diet: getDietForInitialVault(),
+        updatedAt: Date.now(),
+      })
     } else {
       // Vault exists — load profile if present on this device for the first time
       const data = snap.data()
       if (data.profile && !localStorage.getItem('ps_profile_v1')) {
         localStorage.setItem('ps_profile_v1', JSON.stringify(data.profile))
+      }
+      if (data.diet) {
+        applyRemoteDiet(data.diet)
       }
     }
   } catch (err) {
@@ -111,8 +119,11 @@ export async function connect(passphrase, onChange) {
       const items = data.gratitude || []
       // Update local cache
       localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(items))
+      if (data.diet) {
+        applyRemoteDiet(data.diet)
+      }
       // Notify app
-      if (onDataChange) onDataChange(items)
+      if (onDataChange) onDataChange(data)
     }
   }, (err) => {
     console.warn('Firestore listener error:', err)
@@ -131,7 +142,7 @@ export async function syncToCloud(items) {
 
   try {
     const vaultRef = doc(db, 'vaults', vaultHash)
-    await setDoc(vaultRef, { gratitude: items, updatedAt: Date.now() })
+    await setDoc(vaultRef, { gratitude: items, updatedAt: Date.now() }, { merge: true })
   } catch (err) {
     console.warn('Failed to sync to cloud:', err)
   }
@@ -149,6 +160,21 @@ export async function syncProfileToCloud(profile) {
     await setDoc(vaultRef, { profile, updatedAt: Date.now() }, { merge: true })
   } catch (err) {
     console.warn('Failed to sync profile to cloud:', err)
+  }
+}
+
+/**
+ * Save diet snapshot to Firestore (merge). Payload should omit image blobs — see diet-storage.stripForCloud.
+ * @param {object} dietStripped
+ */
+export async function syncDietToCloud(dietStripped) {
+  if (!vaultHash) return
+
+  try {
+    const vaultRef = doc(db, 'vaults', vaultHash)
+    await setDoc(vaultRef, { diet: dietStripped, updatedAt: Date.now() }, { merge: true })
+  } catch (err) {
+    console.warn('Failed to sync diet to cloud:', err)
   }
 }
 
