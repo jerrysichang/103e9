@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "issues:export-open": "node scripts/export-open-issues.mjs .cursor/open-issues.json"
+  },
   "dependencies": {
     "firebase": "^12.11.0"
   }
