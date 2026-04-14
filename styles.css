@@ -730,10 +730,6 @@ textarea.input {
   overflow: hidden;
 }
 
-#view-coach-chat.view.vv-fit {
-  bottom: auto;
-}
-
 .coach-messages {
   flex: 1 1 0;
   min-height: 0;
@@ -774,8 +770,10 @@ textarea.input {
 .coach-message.assistant {
   align-self: stretch;
   align-items: stretch;
-  max-width: 100%;
-  width: 100%;
+  max-width: none;
+  width: auto;
+  margin-left: -16px;
+  margin-right: -16px;
 }
 
 .coach-bubble {
@@ -794,10 +792,12 @@ textarea.input {
 }
 
 .coach-message.assistant .coach-bubble {
+  width: 100%;
+  box-sizing: border-box;
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
-  border-bottom-left-radius: var(--radius-sm);
+  border-radius: var(--radius-sm);
 }
 
 /* Loading dots */
@@ -831,12 +831,12 @@ textarea.input {
   position: sticky;
   bottom: 0;
   z-index: 20;
-  padding: 10px 14px max(10px, env(safe-area-inset-bottom, 0px));
+  padding: 8px 12px calc(4px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border-subtle);
   background: var(--bg);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .coach-input-row {
