@@ -1,6 +1,9 @@
-import { issueStorage } from './storage.js'
+import { issueStorage, suppressRemoteRender } from './storage.js'
+import { makeSortable } from './sortable.js'
 
 export function renderIssuesList(container, { navigate }) {
+  let openSortable = null
+
   function getIssues() {
     const all = issueStorage.getAll()
     const open = all.filter(item => item.status === 'open').sort((a, b) => a.order - b.order)
@@ -13,6 +16,7 @@ export function renderIssuesList(container, { navigate }) {
   }
 
   function render() {
+    if (openSortable) openSortable.destroy()
     const { open, checking, complete } = getIssues()
     container.innerHTML = `
       <div class="view" id="view-issues">
@@ -24,23 +28,11 @@ export function renderIssuesList(container, { navigate }) {
         </header>
 
         <div class="scroll">
-          <div class="issues-add-wrap">
-            <input
-              class="input issues-add-input"
-              id="issue-input"
-              type="text"
-              maxlength="200"
-              placeholder="Add change or fix for 103e3"
-              autocomplete="off"
-            />
-            <button class="btn btn-primary issues-add-btn" id="btn-add-issue">Save</button>
-          </div>
-
           <div class="section-header">
             <span class="section-label">Open</span>
             <span class="section-count">${open.length}</span>
           </div>
-          <ul class="item-list" id="issues-open-list">
+          <ul class="item-list issues-lines" id="issues-open-list">
             ${open.length ? open.map(issue => renderIssue(issue, 'open')).join('') : renderEmpty('No open issues')}
           </ul>
 
@@ -48,7 +40,7 @@ export function renderIssuesList(container, { navigate }) {
             <span class="section-label">Checking</span>
             <span class="section-count">${checking.length}</span>
           </div>
-          <ul class="item-list" id="issues-checking-list">
+          <ul class="item-list issues-lines" id="issues-checking-list">
             ${checking.length ? checking.map(issue => renderIssue(issue, 'checking')).join('') : renderEmpty('Nothing in checking')}
           </ul>
 
@@ -56,14 +48,22 @@ export function renderIssuesList(container, { navigate }) {
             <span class="section-label">Recently Complete</span>
             <span class="section-count">${complete.length}</span>
           </div>
-          <ul class="item-list" id="issues-done-list">
+          <ul class="item-list issues-lines" id="issues-done-list">
             ${complete.length ? complete.map(issue => renderIssue(issue, 'complete')).join('') : renderEmpty('Nothing completed yet')}
           </ul>
         </div>
+        <button class="btn btn-primary fab-btn" id="btn-add-issue-fab" aria-label="Add change">＋</button>
       </div>
     `
 
     bindEvents(navigate, render)
+    const openList = container.querySelector('#issues-open-list')
+    if (open.length > 1 && openList) {
+      openSortable = makeSortable(openList, ids => {
+        suppressRemoteRender()
+        issueStorage.reorder(ids, false)
+      }, { handleSelector: '[data-sort-handle]' })
+    }
   }
 
   render()
@@ -72,7 +72,7 @@ export function renderIssuesList(container, { navigate }) {
 function renderIssue(issue, section) {
   if (section === 'open') {
     return `
-      <li class="item issue-item" data-sort-id="${issue.id}">
+      <li class="item issue-item" data-sort-id="${issue.id}" data-sort-handle>
         <div class="item-body">
           <span class="item-title issue-title" data-edit-issue="${issue.id}">${escHtml(issue.text)}</span>
         </div>
@@ -84,11 +84,11 @@ function renderIssue(issue, section) {
     return `
       <li class="item issue-item issue-checking" data-sort-id="${issue.id}">
         <div class="item-body">
-          <label class="issue-check-wrap">
-            <input class="issue-check" type="checkbox" data-issue-complete="${issue.id}">
-            <span class="issue-check-ui"></span>
-          </label>
           <span class="item-title issue-title">${escHtml(issue.text)}</span>
+          <label class="issue-check-wrap issue-check-wrap-right">
+            <input class="issue-check" type="checkbox" data-issue-complete="${issue.id}">
+            <span class="issue-check-ui">✓</span>
+          </label>
         </div>
       </li>
     `
@@ -133,27 +133,19 @@ function bindEvents(navigate, rerender) {
   if (!root) return
 
   root.querySelector('#btn-home-issues').addEventListener('click', () => navigate('home'))
-
-  const input = root.querySelector('#issue-input')
-  const addBtn = root.querySelector('#btn-add-issue')
-
-  const addIssue = () => {
-    const text = input.value.trim()
-    if (!text) return
-    issueStorage.create(text)
-    input.value = ''
-    rerender()
-  }
-
-  addBtn.addEventListener('click', addIssue)
-  input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') addIssue()
-  })
+  root.querySelector('#btn-add-issue-fab')?.addEventListener('click', () => openIssueCreator(rerender))
 
   root.querySelectorAll('[data-issue-complete]').forEach(inputEl => {
     inputEl.addEventListener('change', () => {
+      const scrollEl = root.querySelector('.scroll')
+      const prevTop = scrollEl?.scrollTop ?? 0
       issueStorage.setStatus(inputEl.dataset.issueComplete, 'complete')
       rerender()
+      requestAnimationFrame(() => {
+        const nextRoot = document.getElementById('view-issues')
+        const nextScroll = nextRoot?.querySelector('.scroll')
+        if (nextScroll) nextScroll.scrollTop = prevTop
+      })
     })
   })
 
@@ -202,6 +194,43 @@ function openIssueEditor(issue, rerender) {
     const text = String(input?.value || '').trim()
     if (!text) return
     issueStorage.updateText(issue.id, text)
+    close()
+    rerender()
+  })
+  modal?.addEventListener('click', e => {
+    if (e.target === modal) close()
+  })
+  setTimeout(() => input?.focus(), 30)
+}
+
+function openIssueCreator(rerender) {
+  const wrapper = document.createElement('div')
+  wrapper.innerHTML = `
+    <div class="modal-backdrop" id="issue-create-modal">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-title">New Change</div>
+        <textarea class="input" id="issue-create-input" rows="3" maxlength="200" placeholder="Add change or fix for 103e3"></textarea>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" type="button" id="issue-create-cancel">Cancel</button>
+          <button class="btn btn-primary" type="button" id="issue-create-save">Save</button>
+        </div>
+      </div>
+    </div>
+  `
+  document.body.appendChild(wrapper)
+  const modal = wrapper.querySelector('#issue-create-modal')
+  const input = wrapper.querySelector('#issue-create-input')
+
+  function close() {
+    wrapper.remove()
+  }
+
+  wrapper.querySelector('#issue-create-cancel')?.addEventListener('click', close)
+  wrapper.querySelector('#issue-create-save')?.addEventListener('click', () => {
+    const text = String(input?.value || '').trim()
+    if (!text) return
+    issueStorage.create(text)
     close()
     rerender()
   })

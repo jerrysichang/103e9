@@ -54,9 +54,6 @@ export function renderGratitudeList(container, { navigate }) {
             <button class="btn btn-icon menu-grid-btn" id="btn-home-list" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
             <div class="header-title">Gratitude</div>
           </div>
-          <div class="header-right">
-            <button class="btn btn-icon" id="btn-add" aria-label="Add item">+</button>
-          </div>
         </header>
 
         <div class="scroll">
@@ -80,6 +77,7 @@ export function renderGratitudeList(container, { navigate }) {
             ${pursuing.length === 0 ? renderEmpty('Nothing yet — tap + to add your first goal') : pursuing.map(renderItem).join('')}
           </ul>
         </div>
+        <button class="btn btn-primary fab-btn" id="btn-add" aria-label="Add goal">＋</button>
 
         <!-- Add modal (hidden by default) -->
         <div class="modal-backdrop hidden" id="add-modal">

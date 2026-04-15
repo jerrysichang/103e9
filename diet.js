@@ -125,14 +125,19 @@ function readImageFile(file) {
 
 function macroBar(label, consumed, goal, pct) {
   const over = goal > 0 && consumed > goal
+  const overAmount = over ? consumed - goal : 0
+  const fillPct = goal > 0 ? Math.min(100, (consumed / goal) * 75) : 0
   return `
     <div class="diet-macro">
       <div class="diet-macro-head">
         <span class="diet-macro-label">${label}</span>
-        <span class="diet-macro-values ${over ? 'diet-macro-over' : ''}">${formatVal(label, consumed)} / ${formatVal(label, goal)}</span>
+        <span class="diet-macro-values ${over ? 'diet-macro-over' : ''}">
+          ${formatVal(label, consumed)} / ${formatVal(label, goal)}${over ? ` (+${formatVal(label, overAmount)})` : ''}
+        </span>
       </div>
       <div class="diet-bar-track">
-        <div class="diet-bar-fill ${over ? 'diet-bar-over' : ''}" style="width:${Math.min(100, pct)}%"></div>
+        <span class="diet-target-line" aria-hidden="true"></span>
+        <div class="diet-bar-fill ${over ? 'diet-bar-over' : ''}" style="width:${fillPct}%"></div>
       </div>
     </div>
   `
@@ -174,6 +179,10 @@ export function renderDietTracker(container, { navigate }) {
             ${macroBar('Protein', consumed.proteinG, goals.proteinG, pct.proteinG)}
             ${macroBar('Carbs', consumed.carbsG, goals.carbsG, pct.carbsG)}
             ${macroBar('Fat', consumed.fatG, goals.fatG, pct.fatG)}
+          </div>
+          <div class="diet-reco-card">
+            <div class="diet-analysis-title">Recommendation</div>
+            <p class="diet-analysis-line">${escapeHtml(dayRecommendation(consumed, goals))}</p>
           </div>
 
           <div class="section-header" style="margin-top:8px">
@@ -391,6 +400,7 @@ export function renderDietTracker(container, { navigate }) {
           <div class="diet-analysis-title">Estimate</div>
           <p class="diet-analysis-line">${escapeHtml(result.summary)}</p>
           ${analysisComparisonBars(currentTotals, result, goals)}
+          <p class="diet-analysis-line">${escapeHtml(mealSuggestion(result, currentTotals, goals))}</p>
         `
         analysisEl.classList.remove('hidden')
         initialInputs?.classList.add('hidden')
@@ -455,7 +465,8 @@ export function renderDietTracker(container, { navigate }) {
     }, { signal })
 
     btnSave?.addEventListener('click', () => {
-      if (!pendingAnalysis) return
+      if (!pendingAnalysis || !btnSave) return
+      btnSave.disabled = true
       const entry = {
         id: crypto.randomUUID(),
         loggedAt: new Date().toISOString(),
@@ -469,9 +480,14 @@ export function renderDietTracker(container, { navigate }) {
           summary: pendingAnalysis.summary,
         },
       }
-      addEntry(todayKey(), entry)
-      closeLogModal()
-      render()
+      try {
+        addEntry(todayKey(), entry)
+        closeLogModal()
+        render()
+      } catch (err) {
+        console.error(err)
+        btnSave.disabled = false
+      }
     }, { signal })
 
     backdrop?.addEventListener('click', e => {
@@ -552,6 +568,40 @@ function analysisComparisonRow({ label, current, delta, goal, fmt }) {
       </div>
     </div>
   `
+}
+
+function mealSuggestion(result, currentTotals, goals) {
+  const projected = {
+    calories: currentTotals.calories + result.calories,
+    proteinG: currentTotals.proteinG + result.proteinG,
+    carbsG: currentTotals.carbsG + result.carbsG,
+    fatG: currentTotals.fatG + result.fatG,
+  }
+  const leftP = goals.proteinG - projected.proteinG
+  const leftC = goals.carbsG - projected.carbsG
+  const leftF = goals.fatG - projected.fatG
+  if (leftP > 20 && leftC < 10) return 'Suggestion: add lean protein next meal (e.g., chicken, tofu, greek yogurt) and keep carbs lighter.'
+  if (leftC > 25 && leftP < 10) return 'Suggestion: add quality carbs next meal (e.g., rice, oats, fruit) with a moderate protein source.'
+  if (leftF > 15) return 'Suggestion: include a healthy fat source next meal (e.g., olive oil, nuts, avocado).'
+  return 'Suggestion: this meal keeps you close to balance; adjust portion sizes based on what remains today.'
+}
+
+function dayRecommendation(consumed, goals) {
+  const nowHour = new Date().getHours()
+  const left = {
+    calories: goals.calories - consumed.calories,
+    proteinG: goals.proteinG - consumed.proteinG,
+    carbsG: goals.carbsG - consumed.carbsG,
+    fatG: goals.fatG - consumed.fatG,
+  }
+  const topNeed = [
+    ['protein', left.proteinG],
+    ['carbs', left.carbsG],
+    ['fat', left.fatG],
+  ].sort((a, b) => b[1] - a[1])[0][0]
+  if (nowHour < 11) return `Morning: prioritize ${topNeed} early so you have room to balance the rest of the day.`
+  if (nowHour < 17) return `Afternoon: aim for a meal that closes your ${topNeed} gap without overshooting calories.`
+  return `Evening: keep dinner focused on remaining ${topNeed} and avoid adding extra macros already over target.`
 }
 
 function escapeHtml(s) {

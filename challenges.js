@@ -60,9 +60,9 @@ function buildChallengeForTopic(topic, difficulty) {
     if (difficulty <= -2) return `Coding: Open "${topic}" and improve one function name or comment for clarity.`
     return `Coding: Spend 15 minutes on "${topic}" and complete one tiny commit-sized improvement.`
   }
-  if (difficulty >= 2) return `Stretch: Do one uncomfortable but specific action that advances "${topic}" in the next 20 minutes.`
-  if (difficulty <= -2) return `Starter: Take a 2-minute first step on "${topic}" before leaving this screen.`
-  return `Core: Complete one concrete action for "${topic}" that you can finish in under 10 minutes.`
+  if (difficulty >= 2) return `Stretch: Do one uncomfortable specific action for "${topic}" (example: send a direct ask message to one person) in the next 20 minutes.`
+  if (difficulty <= -2) return `Starter: Take a 2-minute first step on "${topic}" (example: open the doc/app and create a title) before leaving this screen.`
+  return `Core: Complete one concrete action for "${topic}" in under 10 minutes (example: draft and send one outreach message).`
 }
 
 export function renderChallenges(container, { navigate }) {

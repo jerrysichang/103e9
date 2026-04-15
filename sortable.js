@@ -25,6 +25,7 @@ export function makeSortable(listEl, onSort, options = {}) {
     const handle = handleSelector ? e.target.closest(handleSelector) : item
     if (handleSelector && !handle) return
 
+    e.preventDefault()
     if (handle && typeof handle.setPointerCapture === 'function') {
       handle.setPointerCapture(e.pointerId)
     }

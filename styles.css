@@ -192,6 +192,20 @@ h1, h2, h3 {
   width: 100%;
 }
 
+.fab-btn {
+  position: absolute;
+  right: 20px;
+  bottom: calc(18px + var(--safe-bottom));
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 26px;
+  line-height: 1;
+  z-index: 30;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
 .btn-secondary {
   background: var(--surface-raised);
   color: var(--text);
@@ -1119,6 +1133,7 @@ textarea.coach-input {
 }
 
 .diet-bar-track {
+  position: relative;
   height: 8px;
   border-radius: 4px;
   background: var(--border-subtle);
@@ -1128,12 +1143,22 @@ textarea.coach-input {
 .diet-bar-fill {
   height: 100%;
   border-radius: 4px;
-  background: linear-gradient(90deg, var(--achieved-dim), var(--achieved));
+  background: var(--achieved);
   transition: width 0.25s ease;
 }
 
 .diet-bar-fill.diet-bar-over {
-  background: linear-gradient(90deg, var(--danger-dim), var(--danger));
+  background: var(--danger);
+}
+
+.diet-target-line {
+  position: absolute;
+  left: 75%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ffffff99;
+  z-index: 1;
 }
 
 .diet-footer {
@@ -1156,6 +1181,14 @@ textarea.coach-input {
   flex-direction: column;
   gap: 10px;
   margin-top: 8px;
+}
+
+.diet-reco-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-top: 10px;
 }
 
 .diet-empty {
@@ -1361,7 +1394,7 @@ textarea.coach-input {
 }
 
 .diet-bar-fill-delta {
-  background: linear-gradient(90deg, #1d4ed833, #60a5fa);
+  background: #60a5fa;
 }
 
 .diet-analysis-err {
@@ -1417,6 +1450,10 @@ textarea.coach-input {
   width: 22px;
   height: 22px;
   flex-shrink: 0;
+}
+
+.issue-check-wrap-right {
+  margin-left: auto;
 }
 
 .issue-check {
@@ -1479,7 +1516,7 @@ textarea.coach-input {
 }
 
 #view-issues > .scroll {
-  padding-bottom: 0 !important;
+  padding-bottom: 92px !important;
 }
 
 .prompt-answer-drawer {
@@ -1491,6 +1528,25 @@ textarea.coach-input {
   border: none;
   border-radius: 0;
   padding: 0 16px;
+}
+
+.issues-lines {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0 16px;
+}
+
+.issues-lines .item {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.issues-lines .item:last-child {
+  margin-bottom: 0;
 }
 
 .gratitude-lines .item {
