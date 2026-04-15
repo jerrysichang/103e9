@@ -4,8 +4,8 @@ When the user says exactly `make logged changes`, run this workflow:
 
 1. Export open issues from the synced vault:
    - Command: `npm run issues:export-open`
-   - Requirement: `SYNC_PASSPHRASE` environment variable must already be set in the terminal session.
-2. Read `.cursor/open-issues.json`.
+   - Passphrase source (first match wins): `SYNC_PASSPHRASE` env var, or `SYNC_PASSPHRASE=...` in repo-root `.env.local` (gitignored; see `.env.example`).
+2. Read `.cursor/open-issues.json` (if empty but the user expects work items, remind them to open the app once online so issues sync to the cloud, or use Issues → **Save for Cursor** and save the file as `.cursor/open-issues.json`).
 3. Implement open issues sequentially in listed order.
 4. After each issue:
    - make the code change,
