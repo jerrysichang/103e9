@@ -354,32 +354,11 @@ export function renderDietTracker(container, { navigate }) {
         const result = await analyzeMeal(text, pendingImage)
         pendingAnalysis = result
         pendingDescription = text
-        const projected = {
-          calories: currentTotals.calories + result.calories,
-          proteinG: currentTotals.proteinG + result.proteinG,
-          carbsG: currentTotals.carbsG + result.carbsG,
-          fatG: currentTotals.fatG + result.fatG,
-        }
         const goals = load().goals
-        const suggestion = macroSuggestion(result)
         analysisEl.innerHTML = `
           <div class="diet-analysis-title">Estimate</div>
           <p class="diet-analysis-line">${escapeHtml(result.summary)}</p>
-          <p class="diet-analysis-macros">
-            ${Math.round(result.calories)} kcal ·
-            P ${fmtMacro(result.proteinG)} ·
-            C ${fmtMacro(result.carbsG)} ·
-            F ${fmtMacro(result.fatG)}
-          </p>
-          <div class="diet-analysis-title" style="margin-top:10px">Current → After logging</div>
-          <p class="diet-analysis-macros">
-            Calories ${Math.round(currentTotals.calories)} → ${Math.round(projected.calories)} (${signed(Math.round(result.calories))})<br>
-            Protein ${fmtMacro(currentTotals.proteinG)} → ${fmtMacro(projected.proteinG)} (${signedFmt(result.proteinG)})<br>
-            Carbs ${fmtMacro(currentTotals.carbsG)} → ${fmtMacro(projected.carbsG)} (${signedFmt(result.carbsG)})<br>
-            Fat ${fmtMacro(currentTotals.fatG)} → ${fmtMacro(projected.fatG)} (${signedFmt(result.fatG)})
-          </p>
           ${analysisComparisonBars(currentTotals, result, goals)}
-          <p class="diet-analysis-line">${escapeHtml(suggestion)}</p>
         `
         analysisEl.classList.remove('hidden')
         btnAnalyze.classList.add('hidden')
@@ -490,33 +469,23 @@ function analysisComparisonBars(current, delta, goals) {
 
 function analysisComparisonRow({ label, current, delta, goal, fmt }) {
   const currentPct = goal > 0 ? Math.min(100, (current / goal) * 100) : 0
-  const deltaPct = goal > 0 ? Math.min(100, (delta / goal) * 100) : 0
+  const projected = current + delta
+  const projectedPct = goal > 0 ? Math.min(100, (projected / goal) * 100) : 0
+  const deltaPct = Math.max(0, projectedPct - currentPct)
   return `
     <div class="diet-analysis-bar-row">
       <div class="diet-analysis-bar-head">
         <span>${label}</span>
-        <span>${fmt(current)} + ${fmt(delta)}</span>
+        <span>${fmt(projected)} (${signedFmt(delta)})</span>
       </div>
-      <div class="diet-analysis-bar-line">
+      <div class="diet-analysis-bar-stack">
         <div class="diet-bar-track">
           <div class="diet-bar-fill" style="width:${currentPct}%"></div>
-        </div>
-        <div class="diet-bar-track">
-          <div class="diet-bar-fill diet-bar-fill-delta" style="width:${deltaPct}%"></div>
+          <div class="diet-bar-fill diet-bar-fill-delta" style="left:${currentPct}%;width:${deltaPct}%"></div>
         </div>
       </div>
     </div>
   `
-}
-
-function macroSuggestion(result) {
-  const p = Number(result.proteinG) || 0
-  const c = Number(result.carbsG) || 0
-  const f = Number(result.fatG) || 0
-  if (p < 20 && c > 35) return 'Suggestion: swap part of the carbs for lean protein (e.g., chicken, yogurt, tofu) to get closer to macro targets.'
-  if (f > 25 && p < 20) return 'Suggestion: swap one high-fat component for a leaner protein option.'
-  if (c < 15 && p > 35) return 'Suggestion: add a fruit or whole-grain side if you need more balanced energy.'
-  return 'Suggestion: this looks fairly balanced; adjust portion size based on your remaining targets.'
 }
 
 function escapeHtml(s) {

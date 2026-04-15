@@ -1337,10 +1337,14 @@ textarea.coach-input {
   color: var(--text-secondary);
 }
 
-.diet-analysis-bar-line {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+.diet-analysis-bar-stack .diet-bar-track {
+  position: relative;
+}
+
+.diet-analysis-bar-stack .diet-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .diet-bar-fill-delta {
@@ -1456,8 +1460,13 @@ textarea.coach-input {
   white-space: nowrap;
 }
 
+#view-issues {
+  min-height: 0;
+  overflow: hidden;
+}
+
 #view-issues > .scroll {
-  padding-bottom: 0;
+  padding-bottom: 0 !important;
 }
 
 .prompt-answer-drawer {

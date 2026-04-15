@@ -26,14 +26,43 @@ function saveState(state) {
 }
 
 function makeThree(topics, difficulty) {
-  const topic = topics[0] || 'General'
-  const levelWord = difficulty > 0 ? 'harder' : difficulty < 0 ? 'easier' : 'balanced'
-  const prefix = difficulty > 0 ? 'Stretch' : difficulty < 0 ? 'Starter' : 'Core'
-  return [
-    `${prefix}: Spend 10 minutes on "${topic}" focused work (${levelWord}).`,
-    `${prefix}: Write one concrete next action for "${topic}" and do it now.`,
-    `${prefix}: Remove one distraction that blocks progress on "${topic}".`,
-  ].map(text => ({ id: crypto.randomUUID(), text, done: false }))
+  const normalized = topics
+    .map(t => String(t || '').trim())
+    .filter(Boolean)
+  const selected = normalized.slice(0, 3)
+  while (selected.length < 3) selected.push(selected[0] || 'general growth')
+  return selected.map(topic => ({
+    id: crypto.randomUUID(),
+    text: buildChallengeForTopic(topic, difficulty),
+    done: false,
+  }))
+}
+
+function buildChallengeForTopic(topic, difficulty) {
+  const t = topic.toLowerCase()
+  if (t.includes('social') || t.includes('friend') || t.includes('network')) {
+    if (difficulty >= 2) return `Social: Start a 3-minute conversation with someone new and ask one follow-up question.`
+    if (difficulty <= -2) return `Social: Ask someone for the time (or directions) and hold eye contact for one sentence.`
+    return `Social: Ask someone a small question (time, recommendation, or opinion) and thank them by name.`
+  }
+  if (t.includes('writing') || t.includes('journal') || t.includes('content')) {
+    if (difficulty >= 2) return `Writing: Draft 150 words on "${topic}" and share it with one person.`
+    if (difficulty <= -2) return `Writing: Write 3 clear sentences about "${topic}" without editing.`
+    return `Writing: Set a 10-minute timer and write one short paragraph on "${topic}".`
+  }
+  if (t.includes('health') || t.includes('fitness') || t.includes('exercise')) {
+    if (difficulty >= 2) return `Health: Complete 20 minutes of movement and log exactly how you felt afterward.`
+    if (difficulty <= -2) return `Health: Do 10 bodyweight squats or a 5-minute walk right now.`
+    return `Health: Take a brisk 10-minute walk and avoid your phone the whole time.`
+  }
+  if (t.includes('coding') || t.includes('code') || t.includes('program')) {
+    if (difficulty >= 2) return `Coding: Solve one focused bug in "${topic}" and write a one-line test/check for it.`
+    if (difficulty <= -2) return `Coding: Open "${topic}" and improve one function name or comment for clarity.`
+    return `Coding: Spend 15 minutes on "${topic}" and complete one tiny commit-sized improvement.`
+  }
+  if (difficulty >= 2) return `Stretch: Do one uncomfortable but specific action that advances "${topic}" in the next 20 minutes.`
+  if (difficulty <= -2) return `Starter: Take a 2-minute first step on "${topic}" before leaving this screen.`
+  return `Core: Complete one concrete action for "${topic}" that you can finish in under 10 minutes.`
 }
 
 export function renderChallenges(container, { navigate }) {
@@ -150,8 +179,7 @@ export function renderChallenges(container, { navigate }) {
         const idx = next.challenges.findIndex(c => c.id === input.dataset.challengeToggle)
         if (idx === -1) return
         next.challenges[idx].done = input.checked
-        const doneCount = next.challenges.filter(c => c.done).length
-        if (doneCount >= next.challenges.length && next.challenges.length > 0) {
+        if (input.checked && next.topics.length > 0) {
           next.challenges = makeThree(next.topics, next.difficulty)
         }
         saveState(next)
