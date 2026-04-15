@@ -205,9 +205,18 @@ export function renderDietTracker(container, { navigate }) {
             </div>
             <div id="diet-preview-wrap" class="hidden"></div>
             <div id="diet-analysis-preview" class="diet-analysis-preview hidden"></div>
+            <div id="diet-analysis-controls" class="diet-analysis-controls hidden">
+              <div class="diet-analysis-title">Description</div>
+              <p id="diet-analysis-description" class="diet-analysis-line"></p>
+              <label class="diet-field" style="margin-top:8px">
+                <span>Corrections</span>
+                <textarea class="input diet-log-textarea" id="diet-analysis-corrections" rows="2" placeholder="e.g. this was half a portion, extra olive oil, no rice"></textarea>
+              </label>
+            </div>
             <div class="modal-actions">
               <button type="button" class="btn" id="diet-cancel">Cancel</button>
               <button type="button" class="btn btn-primary" id="diet-analyze">Analyze</button>
+              <button type="button" class="btn btn-secondary hidden" id="diet-restart">Restart</button>
               <button type="button" class="btn btn-secondary hidden" id="diet-reanalyze">Reanalyze</button>
               <button type="button" class="btn btn-primary hidden" id="diet-save-entry">Save</button>
             </div>
@@ -287,7 +296,11 @@ export function renderDietTracker(container, { navigate }) {
     const label = container.querySelector('#diet-photo-label')
     const previewWrap = container.querySelector('#diet-preview-wrap')
     const analysisEl = container.querySelector('#diet-analysis-preview')
+    const analysisControls = container.querySelector('#diet-analysis-controls')
+    const analysisDescEl = container.querySelector('#diet-analysis-description')
+    const correctionsEl = container.querySelector('#diet-analysis-corrections')
     const btnAnalyze = container.querySelector('#diet-analyze')
+    const btnRestart = container.querySelector('#diet-restart')
     const btnReanalyze = container.querySelector('#diet-reanalyze')
     const btnSave = container.querySelector('#diet-save-entry')
     const currentTotals = dayTotals(todayKey(), load().goals).consumed
@@ -304,16 +317,22 @@ export function renderDietTracker(container, { navigate }) {
       analysisEl.classList.add('hidden')
       analysisEl.innerHTML = ''
     }
+    if (analysisControls) analysisControls.classList.add('hidden')
+    if (analysisDescEl) analysisDescEl.textContent = ''
+    if (correctionsEl) correctionsEl.value = ''
     btnAnalyze?.classList.remove('hidden')
+    btnRestart?.classList.add('hidden')
     btnReanalyze?.classList.add('hidden')
     btnSave?.classList.add('hidden')
     if (btnAnalyze) {
       btnAnalyze.textContent = 'Analyze'
       btnAnalyze.disabled = false
     }
+    if (btnRestart) btnRestart.disabled = false
     if (btnReanalyze) {
       btnReanalyze.disabled = false
     }
+    if (btnSave) btnSave.disabled = true
 
     function closeLogModal() {
       logModalAbort?.abort()
@@ -341,51 +360,92 @@ export function renderDietTracker(container, { navigate }) {
       }
     }, { signal })
 
-    btnAnalyze?.addEventListener('click', async () => {
+    async function runAnalysis({ fromReanalyze }) {
       const text = (desc?.value || '').trim()
+      const corrections = (correctionsEl?.value || '').trim()
       if (!text && !pendingImage) {
         desc?.focus()
         return
       }
       if (!btnAnalyze || !analysisEl) return
-      btnAnalyze.disabled = true
-      btnAnalyze.textContent = '…'
+      const triggerBtn = fromReanalyze ? btnReanalyze : btnAnalyze
+      if (!triggerBtn) return
+      triggerBtn.disabled = true
+      triggerBtn.textContent = '…'
       try {
-        const result = await analyzeMeal(text, pendingImage)
+        const prompt = corrections
+          ? `${text}\n\nCorrections from user: ${corrections}`
+          : text
+        const result = await analyzeMeal(prompt, pendingImage)
         pendingAnalysis = result
         pendingDescription = text
         const goals = load().goals
+        if (analysisDescEl) {
+          analysisDescEl.textContent = text || 'Photo-only entry'
+        }
         analysisEl.innerHTML = `
           <div class="diet-analysis-title">Estimate</div>
           <p class="diet-analysis-line">${escapeHtml(result.summary)}</p>
           ${analysisComparisonBars(currentTotals, result, goals)}
         `
         analysisEl.classList.remove('hidden')
+        analysisControls?.classList.remove('hidden')
         btnAnalyze.classList.add('hidden')
+        btnRestart?.classList.remove('hidden')
         btnReanalyze?.classList.remove('hidden')
         btnSave?.classList.remove('hidden')
+        if (btnReanalyze) {
+          btnReanalyze.textContent = 'Reanalyze'
+          btnReanalyze.disabled = false
+        }
+        if (btnSave) btnSave.disabled = false
       } catch (err) {
         console.error(err)
-        btnAnalyze.textContent = 'Retry'
-        btnAnalyze.disabled = false
+        triggerBtn.textContent = fromReanalyze ? 'Reanalyze' : 'Retry'
+        triggerBtn.disabled = false
         if (analysisEl) {
           analysisEl.innerHTML = `<p class="diet-analysis-err">Couldn’t analyze. Check your connection and try again.</p>`
           analysisEl.classList.remove('hidden')
         }
       }
+    }
+
+    btnAnalyze?.addEventListener('click', () => {
+      runAnalysis({ fromReanalyze: false })
     }, { signal })
 
-    btnReanalyze?.addEventListener('click', () => {
+    function resetAnalysisState() {
       pendingAnalysis = null
-      btnReanalyze.classList.add('hidden')
+      if (btnSave) btnSave.disabled = true
+      btnRestart?.classList.add('hidden')
+      btnReanalyze?.classList.add('hidden')
       btnSave?.classList.add('hidden')
       btnAnalyze?.classList.remove('hidden')
       if (btnAnalyze) {
         btnAnalyze.disabled = false
         btnAnalyze.textContent = 'Analyze'
       }
+      analysisControls?.classList.add('hidden')
       analysisEl?.classList.add('hidden')
       if (analysisEl) analysisEl.innerHTML = ''
+    }
+
+    btnReanalyze?.addEventListener('click', () => {
+      runAnalysis({ fromReanalyze: true })
+    }, { signal })
+
+    btnRestart?.addEventListener('click', () => {
+      if (desc) desc.value = ''
+      if (correctionsEl) correctionsEl.value = ''
+      if (label) label.textContent = ''
+      if (photoInput) photoInput.value = ''
+      pendingImage = null
+      if (previewWrap) {
+        previewWrap.innerHTML = ''
+        previewWrap.classList.add('hidden')
+      }
+      resetAnalysisState()
+      desc?.focus()
     }, { signal })
 
     btnSave?.addEventListener('click', () => {
