@@ -29,40 +29,139 @@ function makeThree(topics, difficulty) {
   const normalized = topics
     .map(t => String(t || '').trim())
     .filter(Boolean)
-  const selected = normalized.slice(0, 3)
-  while (selected.length < 3) selected.push(selected[0] || 'general growth')
-  return selected.map(topic => ({
-    id: crypto.randomUUID(),
-    text: buildChallengeForTopic(topic, difficulty),
-    done: false,
-  }))
+  const selected = normalized.length > 0 ? normalized : ['general fitness']
+  const generated = []
+  for (let i = 0; i < 3; i += 1) {
+    const topic = selected[i % selected.length]
+    generated.push({
+      id: crypto.randomUUID(),
+      text: buildChallengeForTopic(topic, difficulty, i),
+      done: false,
+    })
+  }
+  return generated
 }
 
-function buildChallengeForTopic(topic, difficulty) {
+function buildChallengeForTopic(topic, difficulty, variant = 0) {
   const t = topic.toLowerCase()
+  if (t.includes('flexibility') || t.includes('mobility') || t.includes('stretch')) {
+    return pickByDifficulty(difficulty, variant, {
+      starter: [
+        'Flexibility: hold a standing toe-touch stretch for 20 seconds, rest, then repeat once.',
+        'Flexibility: do a 60-second hamstring stretch on each leg.',
+        'Flexibility: do 8 slow cat-cow reps and finish with a 30-second child’s pose.',
+      ],
+      core: [
+        'Flexibility: complete a 5-minute mobility flow (hips, hamstrings, calves) without skipping any segment.',
+        'Flexibility: hold deep squat stretch for 30 seconds, 3 rounds, keeping heels down.',
+        'Flexibility: do couch stretch 45 seconds per side, then 10 controlled leg swings per leg.',
+      ],
+      stretch: [
+        'Flexibility: complete a 10-minute full lower-body mobility routine and record your before/after toe-touch reach.',
+        'Flexibility: hold front split progression (both sides) for 60 seconds each with controlled breathing.',
+        'Flexibility: do a 12-minute yoga hip-opening sequence with zero phone distractions.',
+      ],
+    })
+  }
   if (t.includes('social') || t.includes('friend') || t.includes('network')) {
-    if (difficulty >= 2) return `Social: Start a 3-minute conversation with someone new and ask one follow-up question.`
-    if (difficulty <= -2) return `Social: Ask someone for the time (or directions) and hold eye contact for one sentence.`
-    return `Social: Ask someone a small question (time, recommendation, or opinion) and thank them by name.`
+    return pickByDifficulty(difficulty, variant, {
+      starter: [
+        'Social: ask one stranger for the time or directions and keep eye contact for one full sentence.',
+        'Social: ask a barista or cashier one friendly question (e.g., “How is your day going?”).',
+        'Social: send one short check-in message to a friend you have not spoken to in 2+ weeks.',
+      ],
+      core: [
+        'Social: start a 3-minute conversation with someone new and ask one follow-up question.',
+        'Social: introduce yourself to one person in your gym/workspace and learn their name.',
+        'Social: invite one friend to a specific plan (time + place) today.',
+      ],
+      stretch: [
+        'Social: have a 10-minute call with someone you usually only text and share one personal update.',
+        'Social: attend one group event and speak to at least two new people.',
+        'Social: ask one person for feedback on something you are working on and write down their response.',
+      ],
+    })
   }
   if (t.includes('writing') || t.includes('journal') || t.includes('content')) {
-    if (difficulty >= 2) return `Writing: Draft 150 words on "${topic}" and share it with one person.`
-    if (difficulty <= -2) return `Writing: Write 3 clear sentences about "${topic}" without editing.`
-    return `Writing: Set a 10-minute timer and write one short paragraph on "${topic}".`
+    return pickByDifficulty(difficulty, variant, {
+      starter: [
+        `Writing: write 3 unedited sentences about "${topic}" in one sitting.`,
+        `Writing: create a title and bullet outline (5 bullets) for a piece on "${topic}".`,
+        `Writing: write one 60-word caption/post draft about "${topic}".`,
+      ],
+      core: [
+        `Writing: set a 10-minute timer and draft one focused paragraph on "${topic}".`,
+        `Writing: draft 150 words on "${topic}" and revise once for clarity.`,
+        `Writing: write one short how-to note on "${topic}" with 3 concrete steps.`,
+      ],
+      stretch: [
+        `Writing: draft 300 words on "${topic}" and share it with one person for feedback.`,
+        `Writing: publish one complete post/thread about "${topic}" today.`,
+        `Writing: rewrite an old paragraph on "${topic}" to be 30% shorter and clearer.`,
+      ],
+    })
   }
   if (t.includes('health') || t.includes('fitness') || t.includes('exercise')) {
-    if (difficulty >= 2) return `Health: Complete 20 minutes of movement and log exactly how you felt afterward.`
-    if (difficulty <= -2) return `Health: Do 10 bodyweight squats or a 5-minute walk right now.`
-    return `Health: Take a brisk 10-minute walk and avoid your phone the whole time.`
+    return pickByDifficulty(difficulty, variant, {
+      starter: [
+        'Health: do 10 bodyweight squats and 10 wall push-ups right now.',
+        'Health: take a 5-minute walk without your phone.',
+        'Health: drink one full glass of water and do 2 minutes of deep breathing.',
+      ],
+      core: [
+        'Health: complete a brisk 15-minute walk and finish with 2 minutes of stretching.',
+        'Health: do 3 rounds of 12 squats, 8 push-ups, and a 30-second plank.',
+        'Health: prepare one high-protein meal instead of ordering takeout.',
+      ],
+      stretch: [
+        'Health: complete a 30-minute workout and log energy level before and after.',
+        'Health: hit 8,000+ steps today and take one dedicated mobility break.',
+        'Health: do a full push-pull-legs session or equivalent structured workout.',
+      ],
+    })
   }
   if (t.includes('coding') || t.includes('code') || t.includes('program')) {
-    if (difficulty >= 2) return `Coding: Solve one focused bug in "${topic}" and write a one-line test/check for it.`
-    if (difficulty <= -2) return `Coding: Open "${topic}" and improve one function name or comment for clarity.`
-    return `Coding: Spend 15 minutes on "${topic}" and complete one tiny commit-sized improvement.`
+    return pickByDifficulty(difficulty, variant, {
+      starter: [
+        `Coding: open "${topic}" and rename one unclear variable/function for clarity.`,
+        `Coding: add one missing guard clause or null-check in "${topic}".`,
+        `Coding: write one TODO list of exactly 3 concrete improvements for "${topic}".`,
+      ],
+      core: [
+        `Coding: spend 20 minutes on "${topic}" and complete one commit-sized fix.`,
+        `Coding: fix one focused bug in "${topic}" and add a quick test/check.`,
+        `Coding: refactor one function in "${topic}" to reduce branching depth.`,
+      ],
+      stretch: [
+        `Coding: implement one end-to-end improvement in "${topic}" and verify with manual test steps.`,
+        `Coding: close one bug in "${topic}" and document root cause in 2 sentences.`,
+        `Coding: ship one user-visible enhancement in "${topic}" before your next break.`,
+      ],
+    })
   }
-  if (difficulty >= 2) return `Stretch: Do one uncomfortable specific action for "${topic}" (example: send a direct ask message to one person) in the next 20 minutes.`
-  if (difficulty <= -2) return `Starter: Take a 2-minute first step on "${topic}" (example: open the doc/app and create a title) before leaving this screen.`
-  return `Core: Complete one concrete action for "${topic}" in under 10 minutes (example: draft and send one outreach message).`
+  return pickByDifficulty(difficulty, variant, {
+    starter: [
+      `Starter: open your "${topic}" workspace and create a checklist with 3 specific actions.`,
+      `Starter: spend 5 minutes doing the first concrete step in "${topic}" (no planning only).`,
+      `Starter: remove one blocker for "${topic}" (close tabs, prep tools, set timer).`,
+    ],
+    core: [
+      `Core: complete one clearly defined 15-minute task for "${topic}" and mark it done.`,
+      `Core: produce one visible output for "${topic}" (draft, message, file, or checklist).`,
+      `Core: do one task for "${topic}" that can be verified immediately.`,
+    ],
+    stretch: [
+      `Stretch: complete a 30-minute deep-focus block on "${topic}" with phone away.`,
+      `Stretch: deliver one meaningful result in "${topic}" and share it with someone.`,
+      `Stretch: finish the hardest pending step in "${topic}" before stopping.`,
+    ],
+  })
+}
+
+function pickByDifficulty(difficulty, variant, options) {
+  const tier = difficulty >= 2 ? 'stretch' : difficulty <= -2 ? 'starter' : 'core'
+  const bucket = options[tier]
+  return bucket[variant % bucket.length]
 }
 
 export function renderChallenges(container, { navigate }) {
