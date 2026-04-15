@@ -42,18 +42,18 @@ const TOOLS = [
     defaultView: 'diet',
   },
   {
-    id:          'issues',
-    name:        'Changes',
-    description: 'Track fixes and changes for 103e3',
-    icon:        '□',
-    defaultView: 'issues',
-  },
-  {
     id:          'challenges',
     name:        'Challenges',
     description: 'Generate and complete mini challenges by topic',
     icon:        '△',
     defaultView: 'challenges',
+  },
+  {
+    id:          'issues',
+    name:        'Changes',
+    description: 'Track fixes and changes for 103e3',
+    icon:        '□',
+    defaultView: 'issues',
   },
 ]
 
@@ -225,7 +225,7 @@ function renderHome(container) {
         </div>
         <div class="tools-grid">
           ${TOOLS.map(tool => `
-            <div class="tool-card" data-tool="${tool.id}">
+            <div class="tool-card ${tool.id === 'issues' ? 'tool-card-changes' : ''}" data-tool="${tool.id}">
               <div class="tool-card-icon">${tool.icon}</div>
               <div class="tool-card-name">${tool.name}</div>
             </div>

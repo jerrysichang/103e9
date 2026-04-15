@@ -47,7 +47,7 @@ export function renderChallenges(container, { navigate }) {
       <div class="view" id="view-challenges">
         <header class="header">
           <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn" id="btn-challenges-home" aria-label="Menu">▦</button>
+            <button class="btn btn-icon menu-grid-btn" id="btn-challenges-home" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
             <div class="header-title">Challenges</div>
           </div>
           <div class="header-right">

@@ -1,0 +1,28 @@
+---
+description: Execute logged changes workflow from app issues queue.
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Logged Changes Workflow
+
+When the user says exactly `make logged changes`, execute this workflow in order:
+
+1. Run `npm run issues:export-open` from the repository root.
+2. Read `.cursor/open-issues.json`.
+3. If `totalOpen` is `0` (or `openIssues` is empty), report there is nothing to implement and stop.
+4. Otherwise, implement open issues one-by-one in listed order.
+5. After each issue:
+   - apply code changes,
+   - run relevant validation checks,
+   - report what changed.
+6. If any issue is blocked:
+   - stop immediately,
+   - report the blocker and remaining issue IDs.
+7. Do not mark issues complete automatically in app data; completion remains manual in the app.
+
+If export succeeds but the list appears unexpectedly empty, suggest:
+- confirm `.env.local` has `SYNC_PASSPHRASE` matching the app phrase,
+- open app once online to sync,
+- or use Issues/Changes screen `Save for Cursor` and overwrite `.cursor/open-issues.json`.

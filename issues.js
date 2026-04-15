@@ -21,11 +21,8 @@ export function renderIssuesList(container, { navigate }) {
       <div class="view" id="view-issues">
         <header class="header">
           <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn" id="btn-home-issues" aria-label="Menu">▦</button>
+            <button class="btn btn-icon menu-grid-btn" id="btn-home-issues" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
             <div class="header-title">Changes</div>
-          </div>
-          <div class="header-right">
-            <button class="btn btn-secondary issues-export-btn" type="button" id="btn-export-cursor">Save for Cursor</button>
           </div>
         </header>
 
@@ -130,10 +127,6 @@ function bindEvents(navigate, rerender) {
 
   root.querySelector('#btn-home-issues').addEventListener('click', () => navigate('home'))
 
-  root.querySelector('#btn-export-cursor').addEventListener('click', () => {
-    downloadOpenIssuesForCursor()
-  })
-
   const input = root.querySelector('#issue-input')
   const addBtn = root.querySelector('#btn-add-issue')
 
@@ -184,37 +177,6 @@ function escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-}
-
-/** Same shape as `scripts/export-open-issues.mjs` so Cursor can read either source. */
-function downloadOpenIssuesForCursor() {
-  const all = issueStorage.getAll()
-  const open = all
-    .filter(item => !item.completed)
-    .sort((a, b) => a.order - b.order)
-    .map(issue => ({
-      id: issue.id,
-      text: issue.text,
-      createdAt: issue.createdAt || null,
-      updatedAt: issue.updatedAt || null,
-    }))
-  const payload = {
-    source: 'app-local',
-    exportedAt: new Date().toISOString(),
-    totalOpen: open.length,
-    openIssues: open,
-  }
-  const text = `${JSON.stringify(payload, null, 2)}\n`
-  const blob = new Blob([text], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'open-issues.json'
-  a.rel = 'noopener'
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
 }
 
 function openIssueEditor(issue, rerender) {

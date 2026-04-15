@@ -158,7 +158,7 @@ export function renderDietTracker(container, { navigate }) {
       <div class="view" id="view-diet">
         <header class="header">
           <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn" id="btn-diet-back" aria-label="Menu">▦</button>
+            <button class="btn btn-icon menu-grid-btn" id="btn-diet-back" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
             <div class="header-title">Fuel</div>
           </div>
           <div class="header-right">
@@ -360,6 +360,7 @@ export function renderDietTracker(container, { navigate }) {
           carbsG: currentTotals.carbsG + result.carbsG,
           fatG: currentTotals.fatG + result.fatG,
         }
+        const goals = load().goals
         const suggestion = macroSuggestion(result)
         analysisEl.innerHTML = `
           <div class="diet-analysis-title">Estimate</div>
@@ -377,6 +378,7 @@ export function renderDietTracker(container, { navigate }) {
             Carbs ${fmtMacro(currentTotals.carbsG)} → ${fmtMacro(projected.carbsG)} (${signedFmt(result.carbsG)})<br>
             Fat ${fmtMacro(currentTotals.fatG)} → ${fmtMacro(projected.fatG)} (${signedFmt(result.fatG)})
           </p>
+          ${analysisComparisonBars(currentTotals, result, goals)}
           <p class="diet-analysis-line">${escapeHtml(suggestion)}</p>
         `
         analysisEl.classList.remove('hidden')
@@ -446,6 +448,65 @@ function signed(n) {
 function signedFmt(n) {
   const out = n % 1 === 0 ? `${Math.round(n)}g` : `${n.toFixed(1)}g`
   return n >= 0 ? `+${out}` : out
+}
+
+function analysisComparisonBars(current, delta, goals) {
+  const rows = [
+    {
+      label: 'Calories',
+      current: current.calories,
+      delta: delta.calories,
+      goal: goals.calories,
+      fmt: n => `${Math.round(n)}`,
+    },
+    {
+      label: 'Protein',
+      current: current.proteinG,
+      delta: delta.proteinG,
+      goal: goals.proteinG,
+      fmt: n => fmtMacro(n),
+    },
+    {
+      label: 'Carbs',
+      current: current.carbsG,
+      delta: delta.carbsG,
+      goal: goals.carbsG,
+      fmt: n => fmtMacro(n),
+    },
+    {
+      label: 'Fat',
+      current: current.fatG,
+      delta: delta.fatG,
+      goal: goals.fatG,
+      fmt: n => fmtMacro(n),
+    },
+  ]
+  return `
+    <div class="diet-analysis-bars">
+      ${rows.map(row => analysisComparisonRow(row)).join('')}
+    </div>
+  `
+}
+
+function analysisComparisonRow({ label, current, delta, goal, fmt }) {
+  const currentPct = goal > 0 ? Math.min(100, (current / goal) * 100) : 0
+  const deltaPct = goal > 0 ? Math.min(100, (delta / goal) * 100) : 0
+  return `
+    <div class="diet-analysis-bar-row">
+      <div class="diet-analysis-bar-head">
+        <span>${label}</span>
+        <span>${fmt(current)} + ${fmt(delta)}</span>
+      </div>
+      <div class="diet-analysis-bar-line">
+        <div class="diet-bar-track">
+          <div class="diet-bar-fill" style="width:${currentPct}%"></div>
+        </div>
+        <div class="diet-bar-track">
+          <div class="diet-bar-fill diet-bar-fill-delta" style="width:${deltaPct}%"></div>
+        </div>
+      </div>
+    </div>
+  `
 }
 
 function macroSuggestion(result) {

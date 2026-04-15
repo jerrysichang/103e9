@@ -57,7 +57,7 @@ export function renderGratitudeList(container, { navigate }) {
       <div class="view" id="view-list">
         <header class="header">
           <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn" id="btn-home-list" aria-label="Menu">▦</button>
+            <button class="btn btn-icon menu-grid-btn" id="btn-home-list" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
             <div class="header-title">Gratitude</div>
           </div>
           <div class="header-right">
@@ -233,7 +233,7 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
             </button>
           </div>
           <div class="header-right">
-            <button class="btn btn-icon menu-grid-btn" id="btn-home-detail" aria-label="Menu">▦</button>
+            <button class="btn btn-icon menu-grid-btn" id="btn-home-detail" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
           </div>
         </header>
 

@@ -144,6 +144,33 @@ h1, h2, h3 {
   line-height: 1;
 }
 
+.menu-grid-icon {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 2px;
+}
+
+.menu-grid-icon::before {
+  content: '';
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow:
+    0 0 currentColor,
+    5px 0 currentColor,
+    10px 0 currentColor,
+    0 5px currentColor,
+    5px 5px currentColor,
+    10px 5px currentColor,
+    0 10px currentColor,
+    5px 10px currentColor,
+    10px 10px currentColor;
+}
+
 .btn-back {
   background: none;
   color: var(--text-secondary);
@@ -671,6 +698,11 @@ textarea.input {
   -webkit-user-select: none;
   text-decoration: none;
   display: block;
+}
+
+.tool-card-changes {
+  background: #1d2a17;
+  border-color: #335126;
 }
 
 .tool-card:active {
@@ -1284,6 +1316,37 @@ textarea.coach-input {
   color: var(--text-secondary);
 }
 
+.diet-analysis-bars {
+  margin: 10px 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diet-analysis-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.diet-analysis-bar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.diet-analysis-bar-line {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.diet-bar-fill-delta {
+  background: linear-gradient(90deg, #1d4ed833, #60a5fa);
+}
+
 .diet-analysis-err {
   font-size: 14px;
   color: var(--danger);
@@ -1391,6 +1454,10 @@ textarea.coach-input {
   padding: 10px 14px;
   font-size: 14px;
   white-space: nowrap;
+}
+
+#view-issues > .scroll {
+  padding-bottom: 0;
 }
 
 .prompt-answer-drawer {
