@@ -182,6 +182,15 @@ function macroBar(label, consumed, goal, pct) {
   `
 }
 
+function macroRemaining(consumed, goals) {
+  return {
+    calories: goals.calories - consumed.calories,
+    proteinG: goals.proteinG - consumed.proteinG,
+    carbsG: goals.carbsG - consumed.carbsG,
+    fatG: goals.fatG - consumed.fatG,
+  }
+}
+
 function formatVal(label, n) {
   if (label === 'Calories') return `${Math.round(n)}`
   return n % 1 === 0 ? `${Math.round(n)}g` : `${n.toFixed(1)}g`
@@ -525,10 +534,20 @@ export function renderDietTracker(container, { navigate }) {
         render()
       } catch (err) {
         console.error(err)
-        btnSave.disabled = false
-        if (analysisEl) {
-          analysisEl.classList.remove('hidden')
-          analysisEl.innerHTML += `<p class="diet-analysis-err">Couldn’t save this log. Try a smaller photo and save again.</p>`
+        // Fallback: save without photo if storage quota is hit by image payload.
+        try {
+          const fallbackEntry = { ...entry, imageDataUrl: undefined }
+          addEntry(todayKey(), fallbackEntry)
+          closeLogModal()
+          render()
+          return
+        } catch (fallbackErr) {
+          console.error(fallbackErr)
+          btnSave.disabled = false
+          if (analysisEl) {
+            analysisEl.classList.remove('hidden')
+            analysisEl.innerHTML += `<p class="diet-analysis-err">Couldn’t save this log. Try again, or restart without a photo.</p>`
+          }
         }
       }
     }, { signal })
@@ -620,31 +639,59 @@ function mealSuggestion(result, currentTotals, goals) {
     carbsG: currentTotals.carbsG + result.carbsG,
     fatG: currentTotals.fatG + result.fatG,
   }
-  const leftP = goals.proteinG - projected.proteinG
-  const leftC = goals.carbsG - projected.carbsG
-  const leftF = goals.fatG - projected.fatG
-  if (leftP > 20 && leftC < 10) return 'Suggestion: add lean protein next meal (e.g., chicken, tofu, greek yogurt) and keep carbs lighter.'
-  if (leftC > 25 && leftP < 10) return 'Suggestion: add quality carbs next meal (e.g., rice, oats, fruit) with a moderate protein source.'
-  if (leftF > 15) return 'Suggestion: include a healthy fat source next meal (e.g., olive oil, nuts, avocado).'
-  return 'Suggestion: this meal keeps you close to balance; adjust portion sizes based on what remains today.'
+  const left = macroRemaining(projected, goals)
+  if (left.fatG < -8 && left.proteinG > 15) {
+    return 'Suggestion: next meal go low-fat high-protein, e.g. grilled chicken + rice + veg, or tuna + rice + fruit.'
+  }
+  if (left.fatG < -8) {
+    return 'Suggestion: skip added fats next meal; choose lean options like turkey sandwich, sushi, or yogurt + fruit.'
+  }
+  if (left.proteinG > 20 && left.carbsG > 20) {
+    return 'Suggestion: next meal could be a chicken rice bowl, turkey wrap + fruit, or tofu noodle stir-fry.'
+  }
+  if (left.proteinG > 20) {
+    return 'Suggestion: add protein with greek yogurt + berries, protein shake + banana, or egg-white toast.'
+  }
+  if (left.carbsG > 25) {
+    return 'Suggestion: add carbs with oatmeal + fruit, rice + lean protein, or toast + yogurt.'
+  }
+  if (left.fatG > 12) {
+    return 'Suggestion: add healthy fats with salmon + rice, avocado toast, or yogurt + nuts.'
+  }
+  return 'Suggestion: you are close to target; keep the next meal light and balanced.'
 }
 
 function dayRecommendation(consumed, goals) {
+  const left = macroRemaining(consumed, goals)
   const nowHour = new Date().getHours()
-  const left = {
-    calories: goals.calories - consumed.calories,
-    proteinG: goals.proteinG - consumed.proteinG,
-    carbsG: goals.carbsG - consumed.carbsG,
-    fatG: goals.fatG - consumed.fatG,
+  const overFat = left.fatG < -8
+  const overCarbs = left.carbsG < -20
+  const lowProtein = left.proteinG > 18
+
+  if (overFat && lowProtein) {
+    return nowHour < 17
+      ? 'Try a low-fat, high-protein meal: grilled chicken rice bowl (minimal oil) or tuna + rice + fruit.'
+      : 'Try a low-fat evening option: egg-white scramble with toast, or 0% greek yogurt with berries and cereal.'
   }
-  const topNeed = [
-    ['protein', left.proteinG],
-    ['carbs', left.carbsG],
-    ['fat', left.fatG],
-  ].sort((a, b) => b[1] - a[1])[0][0]
-  if (nowHour < 11) return `Morning: prioritize ${topNeed} early so you have room to balance the rest of the day.`
-  if (nowHour < 17) return `Afternoon: aim for a meal that closes your ${topNeed} gap without overshooting calories.`
-  return `Evening: keep dinner focused on remaining ${topNeed} and avoid adding extra macros already over target.`
+  if (overFat) {
+    return 'You are already high on fat today: choose lean options next (turkey sandwich, chicken wrap, sushi, fruit + yogurt).'
+  }
+  if (overCarbs && lowProtein) {
+    return 'Carbs are already high: pick a protein-forward snack like greek yogurt, protein shake + banana, or cottage cheese + fruit.'
+  }
+  if (left.proteinG > 20 && left.carbsG > 20) {
+    return 'Balanced top-up idea: chicken rice bowl, turkey sandwich + fruit, or tofu stir-fry with rice.'
+  }
+  if (left.proteinG > 20) {
+    return 'Protein-focused idea: tuna wrap, greek yogurt + whey, or egg-white omelet with toast.'
+  }
+  if (left.carbsG > 25) {
+    return 'Carb-focused idea: oatmeal + banana, rice + lean protein, or toast with jam + yogurt.'
+  }
+  if (left.fatG > 12) {
+    return 'Healthy-fat add-on: avocado toast with eggs, salmon with rice, or yogurt + nuts.'
+  }
+  return 'You are close to target: keep the next meal light and balanced (lean protein + veggie + modest carb).'
 }
 
 function escapeHtml(s) {
