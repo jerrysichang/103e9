@@ -372,7 +372,7 @@ function trimRecentComplete(items) {
   const completed = items
     .filter(item => item.status === 'complete')
     .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
-  const keepIds = new Set(completed.slice(0, 20).map(item => item.id))
+  const keepIds = new Set(completed.slice(0, 10).map(item => item.id))
   return items.filter(item => item.status !== 'complete' || keepIds.has(item.id))
 }
 

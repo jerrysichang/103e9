@@ -1163,7 +1163,7 @@ textarea.coach-input {
 
 .diet-footer {
   flex-shrink: 0;
-  padding: 10px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 20px calc(4px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border-subtle);
   background: var(--bg);
 }
@@ -1547,6 +1547,14 @@ textarea.coach-input {
 
 .issues-lines .item-body {
   padding: 14px;
+}
+
+.gratitude-item[data-sort-handle],
+.issues-lines .item[data-sort-handle] {
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .issues-lines .item:last-child {

@@ -258,7 +258,7 @@ export function renderDietTracker(container, { navigate }) {
               <textarea class="input diet-log-textarea" id="diet-log-desc" rows="3" placeholder="e.g. Greek yogurt, berries, coffee with milk…"></textarea>
               <div class="diet-photo-row">
                 <input type="file" id="diet-log-photo" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
-                <button type="button" class="btn btn-secondary diet-photo-btn" id="btn-pick-photo">Photo</button>
+                <button type="button" class="btn btn-secondary diet-photo-btn" id="btn-pick-photo">Use image</button>
                 <span class="diet-photo-name" id="diet-photo-label"></span>
               </div>
             </div>

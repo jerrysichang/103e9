@@ -11,7 +11,7 @@ export function renderIssuesList(container, { navigate }) {
     const complete = all
       .filter(item => item.status === 'complete')
       .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
-      .slice(0, 20)
+      .slice(0, 10)
     return { open, checking, complete }
   }
 
@@ -244,5 +244,8 @@ function openIssueCreator(rerender) {
   modal?.addEventListener('click', e => {
     if (e.target === modal) close()
   })
-  setTimeout(() => input?.focus(), 30)
+  setTimeout(() => {
+    input?.focus()
+    input?.select()
+  }, 30)
 }
