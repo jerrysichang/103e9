@@ -15,12 +15,6 @@ const PROMPTS = [
 // ─── Icons ────────────────────────────────────────────────────────────────
 
 const ICONS = {
-  handle: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-    <line x1="3" y1="5" x2="13" y2="5"/>
-    <line x1="3" y1="8" x2="13" y2="8"/>
-    <line x1="3" y1="11" x2="13" y2="11"/>
-  </svg>`,
-
   chevron: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
     <polyline points="6 4 10 8 6 12"/>
   </svg>`,
@@ -119,13 +113,13 @@ export function renderGratitudeList(container, { navigate }) {
       pursuingSortable = makeSortable(pursuingList, ids => {
         suppressRemoteRender()
         gratitudeStorage.reorder(ids, false)
-      })
+      }, { handleSelector: '[data-sort-handle]' })
     }
     if (achieved.length > 1) {
       achievedSortable = makeSortable(achievedList, ids => {
         suppressRemoteRender()
         gratitudeStorage.reorder(ids, true)
-      })
+      }, { handleSelector: '[data-sort-handle]' })
     }
   }
 
@@ -135,11 +129,11 @@ export function renderGratitudeList(container, { navigate }) {
 function renderItem(item, isAchieved = false) {
   return `
     <li
-      class="item${isAchieved ? ' achieved-item' : ''}"
+      class="item gratitude-item${isAchieved ? ' achieved-item' : ''}"
       data-sort-id="${item.id}"
+      data-sort-handle
       data-id="${item.id}"
     >
-      <span class="item-handle" data-sort-handle aria-hidden="true">${ICONS.handle}</span>
       <div class="item-body" data-open="${item.id}">
         <span class="item-title">${escHtml(item.title)}</span>
       </div>

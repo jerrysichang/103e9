@@ -7,23 +7,27 @@
  *   const sort = makeSortable(listEl, (orderedIds) => { ... })
  *   sort.destroy() // when done
  */
-export function makeSortable(listEl, onSort) {
+export function makeSortable(listEl, onSort, options = {}) {
   let state = null
   const DRAG_THRESHOLD = 5 // px before drag activates
+  const handleSelector = Object.prototype.hasOwnProperty.call(options, 'handleSelector')
+    ? options.handleSelector
+    : '[data-sort-handle]'
 
   function getItems() {
     return [...listEl.querySelectorAll('[data-sort-id]')]
   }
 
   function onPointerDown(e) {
-    const handle = e.target.closest('[data-sort-handle]')
-    if (!handle) return
-
     const item = e.target.closest('[data-sort-id]')
     if (!item) return
 
-    e.preventDefault()
-    handle.setPointerCapture(e.pointerId)
+    const handle = handleSelector ? e.target.closest(handleSelector) : item
+    if (handleSelector && !handle) return
+
+    if (handle && typeof handle.setPointerCapture === 'function') {
+      handle.setPointerCapture(e.pointerId)
+    }
 
     const rect = item.getBoundingClientRect()
 
@@ -36,6 +40,7 @@ export function makeSortable(listEl, onSort) {
       rect,
       dragging: false,
       pointerId: e.pointerId,
+      captureEl: handle || item,
     }
 
     document.addEventListener('pointermove', onPointerMove, { passive: false })
@@ -105,8 +110,12 @@ export function makeSortable(listEl, onSort) {
   function onPointerUp() {
     if (!state) return
 
-    const { item, ghost, placeholder, dragging } = state
+    const { item, ghost, placeholder, dragging, pointerId, captureEl } = state
     state = null
+
+    if (captureEl && typeof captureEl.releasePointerCapture === 'function') {
+      try { captureEl.releasePointerCapture(pointerId) } catch {}
+    }
 
     document.removeEventListener('pointermove', onPointerMove)
     document.removeEventListener('pointerup',   onPointerUp)

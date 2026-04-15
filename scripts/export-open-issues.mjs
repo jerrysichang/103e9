@@ -1,5 +1,5 @@
 import { initializeApp, deleteApp } from 'firebase/app'
-import { getFirestore, doc, getDoc } from 'firebase/firestore'
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -64,7 +64,7 @@ async function main() {
 
     const issues = snap.exists() && Array.isArray(snap.data().issues) ? snap.data().issues : []
     const open = issues
-      .filter(issue => !issue.completed)
+      .filter(issue => (issue.status || (issue.completed ? 'complete' : 'open')) === 'open')
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       .map(issue => ({
         id: issue.id,
@@ -72,6 +72,23 @@ async function main() {
         createdAt: issue.createdAt || null,
         updatedAt: issue.updatedAt || null,
       }))
+
+    // Move exported "open" issues into "checking" so the queue reflects in-progress work.
+    if (open.length > 0) {
+      const openIds = new Set(open.map(issue => issue.id))
+      const nowIso = new Date().toISOString()
+      const migrated = issues.map(issue => {
+        const status = issue.status || (issue.completed ? 'complete' : 'open')
+        if (status !== 'open' || !openIds.has(issue.id)) return issue
+        return {
+          ...issue,
+          status: 'checking',
+          completed: false,
+          updatedAt: nowIso,
+        }
+      })
+      await setDoc(vaultRef, { issues: migrated, updatedAt: Date.now() }, { merge: true })
+    }
 
     const payload = {
       source: 'firestore-vault',

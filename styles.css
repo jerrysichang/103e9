@@ -1270,6 +1270,11 @@ textarea.coach-input {
   margin-bottom: 12px;
 }
 
+.diet-photo-btn {
+  width: auto;
+  padding: 9px 14px;
+}
+
 .diet-photo-name {
   font-size: 13px;
   color: var(--text-muted);
@@ -1489,5 +1494,21 @@ textarea.coach-input {
 }
 
 .gratitude-lines .item {
-  background: transparent;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.gratitude-lines .item:last-child {
+  margin-bottom: 0;
+}
+
+.gratitude-item .item-body {
+  padding-left: 14px;
+}
+
+.gratitude-item .item-chevron {
+  padding-right: 14px;
 }

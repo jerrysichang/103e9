@@ -1,22 +1,19 @@
-import { issueStorage, suppressRemoteRender } from './storage.js'
-import { makeSortable } from './sortable.js'
+import { issueStorage } from './storage.js'
 
 export function renderIssuesList(container, { navigate }) {
-  let openSortable = null
-  let doneSortable = null
-
   function getIssues() {
     const all = issueStorage.getAll()
-    const open = all.filter(item => !item.completed).sort((a, b) => a.order - b.order)
-    const completed = all.filter(item => item.completed).sort((a, b) => a.order - b.order)
-    return { open, completed }
+    const open = all.filter(item => item.status === 'open').sort((a, b) => a.order - b.order)
+    const checking = all.filter(item => item.status === 'checking').sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+    const complete = all
+      .filter(item => item.status === 'complete')
+      .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
+      .slice(0, 20)
+    return { open, checking, complete }
   }
 
   function render() {
-    if (openSortable) openSortable.destroy()
-    if (doneSortable) doneSortable.destroy()
-
-    const { open, completed } = getIssues()
+    const { open, checking, complete } = getIssues()
     container.innerHTML = `
       <div class="view" id="view-issues">
         <header class="header">
@@ -44,53 +41,63 @@ export function renderIssuesList(container, { navigate }) {
             <span class="section-count">${open.length}</span>
           </div>
           <ul class="item-list" id="issues-open-list">
-            ${open.length ? open.map(renderIssue).join('') : renderEmpty('No open issues')}
+            ${open.length ? open.map(issue => renderIssue(issue, 'open')).join('') : renderEmpty('No open issues')}
           </ul>
 
           <div class="section-header" style="margin-top:12px">
-            <span class="section-label">Completed</span>
-            <span class="section-count">${completed.length}</span>
+            <span class="section-label">Checking</span>
+            <span class="section-count">${checking.length}</span>
+          </div>
+          <ul class="item-list" id="issues-checking-list">
+            ${checking.length ? checking.map(issue => renderIssue(issue, 'checking')).join('') : renderEmpty('Nothing in checking')}
+          </ul>
+
+          <div class="section-header" style="margin-top:12px">
+            <span class="section-label">Recently Complete</span>
+            <span class="section-count">${complete.length}</span>
           </div>
           <ul class="item-list" id="issues-done-list">
-            ${completed.length ? completed.map(renderIssue).join('') : renderEmpty('Nothing completed yet')}
+            ${complete.length ? complete.map(issue => renderIssue(issue, 'complete')).join('') : renderEmpty('Nothing completed yet')}
           </ul>
         </div>
       </div>
     `
 
     bindEvents(navigate, render)
-
-    const openList = container.querySelector('#issues-open-list')
-    const doneList = container.querySelector('#issues-done-list')
-    if (open.length > 1 && openList) {
-      openSortable = makeSortable(openList, ids => {
-        suppressRemoteRender()
-        issueStorage.reorder(ids, false)
-      })
-    }
-    if (completed.length > 1 && doneList) {
-      doneSortable = makeSortable(doneList, ids => {
-        suppressRemoteRender()
-        issueStorage.reorder(ids, true)
-      })
-    }
   }
 
   render()
 }
 
-function renderIssue(issue) {
+function renderIssue(issue, section) {
+  if (section === 'open') {
+    return `
+      <li class="item issue-item" data-sort-id="${issue.id}">
+        <div class="item-body">
+          <span class="item-title issue-title" data-edit-issue="${issue.id}">${escHtml(issue.text)}</span>
+        </div>
+        <button class="btn issue-delete-btn" type="button" data-delete-issue="${issue.id}" aria-label="Delete issue">×</button>
+      </li>
+    `
+  }
+  if (section === 'checking') {
+    return `
+      <li class="item issue-item issue-checking" data-sort-id="${issue.id}">
+        <div class="item-body">
+          <label class="issue-check-wrap">
+            <input class="issue-check" type="checkbox" data-issue-complete="${issue.id}">
+            <span class="issue-check-ui"></span>
+          </label>
+          <span class="item-title issue-title">${escHtml(issue.text)}</span>
+        </div>
+      </li>
+    `
+  }
   return `
-    <li class="item issue-item ${issue.completed ? 'issue-completed' : ''}" data-sort-id="${issue.id}">
-      <span class="item-handle" data-sort-handle aria-hidden="true">⋮⋮</span>
+    <li class="item issue-item issue-completed" data-sort-id="${issue.id}">
       <div class="item-body">
-        <label class="issue-check-wrap">
-          <input class="issue-check" type="checkbox" data-issue-toggle="${issue.id}" ${issue.completed ? 'checked' : ''}>
-          <span class="issue-check-ui">${issue.completed ? '✓' : ''}</span>
-        </label>
-        <span class="item-title issue-title" data-edit-issue="${issue.id}">${escHtml(issue.text)}</span>
+        <span class="item-title issue-title">${escHtml(issue.text)}</span>
       </div>
-      <button class="btn issue-delete-btn" type="button" data-delete-issue="${issue.id}" aria-label="Delete issue">×</button>
     </li>
   `
 }
@@ -143,9 +150,9 @@ function bindEvents(navigate, rerender) {
     if (event.key === 'Enter') addIssue()
   })
 
-  root.querySelectorAll('[data-issue-toggle]').forEach(inputEl => {
+  root.querySelectorAll('[data-issue-complete]').forEach(inputEl => {
     inputEl.addEventListener('change', () => {
-      issueStorage.setCompleted(inputEl.dataset.issueToggle, inputEl.checked)
+      issueStorage.setStatus(inputEl.dataset.issueComplete, 'complete')
       rerender()
     })
   })

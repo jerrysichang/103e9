@@ -197,11 +197,13 @@ export function renderDietTracker(container, { navigate }) {
             <div class="modal-handle"></div>
             <div class="modal-title">Log food</div>
             <p class="diet-modal-hint">Describe what you ate and/or add a photo. We’ll estimate calories and macros.</p>
-            <textarea class="input diet-log-textarea" id="diet-log-desc" rows="3" placeholder="e.g. Greek yogurt, berries, coffee with milk…"></textarea>
-            <div class="diet-photo-row">
-              <input type="file" id="diet-log-photo" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
-              <button type="button" class="btn" id="btn-pick-photo">Photo</button>
-              <span class="diet-photo-name" id="diet-photo-label"></span>
+            <div id="diet-log-initial-inputs">
+              <textarea class="input diet-log-textarea" id="diet-log-desc" rows="3" placeholder="e.g. Greek yogurt, berries, coffee with milk…"></textarea>
+              <div class="diet-photo-row">
+                <input type="file" id="diet-log-photo" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
+                <button type="button" class="btn btn-secondary diet-photo-btn" id="btn-pick-photo">Photo</button>
+                <span class="diet-photo-name" id="diet-photo-label"></span>
+              </div>
             </div>
             <div id="diet-preview-wrap" class="hidden"></div>
             <div id="diet-analysis-preview" class="diet-analysis-preview hidden"></div>
@@ -292,6 +294,7 @@ export function renderDietTracker(container, { navigate }) {
     pendingDescription = ''
     const backdrop = container.querySelector('#diet-log-modal')
     const desc = container.querySelector('#diet-log-desc')
+    const initialInputs = container.querySelector('#diet-log-initial-inputs')
     const photoInput = container.querySelector('#diet-log-photo')
     const label = container.querySelector('#diet-photo-label')
     const previewWrap = container.querySelector('#diet-preview-wrap')
@@ -313,6 +316,7 @@ export function renderDietTracker(container, { navigate }) {
       previewWrap.classList.add('hidden')
       previewWrap.innerHTML = ''
     }
+    if (initialInputs) initialInputs.classList.remove('hidden')
     if (analysisEl) {
       analysisEl.classList.add('hidden')
       analysisEl.innerHTML = ''
@@ -389,6 +393,7 @@ export function renderDietTracker(container, { navigate }) {
           ${analysisComparisonBars(currentTotals, result, goals)}
         `
         analysisEl.classList.remove('hidden')
+        initialInputs?.classList.add('hidden')
         analysisControls?.classList.remove('hidden')
         btnAnalyze.classList.add('hidden')
         btnRestart?.classList.remove('hidden')
@@ -444,6 +449,7 @@ export function renderDietTracker(container, { navigate }) {
         previewWrap.innerHTML = ''
         previewWrap.classList.add('hidden')
       }
+      initialInputs?.classList.remove('hidden')
       resetAnalysisState()
       desc?.focus()
     }, { signal })

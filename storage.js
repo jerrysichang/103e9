@@ -276,7 +276,9 @@ export const issueStorage = {
   getAll() {
     try {
       const raw = localStorage.getItem(KEYS.issues)
-      return raw ? JSON.parse(raw) : []
+      const parsed = raw ? JSON.parse(raw) : []
+      const list = Array.isArray(parsed) ? parsed : []
+      return list.map(normalizeIssue)
     } catch {
       return []
     }
@@ -295,8 +297,9 @@ export const issueStorage = {
     const issue = {
       id: crypto.randomUUID(),
       text: text.trim(),
+      status: 'open',
       completed: false,
-      order: items.filter(item => !item.completed).length,
+      order: items.filter(item => item.status === 'open').length,
       createdAt: now,
       updatedAt: now,
       completedAt: null,
@@ -308,17 +311,7 @@ export const issueStorage = {
 
   /** @param {string} id @param {boolean} completed */
   setCompleted(id, completed) {
-    const items = this.getAll()
-    const idx = items.findIndex(item => item.id === id)
-    if (idx === -1) return
-    const now = new Date().toISOString()
-    items[idx].completed = completed
-    items[idx].completedAt = completed ? now : null
-    items[idx].updatedAt = now
-
-    const section = items.filter(item => item.completed === completed)
-    section.forEach((item, index) => { item.order = index })
-    this._saveAll(items)
+    this.setStatus(id, completed ? 'complete' : 'checking')
   },
 
   /** @param {string} id @param {string} text */
@@ -326,6 +319,7 @@ export const issueStorage = {
     const items = this.getAll()
     const idx = items.findIndex(item => item.id === id)
     if (idx === -1) return
+    if (items[idx].status !== 'open') return
     items[idx].text = String(text || '').trim()
     items[idx].updatedAt = new Date().toISOString()
     this._saveAll(items)
@@ -333,7 +327,7 @@ export const issueStorage = {
 
   /** @param {string} id */
   delete(id) {
-    const items = this.getAll().filter(item => item.id !== id)
+    const items = this.getAll().filter(item => !(item.id === id && item.status === 'open'))
     this._saveAll(items)
   },
 
@@ -344,12 +338,62 @@ export const issueStorage = {
    */
   reorder(orderedIds, completed) {
     const items = this.getAll()
+    const targetStatus = completed ? 'complete' : 'open'
+    if (targetStatus !== 'open') return
     orderedIds.forEach((id, idx) => {
       const item = items.find(i => i.id === id)
-      if (item && item.completed === completed) item.order = idx
+      if (item && item.status === targetStatus) item.order = idx
     })
     this._saveAll(items)
   },
+
+  /** @param {string} id @param {'open'|'checking'|'complete'} status */
+  setStatus(id, status) {
+    const items = this.getAll()
+    const idx = items.findIndex(item => item.id === id)
+    if (idx === -1) return
+    const now = new Date().toISOString()
+    const item = items[idx]
+    item.status = status
+    item.completed = status === 'complete'
+    item.updatedAt = now
+    item.completedAt = status === 'complete' ? now : null
+
+    if (status !== 'complete') {
+      item.order = items.filter(i => i.id !== id && i.status === status).length
+    }
+
+    this._saveAll(trimRecentComplete(items))
+  },
+}
+
+/** @param {IssueItem[]} items */
+function trimRecentComplete(items) {
+  const completed = items
+    .filter(item => item.status === 'complete')
+    .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
+  const keepIds = new Set(completed.slice(0, 20).map(item => item.id))
+  return items.filter(item => item.status !== 'complete' || keepIds.has(item.id))
+}
+
+/** @param {unknown} raw */
+function normalizeIssue(raw) {
+  const now = new Date().toISOString()
+  const item = raw && typeof raw === 'object' ? /** @type {Record<string, unknown>} */ (raw) : {}
+  const legacyCompleted = Boolean(item.completed)
+  const status = item.status === 'open' || item.status === 'checking' || item.status === 'complete'
+    ? item.status
+    : legacyCompleted ? 'complete' : 'open'
+  return {
+    id: typeof item.id === 'string' ? item.id : crypto.randomUUID(),
+    text: typeof item.text === 'string' ? item.text : '',
+    status,
+    completed: status === 'complete',
+    order: Number.isFinite(Number(item.order)) ? Number(item.order) : 0,
+    createdAt: typeof item.createdAt === 'string' ? item.createdAt : now,
+    updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : now,
+    completedAt: status === 'complete' && typeof item.completedAt === 'string' ? item.completedAt : null,
+  }
 }
 
 /**
@@ -376,6 +420,7 @@ export const issueStorage = {
  * @typedef {Object} IssueItem
  * @property {string} id
  * @property {string} text
+ * @property {'open'|'checking'|'complete'} status
  * @property {boolean} completed
  * @property {number} order
  * @property {string} createdAt
