@@ -569,6 +569,10 @@ textarea.input {
   flex-wrap: wrap;
 }
 
+.detail-actions-bottom {
+  margin: 8px 20px 0;
+}
+
 .detail-actions .btn {
   font-size: 15px;
   padding: 11px 18px;
@@ -579,11 +583,11 @@ textarea.input {
   padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
 }
 
 .prompt-item {
-  padding: 0;
+  padding: 0 0 2px;
 }
 
 .prompt-question {
@@ -609,6 +613,10 @@ textarea.input {
   padding: 12px 14px;
   text-align: left;
   justify-content: flex-start;
+}
+
+.prompt-entry-readonly {
+  cursor: default;
 }
 
 .prompt-entry-index {

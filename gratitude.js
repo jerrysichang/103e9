@@ -4,12 +4,12 @@ import { makeSortable }      from './sortable.js'
 // ─── Journal Prompts ──────────────────────────────────────────────────────
 
 const PROMPTS = [
-  { key: 'why',      question: 'Why do you want this?' },
-  { key: 'hard',     question: "What's hard about not having it?" },
-  { key: 'good',     question: "What would be so good about it?" },
-  { key: 'daily',    question: 'What would change day-to-day?' },
-  { key: 'fear',     question: 'What if you never get it?' },
-  { key: 'letter',   question: 'Write to your future self.' },
+  { key: 'why',      question: 'Why do you want this?', achievedQuestion: 'Why did you want this?' },
+  { key: 'hard',     question: "What's hard about not having it?", achievedQuestion: "What was hard about not having it?" },
+  { key: 'good',     question: "What would be so good about it?", achievedQuestion: 'What became so good about it?' },
+  { key: 'daily',    question: 'What would change day-to-day?', achievedQuestion: 'What changed day-to-day?' },
+  { key: 'fear',     question: 'What if you never get it?', achievedQuestion: 'What would life have looked like if you never got it?' },
+  { key: 'letter',   question: 'Write to your future self.', achievedQuestion: 'Write to your past self.' },
 ]
 
 // ─── Icons ────────────────────────────────────────────────────────────────
@@ -212,9 +212,8 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
     item = gratitudeStorage.getById(itemId)
     if (!item) { navigate('list'); return }
 
-    const achievedDate = item.achievedAt
-      ? `Achieved ${formatDate(item.achievedAt)}`
-      : `Added ${formatDate(item.createdAt)}`
+    const addedDate = `Added ${formatDate(item.createdAt)}`
+    const completedDate = item.achievedAt ? `Completed ${formatDate(item.achievedAt)}` : ''
 
     container.innerHTML = `
       <div class="view" id="view-detail">
@@ -240,14 +239,7 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
                 rows="1"
                 autocomplete="off"
               >${escHtml(item.title)}</textarea>
-              <div class="detail-date">${achievedDate}</div>
-            </div>
-
-            <div class="detail-actions">
-              ${item.achieved
-                ? `<button class="btn btn-secondary" id="btn-toggle-achieved">↩ Still Pursuing</button>`
-                : `<button class="btn btn-achieved" id="btn-toggle-achieved">✓ Mark Achieved</button>`
-              }
+              <div class="detail-date">${addedDate}${completedDate ? ` · ${completedDate}` : ''}</div>
             </div>
           </div>
 
@@ -260,6 +252,13 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
 
           <div class="prompts">
             ${PROMPTS.map(p => renderPrompt(p, item)).join('')}
+          </div>
+
+          <div class="detail-actions detail-actions-bottom">
+            ${item.achieved
+              ? `<button class="btn btn-secondary" id="btn-toggle-achieved">↩ Still Pursuing</button>`
+              : `<button class="btn btn-achieved" id="btn-toggle-achieved">✓ Mark Achieved</button>`
+            }
           </div>
 
           <div class="danger-zone">
@@ -276,9 +275,17 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
 }
 
 function renderPrompt(prompt, item) {
+  const isAchieved = Boolean(item.achieved)
   const entries = gratitudeStorage.getPromptEntries(item, prompt.key)
   const entryMarkup = entries.length > 0
-    ? entries.map((entry, index) => `
+    ? entries.map((entry, index) => isAchieved
+      ? `
+      <div class="prompt-entry-block prompt-entry-readonly">
+        <span class="prompt-entry-index">${index + 1}.</span>
+        <span class="prompt-entry-text">${escHtml(entry.text)}</span>
+      </div>
+    `
+      : `
       <button class="btn prompt-entry-block" data-edit-entry="${prompt.key}|${entry.id}" type="button">
         <span class="prompt-entry-index">${index + 1}.</span>
         <span class="prompt-entry-text">${escHtml(entry.text)}</span>
@@ -288,11 +295,11 @@ function renderPrompt(prompt, item) {
 
   return `
     <div class="prompt-item">
-      <div class="prompt-question">${prompt.question}</div>
+      <div class="prompt-question">${isAchieved ? prompt.achievedQuestion : prompt.question}</div>
       <div class="prompt-entries">
         ${entryMarkup}
       </div>
-      <button class="btn btn-secondary prompt-add-line" data-add-line="${prompt.key}" type="button">+ Add line</button>
+      ${isAchieved ? '' : `<button class="btn btn-secondary prompt-add-line" data-add-line="${prompt.key}" type="button">+ Add line</button>`}
     </div>
   `
 }
@@ -334,47 +341,49 @@ function bindDetailEvents(navigate, rerender, item) {
   })
 
   // Add new line to prompt (open drawer)
-  root.querySelectorAll('[data-add-line]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const promptKey = btn.dataset.addLine
-      if (!promptKey) return
-      openPromptDrawer({
-        title: 'New entry',
-        initialText: '',
-        onSave: (text) => {
-          const entry = gratitudeStorage.addPromptEntry(item.id, promptKey)
-          if (!entry) return
-          gratitudeStorage.updatePromptEntry(item.id, promptKey, entry.id, text)
-          rerender()
-        },
+  if (!item.achieved) {
+    root.querySelectorAll('[data-add-line]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const promptKey = btn.dataset.addLine
+        if (!promptKey) return
+        openPromptDrawer({
+          title: 'New entry',
+          initialText: '',
+          onSave: (text) => {
+            const entry = gratitudeStorage.addPromptEntry(item.id, promptKey)
+            if (!entry) return
+            gratitudeStorage.updatePromptEntry(item.id, promptKey, entry.id, text)
+            rerender()
+          },
+        })
       })
     })
-  })
 
-  // Edit existing line (open drawer)
-  root.querySelectorAll('[data-edit-entry]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const parts = String(btn.dataset.editEntry || '').split('|')
-      if (parts.length !== 2) return
-      const [promptKey, entryId] = parts
-      const currentItem = gratitudeStorage.getById(item.id)
-      if (!currentItem) return
-      const existing = gratitudeStorage.getPromptEntries(currentItem, promptKey).find(e => e.id === entryId)
-      if (!existing) return
-      openPromptDrawer({
-        title: 'Edit entry',
-        initialText: existing.text,
-        onSave: (text) => {
-          gratitudeStorage.updatePromptEntry(item.id, promptKey, entryId, text)
-          rerender()
-        },
-        onDelete: () => {
-          gratitudeStorage.deletePromptEntry(item.id, promptKey, entryId)
-          rerender()
-        },
+    // Edit existing line (open drawer)
+    root.querySelectorAll('[data-edit-entry]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const parts = String(btn.dataset.editEntry || '').split('|')
+        if (parts.length !== 2) return
+        const [promptKey, entryId] = parts
+        const currentItem = gratitudeStorage.getById(item.id)
+        if (!currentItem) return
+        const existing = gratitudeStorage.getPromptEntries(currentItem, promptKey).find(e => e.id === entryId)
+        if (!existing) return
+        openPromptDrawer({
+          title: 'Edit entry',
+          initialText: existing.text,
+          onSave: (text) => {
+            gratitudeStorage.updatePromptEntry(item.id, promptKey, entryId, text)
+            rerender()
+          },
+          onDelete: () => {
+            gratitudeStorage.deletePromptEntry(item.id, promptKey, entryId)
+            rerender()
+          },
+        })
       })
     })
-  })
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
