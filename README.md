@@ -2,6 +2,10 @@
 
 A minimal personal tools app built with vanilla JS, hosted on GitHub Pages, with Firebase Firestore for cross-device sync.
 
+## Development workflow
+
+Use **`main` as the default branch**: clone, `git checkout main`, commit, and `git push origin main`. Optional short-lived branches are fine for experiments; merge or delete them when done so the remote does not accumulate stale branch names.
+
 ## Tools
 
 - **Gratitude** — track goals and reflect on what you've achieved
