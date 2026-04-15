@@ -273,7 +273,7 @@ export function renderDietTracker(container, { navigate }) {
               </label>
             </div>
             <div class="modal-actions">
-              <button type="button" class="btn" id="diet-cancel">Cancel</button>
+              <button type="button" class="btn btn-secondary" id="diet-cancel">Cancel</button>
               <button type="button" class="btn btn-primary" id="diet-analyze">Analyze</button>
               <button type="button" class="btn btn-secondary hidden" id="diet-restart">Restart</button>
               <button type="button" class="btn btn-secondary hidden" id="diet-reanalyze">Reanalyze</button>

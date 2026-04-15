@@ -9,6 +9,7 @@
  */
 export function makeSortable(listEl, onSort, options = {}) {
   let state = null
+  let lastDragAt = 0
   const DRAG_THRESHOLD = 5 // px before drag activates
   const handleSelector = Object.prototype.hasOwnProperty.call(options, 'handleSelector')
     ? options.handleSelector
@@ -129,16 +130,26 @@ export function makeSortable(listEl, onSort, options = {}) {
     item.style.display = ''
     placeholder.remove()
     ghost.remove()
+    lastDragAt = Date.now()
 
     const orderedIds = getItems().map(el => el.dataset.sortId)
     onSort(orderedIds)
   }
 
+  function onClickCapture(e) {
+    if (Date.now() - lastDragAt < 250) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
+
   listEl.addEventListener('pointerdown', onPointerDown)
+  listEl.addEventListener('click', onClickCapture, true)
 
   return {
     destroy() {
       listEl.removeEventListener('pointerdown', onPointerDown)
+      listEl.removeEventListener('click', onClickCapture, true)
     },
   }
 }

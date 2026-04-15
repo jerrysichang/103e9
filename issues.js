@@ -141,10 +141,14 @@ function bindEvents(navigate, rerender) {
       const prevTop = scrollEl?.scrollTop ?? 0
       issueStorage.setStatus(inputEl.dataset.issueComplete, 'complete')
       rerender()
-      requestAnimationFrame(() => {
+      const restore = () => {
         const nextRoot = document.getElementById('view-issues')
         const nextScroll = nextRoot?.querySelector('.scroll')
         if (nextScroll) nextScroll.scrollTop = prevTop
+      }
+      requestAnimationFrame(() => {
+        restore()
+        requestAnimationFrame(restore)
       })
     })
   })
@@ -200,7 +204,10 @@ function openIssueEditor(issue, rerender) {
   modal?.addEventListener('click', e => {
     if (e.target === modal) close()
   })
-  setTimeout(() => input?.focus(), 30)
+  setTimeout(() => {
+    input?.focus()
+    input?.select()
+  }, 30)
 }
 
 function openIssueCreator(rerender) {

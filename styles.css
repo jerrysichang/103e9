@@ -1545,6 +1545,10 @@ textarea.coach-input {
   margin-bottom: 8px;
 }
 
+.issues-lines .item-body {
+  padding: 14px;
+}
+
 .issues-lines .item:last-child {
   margin-bottom: 0;
 }
