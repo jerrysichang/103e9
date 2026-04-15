@@ -21,8 +21,8 @@ export function renderIssuesList(container, { navigate }) {
       <div class="view" id="view-issues">
         <header class="header">
           <div class="header-left">
-            <button class="btn btn-back" id="btn-home-issues">Menu</button>
-            <div class="header-title">Issues</div>
+            <button class="btn btn-icon menu-grid-btn" id="btn-home-issues" aria-label="Menu">▦</button>
+            <div class="header-title">Changes</div>
           </div>
           <div class="header-right">
             <button class="btn btn-secondary issues-export-btn" type="button" id="btn-export-cursor">Save for Cursor</button>

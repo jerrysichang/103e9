@@ -57,7 +57,7 @@ export function renderGratitudeList(container, { navigate }) {
       <div class="view" id="view-list">
         <header class="header">
           <div class="header-left">
-            <button class="btn btn-back" id="btn-home-list">Menu</button>
+            <button class="btn btn-icon menu-grid-btn" id="btn-home-list" aria-label="Menu">▦</button>
             <div class="header-title">Gratitude</div>
           </div>
           <div class="header-right">
@@ -72,7 +72,7 @@ export function renderGratitudeList(container, { navigate }) {
             <span class="section-count">${achieved.length}</span>
           </div>
 
-          <ul class="item-list" id="list-achieved">
+          <ul class="item-list gratitude-lines" id="list-achieved">
             ${achieved.length === 0 ? renderEmpty('Your achievements will appear here') : achieved.map(i => renderItem(i, true)).join('')}
           </ul>
 
@@ -82,7 +82,7 @@ export function renderGratitudeList(container, { navigate }) {
             <span class="section-count">${pursuing.length}</span>
           </div>
 
-          <ul class="item-list" id="list-pursuing">
+          <ul class="item-list gratitude-lines" id="list-pursuing">
             ${pursuing.length === 0 ? renderEmpty('Nothing yet — tap + to add your first goal') : pursuing.map(renderItem).join('')}
           </ul>
         </div>
@@ -233,7 +233,7 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
             </button>
           </div>
           <div class="header-right">
-            <button class="btn btn-back" id="btn-home-detail">Menu</button>
+            <button class="btn btn-icon menu-grid-btn" id="btn-home-detail" aria-label="Menu">▦</button>
           </div>
         </header>
 
@@ -376,6 +376,10 @@ function bindDetailEvents(navigate, rerender, item) {
           gratitudeStorage.updatePromptEntry(item.id, promptKey, entryId, text)
           rerender()
         },
+        onDelete: () => {
+          gratitudeStorage.deletePromptEntry(item.id, promptKey, entryId)
+          rerender()
+        },
       })
     })
   })
@@ -388,7 +392,7 @@ function autoResize(ta) {
   ta.style.height = ta.scrollHeight + 'px'
 }
 
-function openPromptDrawer({ title, initialText, onSave }) {
+function openPromptDrawer({ title, initialText, onSave, onDelete }) {
   const wrapper = document.createElement('div')
   wrapper.innerHTML = `
     <div class="modal-backdrop" id="prompt-entry-modal">
@@ -398,6 +402,7 @@ function openPromptDrawer({ title, initialText, onSave }) {
         <textarea class="input prompt-answer-drawer" id="prompt-entry-input" rows="6" placeholder="Write your thoughts…">${escHtml(initialText || '')}</textarea>
         <div class="modal-actions">
           <button class="btn btn-secondary" type="button" id="prompt-entry-cancel">Cancel</button>
+          ${onDelete ? `<button class="btn btn-danger" type="button" id="prompt-entry-delete">Delete</button>` : ''}
           <button class="btn btn-primary" type="button" id="prompt-entry-save">Save</button>
         </div>
       </div>
@@ -416,6 +421,11 @@ function openPromptDrawer({ title, initialText, onSave }) {
     const text = String(input?.value || '').trim()
     if (!text) return
     onSave(text)
+    close()
+  })
+  wrapper.querySelector('#prompt-entry-delete')?.addEventListener('click', () => {
+    if (!confirm('Delete this entry?')) return
+    onDelete?.()
     close()
   })
   modal?.addEventListener('click', e => {

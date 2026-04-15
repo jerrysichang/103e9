@@ -158,7 +158,7 @@ export function renderDietTracker(container, { navigate }) {
       <div class="view" id="view-diet">
         <header class="header">
           <div class="header-left">
-            <button class="btn btn-back" id="btn-diet-back">${ICONS.back} Menu</button>
+            <button class="btn btn-icon menu-grid-btn" id="btn-diet-back" aria-label="Menu">▦</button>
             <div class="header-title">Fuel</div>
           </div>
           <div class="header-right">
@@ -208,6 +208,7 @@ export function renderDietTracker(container, { navigate }) {
             <div class="modal-actions">
               <button type="button" class="btn" id="diet-cancel">Cancel</button>
               <button type="button" class="btn btn-primary" id="diet-analyze">Analyze</button>
+              <button type="button" class="btn btn-secondary hidden" id="diet-reanalyze">Reanalyze</button>
               <button type="button" class="btn btn-primary hidden" id="diet-save-entry">Save</button>
             </div>
           </div>
@@ -287,7 +288,9 @@ export function renderDietTracker(container, { navigate }) {
     const previewWrap = container.querySelector('#diet-preview-wrap')
     const analysisEl = container.querySelector('#diet-analysis-preview')
     const btnAnalyze = container.querySelector('#diet-analyze')
+    const btnReanalyze = container.querySelector('#diet-reanalyze')
     const btnSave = container.querySelector('#diet-save-entry')
+    const currentTotals = dayTotals(todayKey(), load().goals).consumed
 
     backdrop?.classList.remove('hidden')
     if (desc) desc.value = ''
@@ -302,10 +305,14 @@ export function renderDietTracker(container, { navigate }) {
       analysisEl.innerHTML = ''
     }
     btnAnalyze?.classList.remove('hidden')
+    btnReanalyze?.classList.add('hidden')
     btnSave?.classList.add('hidden')
     if (btnAnalyze) {
       btnAnalyze.textContent = 'Analyze'
       btnAnalyze.disabled = false
+    }
+    if (btnReanalyze) {
+      btnReanalyze.disabled = false
     }
 
     function closeLogModal() {
@@ -347,6 +354,13 @@ export function renderDietTracker(container, { navigate }) {
         const result = await analyzeMeal(text, pendingImage)
         pendingAnalysis = result
         pendingDescription = text
+        const projected = {
+          calories: currentTotals.calories + result.calories,
+          proteinG: currentTotals.proteinG + result.proteinG,
+          carbsG: currentTotals.carbsG + result.carbsG,
+          fatG: currentTotals.fatG + result.fatG,
+        }
+        const suggestion = macroSuggestion(result)
         analysisEl.innerHTML = `
           <div class="diet-analysis-title">Estimate</div>
           <p class="diet-analysis-line">${escapeHtml(result.summary)}</p>
@@ -356,9 +370,18 @@ export function renderDietTracker(container, { navigate }) {
             C ${fmtMacro(result.carbsG)} ·
             F ${fmtMacro(result.fatG)}
           </p>
+          <div class="diet-analysis-title" style="margin-top:10px">Current → After logging</div>
+          <p class="diet-analysis-macros">
+            Calories ${Math.round(currentTotals.calories)} → ${Math.round(projected.calories)} (${signed(Math.round(result.calories))})<br>
+            Protein ${fmtMacro(currentTotals.proteinG)} → ${fmtMacro(projected.proteinG)} (${signedFmt(result.proteinG)})<br>
+            Carbs ${fmtMacro(currentTotals.carbsG)} → ${fmtMacro(projected.carbsG)} (${signedFmt(result.carbsG)})<br>
+            Fat ${fmtMacro(currentTotals.fatG)} → ${fmtMacro(projected.fatG)} (${signedFmt(result.fatG)})
+          </p>
+          <p class="diet-analysis-line">${escapeHtml(suggestion)}</p>
         `
         analysisEl.classList.remove('hidden')
         btnAnalyze.classList.add('hidden')
+        btnReanalyze?.classList.remove('hidden')
         btnSave?.classList.remove('hidden')
       } catch (err) {
         console.error(err)
@@ -369,6 +392,19 @@ export function renderDietTracker(container, { navigate }) {
           analysisEl.classList.remove('hidden')
         }
       }
+    }, { signal })
+
+    btnReanalyze?.addEventListener('click', () => {
+      pendingAnalysis = null
+      btnReanalyze.classList.add('hidden')
+      btnSave?.classList.add('hidden')
+      btnAnalyze?.classList.remove('hidden')
+      if (btnAnalyze) {
+        btnAnalyze.disabled = false
+        btnAnalyze.textContent = 'Analyze'
+      }
+      analysisEl?.classList.add('hidden')
+      if (analysisEl) analysisEl.innerHTML = ''
     }, { signal })
 
     btnSave?.addEventListener('click', () => {
@@ -401,6 +437,25 @@ export function renderDietTracker(container, { navigate }) {
 
 function fmtMacro(n) {
   return n % 1 === 0 ? `${Math.round(n)}g` : `${n.toFixed(1)}g`
+}
+
+function signed(n) {
+  return n >= 0 ? `+${n}` : String(n)
+}
+
+function signedFmt(n) {
+  const out = n % 1 === 0 ? `${Math.round(n)}g` : `${n.toFixed(1)}g`
+  return n >= 0 ? `+${out}` : out
+}
+
+function macroSuggestion(result) {
+  const p = Number(result.proteinG) || 0
+  const c = Number(result.carbsG) || 0
+  const f = Number(result.fatG) || 0
+  if (p < 20 && c > 35) return 'Suggestion: swap part of the carbs for lean protein (e.g., chicken, yogurt, tofu) to get closer to macro targets.'
+  if (f > 25 && p < 20) return 'Suggestion: swap one high-fat component for a leaner protein option.'
+  if (c < 15 && p > 35) return 'Suggestion: add a fruit or whole-grain side if you need more balanced energy.'
+  return 'Suggestion: this looks fairly balanced; adjust portion size based on your remaining targets.'
 }
 
 function escapeHtml(s) {

@@ -13,6 +13,7 @@ import { renderGratitudeList, renderGratitudeDetail } from './gratitude.js'
 import { renderCoachChat, renderCoachProfile } from './coach.js'
 import { renderDietTracker, renderDietGoals } from './diet.js'
 import { renderIssuesList } from './issues.js'
+import { renderChallenges } from './challenges.js'
 import { onRemoteUpdate, handleRemoteData } from './storage.js'
 import { hasPassphrase, getPassphrase, connect, disconnect } from './firebase-sync.js'
 
@@ -42,10 +43,17 @@ const TOOLS = [
   },
   {
     id:          'issues',
-    name:        'Issues',
+    name:        'Changes',
     description: 'Track fixes and changes for 103e3',
     icon:        '□',
     defaultView: 'issues',
+  },
+  {
+    id:          'challenges',
+    name:        'Challenges',
+    description: 'Generate and complete mini challenges by topic',
+    icon:        '△',
+    defaultView: 'challenges',
   },
 ]
 
@@ -73,7 +81,8 @@ onRemoteUpdate(() => {
     currentRoute.view === 'detail' ||
     currentRoute.view === 'diet' ||
     currentRoute.view === 'diet-goals' ||
-    currentRoute.view === 'issues'
+    currentRoute.view === 'issues' ||
+    currentRoute.view === 'challenges'
   )) {
     renderApp()
   }
@@ -131,6 +140,11 @@ function renderApp() {
 
   if (view === 'issues') {
     renderIssuesList(app, { navigate })
+    return
+  }
+
+  if (view === 'challenges') {
+    renderChallenges(app, { navigate })
     return
   }
 }
@@ -214,7 +228,6 @@ function renderHome(container) {
             <div class="tool-card" data-tool="${tool.id}">
               <div class="tool-card-icon">${tool.icon}</div>
               <div class="tool-card-name">${tool.name}</div>
-              <div class="tool-card-desc">${tool.description}</div>
             </div>
           `).join('')}
         </div>

@@ -214,6 +214,23 @@ export const gratitudeStorage = {
     this._saveAll(items)
   },
 
+  /** @param {string} id @param {string} promptKey @param {string} entryId */
+  deletePromptEntry(id, promptKey, entryId) {
+    const items = this.getAll()
+    const idx = items.findIndex(i => i.id === id)
+    if (idx === -1) return
+    const item = items[idx]
+    const existing = this.getPromptEntries(item, promptKey)
+    const next = existing.filter(entry => entry.id !== entryId)
+    item.promptEntries = { ...(item.promptEntries || {}), [promptKey]: next }
+    if (next.length === 0) {
+      item.answers = { ...(item.answers || {}), [promptKey]: '' }
+    } else {
+      item.answers = { ...(item.answers || {}), [promptKey]: next[0].text }
+    }
+    this._saveAll(items)
+  },
+
   /** @param {string} id @param {boolean} achieved */
   setAchieved(id, achieved) {
     const items = this.getAll()
