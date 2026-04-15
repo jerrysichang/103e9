@@ -114,10 +114,49 @@ function readImageFile(file) {
         resolve(null)
         return
       }
-      resolve({ dataUrl, mediaType, base64: m[2] })
+      // Store/send a smaller image payload so saves stay reliable in localStorage.
+      compressForLog(dataUrl)
+        .then(compact => {
+          const mm = compact.match(/^data:([^;]+);base64,(.+)$/)
+          if (!mm) {
+            resolve({ dataUrl, mediaType, base64: m[2] })
+            return
+          }
+          resolve({ dataUrl: compact, mediaType: mm[1], base64: mm[2] })
+        })
+        .catch(() => resolve({ dataUrl, mediaType, base64: m[2] }))
     }
     reader.onerror = () => reject(reader.error)
     reader.readAsDataURL(file)
+  })
+}
+
+/**
+ * Downscale and compress image to reduce storage failures on save.
+ * @param {string} dataUrl
+ * @returns {Promise<string>}
+ */
+function compressForLog(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const maxDim = 960
+      const scale = Math.min(1, maxDim / Math.max(img.width || 1, img.height || 1))
+      const w = Math.max(1, Math.round((img.width || 1) * scale))
+      const h = Math.max(1, Math.round((img.height || 1) * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        resolve(dataUrl)
+        return
+      }
+      ctx.drawImage(img, 0, 0, w, h)
+      resolve(canvas.toDataURL('image/jpeg', 0.78))
+    }
+    img.onerror = () => resolve(dataUrl)
+    img.src = dataUrl
   })
 }
 
@@ -487,6 +526,10 @@ export function renderDietTracker(container, { navigate }) {
       } catch (err) {
         console.error(err)
         btnSave.disabled = false
+        if (analysisEl) {
+          analysisEl.classList.remove('hidden')
+          analysisEl.innerHTML += `<p class="diet-analysis-err">Couldn’t save this log. Try a smaller photo and save again.</p>`
+        }
       }
     }, { signal })
 
