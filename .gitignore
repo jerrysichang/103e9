@@ -2,3 +2,4 @@
 node_modules/
 .claude/
 .cursor/open-issues.json
+.env.local

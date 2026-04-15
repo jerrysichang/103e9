@@ -43,23 +43,27 @@ The coach will ask you questions. When you end the session, it automatically ext
 
 The Issues tool is cloud-synced in the same vault as your other data. To let Cursor read open issues automatically, export them to `.cursor/open-issues.json`.
 
-### 1. Export open issues from your vault
+### 1. One-time: so Cursor can export without your typing each time
+
+Copy `.env.example` to `.env.local` in the repo root and set:
 
 ```bash
-SYNC_PASSPHRASE="your-sync-phrase" npm run issues:export-open
+SYNC_PASSPHRASE=your-sync-phrase
 ```
 
-This writes a file at `.cursor/open-issues.json` with only open issues.
+`.env.local` is gitignored. Alternatively you can keep using `export SYNC_PASSPHRASE=...` in the shell.
 
-### 2. Run a sequential implementation prompt in Cursor
-
-One-time shell setup (so export works without retyping your passphrase):
+### 2. Export open issues (optional if you only use Cursor)
 
 ```bash
-export SYNC_PASSPHRASE="your-sync-phrase"
+npm run issues:export-open
 ```
 
-Then in Cursor, use the phrase:
+This writes `.cursor/open-issues.json` with only open issues.
+
+### 3. Run a sequential implementation prompt in Cursor
+
+In Cursor, use the phrase:
 
 ```text
 make logged changes
@@ -80,6 +84,12 @@ If an issue is blocked, stop and explain the blocker before moving on.
 Do not mark issues complete automatically in the app; completion is manual for now.
 ```
 
-### 3. Mark completion manually in the app
+### 4. Mark completion manually in the app
 
 After Cursor finishes, open the Issues screen and check off completed items.
+
+### Troubleshooting: app shows open issues but export says 0
+
+- **Passphrase mismatch:** `.env.local` must use the **same** sync phrase as the app (spacing/case differences are normalized, but typos are not).
+- **Cloud never had issues yet:** Open the app once while online so it can connect; on connect, local-only issues are merged up to Firestore when the vault had none. Then run `npm run issues:export-open` again.
+- **Immediate workaround:** In the app Issues screen, tap **Save for Cursor**, save the downloaded `open-issues.json` as `.cursor/open-issues.json` in this repo (replace the file). Then say `make logged changes` in Cursor.

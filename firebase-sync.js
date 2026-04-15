@@ -94,9 +94,17 @@ export async function connect(passphrase, onChange) {
       // First time — push local data to cloud
       const localData = localStorage.getItem(LOCAL_DATA_KEY)
       const items = localData ? JSON.parse(localData) : []
+      let initialIssues = []
+      try {
+        const ir = localStorage.getItem(LOCAL_ISSUES_KEY)
+        const parsed = ir ? JSON.parse(ir) : []
+        initialIssues = Array.isArray(parsed) ? parsed : []
+      } catch {
+        initialIssues = []
+      }
       await setDoc(vaultRef, {
         gratitude: items,
-        issues: [],
+        issues: initialIssues,
         diet: getDietForInitialVault(),
         updatedAt: Date.now(),
       })
@@ -108,6 +116,20 @@ export async function connect(passphrase, onChange) {
       }
       if (data.diet) {
         applyRemoteDiet(data.diet)
+      }
+      // If cloud has no issues (or empty) but this device has local issues, merge them up.
+      // Fixes export-from-Firestore showing 0 while the app UI still lists unchecked items.
+      try {
+        const remoteIssues = data.issues
+        const remoteEmpty = !Array.isArray(remoteIssues) || remoteIssues.length === 0
+        const ir = localStorage.getItem(LOCAL_ISSUES_KEY)
+        const localIssues = ir ? JSON.parse(ir) : []
+        const hasLocal = Array.isArray(localIssues) && localIssues.length > 0
+        if (hasLocal && remoteEmpty) {
+          await setDoc(vaultRef, { issues: localIssues, updatedAt: Date.now() }, { merge: true })
+        }
+      } catch (repairErr) {
+        console.warn('Issues cloud repair skipped:', repairErr)
       }
     }
   } catch (err) {

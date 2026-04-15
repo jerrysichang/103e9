@@ -1,7 +1,7 @@
 import { initializeApp, deleteApp } from 'firebase/app'
 import { getFirestore, doc, getDoc } from 'firebase/firestore'
 import { createHash } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 const firebaseConfig = {
@@ -14,10 +14,27 @@ const firebaseConfig = {
   measurementId: 'G-6Y66RYDL5F',
 }
 
-const passphrase = process.env.SYNC_PASSPHRASE?.trim()
-if (!passphrase) {
-  console.error('Missing SYNC_PASSPHRASE env var.')
-  process.exit(1)
+/** @returns {Promise<string|undefined>} */
+async function passphraseFromEnvLocal() {
+  const envPath = path.resolve(process.cwd(), '.env.local')
+  try {
+    const raw = await readFile(envPath, 'utf8')
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const m = trimmed.match(/^SYNC_PASSPHRASE\s*=\s*(.*)$/)
+      if (!m) continue
+      let v = m[1].trim()
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+        v = v.slice(1, -1)
+      }
+      const out = v.trim()
+      if (out) return out
+    }
+  } catch {
+    // missing file is fine
+  }
+  return undefined
 }
 
 const outputArg = process.argv[2]
@@ -28,6 +45,16 @@ function hashPassphrase(raw) {
 }
 
 async function main() {
+  const passphrase =
+    process.env.SYNC_PASSPHRASE?.trim() || (await passphraseFromEnvLocal())
+
+  if (!passphrase) {
+    console.error(
+      'Missing sync passphrase. Set SYNC_PASSPHRASE in the environment, or add SYNC_PASSPHRASE=... to .env.local (see .env.example).',
+    )
+    process.exit(1)
+  }
+
   const hash = hashPassphrase(passphrase)
   const app = initializeApp(firebaseConfig)
   try {

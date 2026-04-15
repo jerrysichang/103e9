@@ -17,6 +17,9 @@ export function renderIssuesList(container, { navigate }) {
             <button class="btn btn-back" id="btn-home-issues">Menu</button>
             <div class="header-title">Issues</div>
           </div>
+          <div class="header-right">
+            <button class="btn btn-secondary issues-export-btn" type="button" id="btn-export-cursor">Save for Cursor</button>
+          </div>
         </header>
 
         <div class="scroll">
@@ -87,6 +90,10 @@ function bindEvents(navigate, rerender) {
 
   root.querySelector('#btn-home-issues').addEventListener('click', () => navigate('home'))
 
+  root.querySelector('#btn-export-cursor').addEventListener('click', () => {
+    downloadOpenIssuesForCursor()
+  })
+
   const input = root.querySelector('#issue-input')
   const addBtn = root.querySelector('#btn-add-issue')
 
@@ -117,4 +124,35 @@ function escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+/** Same shape as `scripts/export-open-issues.mjs` so Cursor can read either source. */
+function downloadOpenIssuesForCursor() {
+  const all = issueStorage.getAll()
+  const open = all
+    .filter(item => !item.completed)
+    .sort((a, b) => a.order - b.order)
+    .map(issue => ({
+      id: issue.id,
+      text: issue.text,
+      createdAt: issue.createdAt || null,
+      updatedAt: issue.updatedAt || null,
+    }))
+  const payload = {
+    source: 'app-local',
+    exportedAt: new Date().toISOString(),
+    totalOpen: open.length,
+    openIssues: open,
+  }
+  const text = `${JSON.stringify(payload, null, 2)}\n`
+  const blob = new Blob([text], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'open-issues.json'
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
