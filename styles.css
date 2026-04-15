@@ -3,8 +3,8 @@
   --bg:              #000000;
   --surface:         #141414;
   --surface-raised:  #1c1c1c;
-  --border:          #333333;
-  --border-subtle:   #222222;
+  --border:          #4d4d4d;
+  --border-subtle:   #303030;
   --text:            #ffffff;
   --text-secondary:  #b0b0b0;
   --text-muted:      #888888;
@@ -547,6 +547,28 @@ textarea.input {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.prompt-entry-block {
+  width: 100%;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 12px 14px;
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.prompt-entry-index {
+  color: var(--text-muted);
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.prompt-entry-text {
+  white-space: pre-wrap;
+  line-height: 1.45;
 }
 
 .prompt-answer {
@@ -1335,6 +1357,22 @@ textarea.coach-input {
   line-height: 1.45;
 }
 
+.issue-delete-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  margin-right: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.issue-delete-btn:active {
+  color: var(--danger);
+}
+
 .issue-completed .issue-title {
   color: var(--text-secondary);
   text-decoration: line-through;
@@ -1345,4 +1383,8 @@ textarea.coach-input {
   padding: 10px 14px;
   font-size: 14px;
   white-space: nowrap;
+}
+
+.prompt-answer-drawer {
+  min-height: 160px;
 }

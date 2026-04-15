@@ -287,14 +287,10 @@ function renderPrompt(prompt, item) {
   const entries = gratitudeStorage.getPromptEntries(item, prompt.key)
   const entryMarkup = entries.length > 0
     ? entries.map((entry, index) => `
-      <textarea
-        class="input prompt-answer"
-        data-prompt-key="${prompt.key}"
-        data-entry-id="${entry.id}"
-        data-entry-index="${index + 1}"
-        placeholder="Write your thoughts…"
-        rows="1"
-      >${escHtml(entry.text)}</textarea>
+      <button class="btn prompt-entry-block" data-edit-entry="${prompt.key}|${entry.id}" type="button">
+        <span class="prompt-entry-index">${index + 1}.</span>
+        <span class="prompt-entry-text">${escHtml(entry.text)}</span>
+      </button>
     `).join('')
     : `<p class="prompt-empty">No entries yet. Add a line when this prompt comes up for you.</p>`
 
@@ -304,7 +300,7 @@ function renderPrompt(prompt, item) {
       <div class="prompt-entries">
         ${entryMarkup}
       </div>
-      <button class="btn btn-secondary prompt-add-line" data-add-line="${prompt.key}">+ Add line</button>
+      <button class="btn btn-secondary prompt-add-line" data-add-line="${prompt.key}" type="button">+ Add line</button>
     </div>
   `
 }
@@ -345,37 +341,41 @@ function bindDetailEvents(navigate, rerender, item) {
     }
   })
 
-  function setupPromptTextareas() {
-    const textareas = root.querySelectorAll('textarea[data-prompt-key][data-entry-id]')
-    textareas.forEach(ta => {
-      if (ta.dataset.bound === '1') return
-      ta.dataset.bound = '1'
-      autoResize(ta)
-      ta.addEventListener('input',  () => autoResize(ta))
-      const saveEntry = () => {
-        gratitudeStorage.updatePromptEntry(item.id, ta.dataset.promptKey, ta.dataset.entryId, ta.value)
-      }
-      ta.addEventListener('change', saveEntry)
-      ta.addEventListener('blur', saveEntry)
-    })
-  }
-
-  setupPromptTextareas()
-
-  // Add new line to prompt
+  // Add new line to prompt (open drawer)
   root.querySelectorAll('[data-add-line]').forEach(btn => {
     btn.addEventListener('click', () => {
       const promptKey = btn.dataset.addLine
-      const entry = gratitudeStorage.addPromptEntry(item.id, promptKey)
-      if (!entry) return
-      rerender()
-      requestAnimationFrame(() => {
-        const nextRoot = document.getElementById('view-detail')
-        const nextInput = nextRoot?.querySelector(`textarea[data-prompt-key="${promptKey}"][data-entry-id="${entry.id}"]`)
-        if (nextInput) {
-          nextInput.focus()
-          nextInput.setSelectionRange(nextInput.value.length, nextInput.value.length)
-        }
+      if (!promptKey) return
+      openPromptDrawer({
+        title: 'New entry',
+        initialText: '',
+        onSave: (text) => {
+          const entry = gratitudeStorage.addPromptEntry(item.id, promptKey)
+          if (!entry) return
+          gratitudeStorage.updatePromptEntry(item.id, promptKey, entry.id, text)
+          rerender()
+        },
+      })
+    })
+  })
+
+  // Edit existing line (open drawer)
+  root.querySelectorAll('[data-edit-entry]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const parts = String(btn.dataset.editEntry || '').split('|')
+      if (parts.length !== 2) return
+      const [promptKey, entryId] = parts
+      const currentItem = gratitudeStorage.getById(item.id)
+      if (!currentItem) return
+      const existing = gratitudeStorage.getPromptEntries(currentItem, promptKey).find(e => e.id === entryId)
+      if (!existing) return
+      openPromptDrawer({
+        title: 'Edit entry',
+        initialText: existing.text,
+        onSave: (text) => {
+          gratitudeStorage.updatePromptEntry(item.id, promptKey, entryId, text)
+          rerender()
+        },
       })
     })
   })
@@ -386,6 +386,46 @@ function bindDetailEvents(navigate, rerender, item) {
 function autoResize(ta) {
   ta.style.height = 'auto'
   ta.style.height = ta.scrollHeight + 'px'
+}
+
+function openPromptDrawer({ title, initialText, onSave }) {
+  const wrapper = document.createElement('div')
+  wrapper.innerHTML = `
+    <div class="modal-backdrop" id="prompt-entry-modal">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-title">${escHtml(title)}</div>
+        <textarea class="input prompt-answer-drawer" id="prompt-entry-input" rows="6" placeholder="Write your thoughts…">${escHtml(initialText || '')}</textarea>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" type="button" id="prompt-entry-cancel">Cancel</button>
+          <button class="btn btn-primary" type="button" id="prompt-entry-save">Save</button>
+        </div>
+      </div>
+    </div>
+  `
+  document.body.appendChild(wrapper)
+  const modal = wrapper.querySelector('#prompt-entry-modal')
+  const input = wrapper.querySelector('#prompt-entry-input')
+
+  function close() {
+    wrapper.remove()
+  }
+
+  wrapper.querySelector('#prompt-entry-cancel')?.addEventListener('click', close)
+  wrapper.querySelector('#prompt-entry-save')?.addEventListener('click', () => {
+    const text = String(input?.value || '').trim()
+    if (!text) return
+    onSave(text)
+    close()
+  })
+  modal?.addEventListener('click', e => {
+    if (e.target === modal) close()
+  })
+
+  setTimeout(() => {
+    input?.focus()
+    if (input) input.setSelectionRange(input.value.length, input.value.length)
+  }, 30)
 }
 
 function escHtml(str) {

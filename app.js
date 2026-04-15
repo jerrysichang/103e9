@@ -205,6 +205,9 @@ function renderHome(container) {
       <div class="scroll">
         <div class="home-header">
           <h1 class="home-title">103e9</h1>
+          <div style="margin-top:14px">
+            <button class="btn btn-secondary" id="btn-logout">Logout this device</button>
+          </div>
         </div>
         <div class="tools-grid">
           ${TOOLS.map(tool => `
@@ -224,6 +227,12 @@ function renderHome(container) {
     if (!card) return
     const tool = TOOLS.find(t => t.id === card.dataset.tool)
     if (tool) navigate(tool.defaultView)
+  })
+
+  container.querySelector('#btn-logout')?.addEventListener('click', () => {
+    if (!confirm('Logout on this device?')) return
+    disconnect()
+    navigate('passphrase')
   })
 }
 

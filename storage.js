@@ -303,6 +303,36 @@ export const issueStorage = {
     section.forEach((item, index) => { item.order = index })
     this._saveAll(items)
   },
+
+  /** @param {string} id @param {string} text */
+  updateText(id, text) {
+    const items = this.getAll()
+    const idx = items.findIndex(item => item.id === id)
+    if (idx === -1) return
+    items[idx].text = String(text || '').trim()
+    items[idx].updatedAt = new Date().toISOString()
+    this._saveAll(items)
+  },
+
+  /** @param {string} id */
+  delete(id) {
+    const items = this.getAll().filter(item => item.id !== id)
+    this._saveAll(items)
+  },
+
+  /**
+   * Reorder issues within section.
+   * @param {string[]} orderedIds
+   * @param {boolean} completed
+   */
+  reorder(orderedIds, completed) {
+    const items = this.getAll()
+    orderedIds.forEach((id, idx) => {
+      const item = items.find(i => i.id === id)
+      if (item && item.completed === completed) item.order = idx
+    })
+    this._saveAll(items)
+  },
 }
 
 /**

@@ -151,6 +151,7 @@ export function renderDietTracker(container, { navigate }) {
     const state = load()
     const goals = state.goals
     const day = getDay(dateKey)
+    const entries = Array.isArray(day?.entries) ? day.entries : []
     const { consumed, pct } = dayTotals(dateKey, goals)
 
     container.innerHTML = `
@@ -177,13 +178,13 @@ export function renderDietTracker(container, { navigate }) {
 
           <div class="section-header" style="margin-top:8px">
             <span class="section-label">Today</span>
-            <span class="section-count">${day.entries.length}</span>
+            <span class="section-count">${entries.length}</span>
           </div>
 
           <ul class="diet-entry-list">
-            ${day.entries.length === 0
+            ${entries.length === 0
               ? `<li class="diet-empty">Nothing logged yet. Add food with text, a photo, or both.</li>`
-              : day.entries.map(e => renderEntryRow(e, dateKey)).join('')}
+              : entries.map(e => renderEntryRow(e, dateKey)).join('')}
           </ul>
         </div>
 
@@ -218,23 +219,28 @@ export function renderDietTracker(container, { navigate }) {
   }
 
   function renderEntryRow(entry, dk) {
+    const safeAnalysis = entry?.analysis && typeof entry.analysis === 'object'
+      ? entry.analysis
+      : { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, summary: 'Logged meal' }
+    const safeDescription = typeof entry?.description === 'string' ? entry.description : ''
     const thumb = entry.imageDataUrl
       ? `<div class="diet-entry-thumb"><img src="${entry.imageDataUrl}" alt="" /></div>`
       : `<div class="diet-entry-thumb diet-entry-thumb-placeholder">◇</div>`
-    const desc = entry.description.trim()
-      ? escapeHtml(desc.slice(0, 120)) + (desc.length > 120 ? '…' : '')
+    const trimmedDesc = safeDescription.trim()
+    const desc = trimmedDesc
+      ? escapeHtml(trimmedDesc.slice(0, 120)) + (trimmedDesc.length > 120 ? '…' : '')
       : '<span class="diet-entry-no-desc">Photo log</span>'
     return `
       <li class="diet-entry" data-id="${entry.id}">
         ${thumb}
         <div class="diet-entry-body">
-          <div class="diet-entry-summary">${escapeHtml(entry.analysis.summary)}</div>
+          <div class="diet-entry-summary">${escapeHtml(safeAnalysis.summary || 'Logged meal')}</div>
           <div class="diet-entry-meta">${desc}</div>
           <div class="diet-entry-macros">
-            ${Math.round(entry.analysis.calories)} kcal ·
-            P ${fmtMacro(entry.analysis.proteinG)} ·
-            C ${fmtMacro(entry.analysis.carbsG)} ·
-            F ${fmtMacro(entry.analysis.fatG)}
+            ${Math.round(Number(safeAnalysis.calories) || 0)} kcal ·
+            P ${fmtMacro(Number(safeAnalysis.proteinG) || 0)} ·
+            C ${fmtMacro(Number(safeAnalysis.carbsG) || 0)} ·
+            F ${fmtMacro(Number(safeAnalysis.fatG) || 0)}
           </div>
         </div>
         <button type="button" class="btn diet-entry-remove" data-remove="${entry.id}" aria-label="Remove">×</button>
