@@ -1096,7 +1096,7 @@ textarea.coach-input {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 12px 20px 100px;
+  padding: 12px 20px 84px;
 }
 
 .diet-date-line {
@@ -1171,7 +1171,7 @@ textarea.coach-input {
 
 .diet-footer {
   flex-shrink: 0;
-  padding: 8px 20px calc(4px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 20px env(safe-area-inset-bottom, 0px);
   border-top: 1px solid var(--border-subtle);
   background: var(--bg);
 }
@@ -1331,6 +1331,10 @@ textarea.coach-input {
   border-radius: var(--radius-sm);
   margin-bottom: 8px;
   background: var(--surface-raised);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
 }
 
 .diet-analysis-preview {
@@ -1409,6 +1413,41 @@ textarea.coach-input {
   font-size: 14px;
   color: var(--danger);
   line-height: 1.45;
+}
+
+.diet-fav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.diet-fav-item {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  padding: 10px;
+}
+
+.diet-fav-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.diet-fav-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.diet-fav-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.diet-fav-actions .btn {
+  width: auto;
+  padding: 8px 12px;
 }
 
 .diet-goals-intro {

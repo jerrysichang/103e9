@@ -11,6 +11,7 @@ export function makeSortable(listEl, onSort, options = {}) {
   let state = null
   let lastDragAt = 0
   const DRAG_THRESHOLD = 5 // px before drag activates
+  const holdDelayMs = Math.max(0, Number(options.holdDelayMs) || 0)
   const handleSelector = Object.prototype.hasOwnProperty.call(options, 'handleSelector')
     ? options.handleSelector
     : '[data-sort-handle]'
@@ -43,6 +44,14 @@ export function makeSortable(listEl, onSort, options = {}) {
       dragging: false,
       pointerId: e.pointerId,
       captureEl: handle || item,
+      canDrag: holdDelayMs === 0,
+      holdTimer: null,
+    }
+
+    if (!state.canDrag) {
+      state.holdTimer = window.setTimeout(() => {
+        if (state) state.canDrag = true
+      }, holdDelayMs)
     }
 
     document.addEventListener('pointermove', onPointerMove, { passive: false })
@@ -84,6 +93,7 @@ export function makeSortable(listEl, onSort, options = {}) {
 
     // Don't start dragging until threshold is met
     if (!state.dragging) {
+      if (!state.canDrag) return
       if (Math.abs(dy) < DRAG_THRESHOLD) return
       activateDrag()
     }
@@ -113,6 +123,7 @@ export function makeSortable(listEl, onSort, options = {}) {
     if (!state) return
 
     const { item, ghost, placeholder, dragging, pointerId, captureEl } = state
+    if (state.holdTimer) window.clearTimeout(state.holdTimer)
     state = null
 
     if (captureEl && typeof captureEl.releasePointerCapture === 'function') {

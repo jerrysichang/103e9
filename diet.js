@@ -5,13 +5,16 @@
 
 import {
   load,
-  save,
   todayKey,
   getDay,
   addEntry,
   removeEntry,
   setGoals,
   dayTotals,
+  getFavorites,
+  createFavorite,
+  updateFavorite,
+  deleteFavorite,
 } from './diet-storage.js'
 
 // ─── Config (match coach.js worker) ───────────────────────────────────────
@@ -259,6 +262,7 @@ export function renderDietTracker(container, { navigate }) {
               <div class="diet-photo-row">
                 <input type="file" id="diet-log-photo" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
                 <button type="button" class="btn btn-secondary diet-photo-btn" id="btn-pick-photo">Use image</button>
+                <button type="button" class="btn btn-secondary diet-photo-btn" id="btn-use-favorite">Use saved</button>
                 <span class="diet-photo-name" id="diet-photo-label"></span>
               </div>
             </div>
@@ -277,6 +281,7 @@ export function renderDietTracker(container, { navigate }) {
               <button type="button" class="btn btn-primary" id="diet-analyze">Analyze</button>
               <button type="button" class="btn btn-secondary hidden" id="diet-restart">Restart</button>
               <button type="button" class="btn btn-secondary hidden" id="diet-reanalyze">Reanalyze</button>
+              <button type="button" class="btn btn-secondary hidden" id="diet-save-favorite">Save favorite</button>
               <button type="button" class="btn btn-primary hidden" id="diet-save-entry">Save</button>
             </div>
           </div>
@@ -362,6 +367,7 @@ export function renderDietTracker(container, { navigate }) {
     const btnAnalyze = container.querySelector('#diet-analyze')
     const btnRestart = container.querySelector('#diet-restart')
     const btnReanalyze = container.querySelector('#diet-reanalyze')
+    const btnSaveFavorite = container.querySelector('#diet-save-favorite')
     const btnSave = container.querySelector('#diet-save-entry')
     const currentTotals = dayTotals(todayKey(), load().goals).consumed
 
@@ -384,6 +390,7 @@ export function renderDietTracker(container, { navigate }) {
     btnAnalyze?.classList.remove('hidden')
     btnRestart?.classList.add('hidden')
     btnReanalyze?.classList.add('hidden')
+    btnSaveFavorite?.classList.add('hidden')
     btnSave?.classList.add('hidden')
     if (btnAnalyze) {
       btnAnalyze.textContent = 'Analyze'
@@ -404,6 +411,34 @@ export function renderDietTracker(container, { navigate }) {
     container.querySelector('#diet-cancel')?.addEventListener('click', closeLogModal, { signal })
 
     container.querySelector('#btn-pick-photo')?.addEventListener('click', () => photoInput?.click(), { signal })
+    container.querySelector('#btn-use-favorite')?.addEventListener('click', () => {
+      openFavoritePicker({
+        onPick: (fav) => {
+          pendingAnalysis = fav.analysis
+          pendingDescription = fav.description
+          if (desc) desc.value = fav.description
+          if (analysisDescEl) analysisDescEl.textContent = fav.description || 'Saved favorite'
+          if (analysisEl) {
+            const goals = load().goals
+            analysisEl.innerHTML = `
+              <div class="diet-analysis-title">Estimate</div>
+              <p class="diet-analysis-line">${escapeHtml(fav.analysis.summary || fav.label)}</p>
+              ${analysisComparisonBars(currentTotals, fav.analysis, goals)}
+              <p class="diet-analysis-line">${escapeHtml(mealSuggestion(fav.analysis, currentTotals, goals))}</p>
+            `
+            analysisEl.classList.remove('hidden')
+          }
+          initialInputs?.classList.add('hidden')
+          analysisControls?.classList.remove('hidden')
+          btnAnalyze?.classList.add('hidden')
+          btnRestart?.classList.remove('hidden')
+          btnReanalyze?.classList.remove('hidden')
+          btnSaveFavorite?.classList.remove('hidden')
+          btnSave?.classList.remove('hidden')
+          if (btnSave) btnSave.disabled = false
+        },
+      })
+    }, { signal })
 
     photoInput?.addEventListener('change', async () => {
       const file = photoInput.files?.[0] || null
@@ -456,6 +491,7 @@ export function renderDietTracker(container, { navigate }) {
         btnAnalyze.classList.add('hidden')
         btnRestart?.classList.remove('hidden')
         btnReanalyze?.classList.remove('hidden')
+        btnSaveFavorite?.classList.remove('hidden')
         btnSave?.classList.remove('hidden')
         if (btnReanalyze) {
           btnReanalyze.textContent = 'Reanalyze'
@@ -482,6 +518,7 @@ export function renderDietTracker(container, { navigate }) {
       if (btnSave) btnSave.disabled = true
       btnRestart?.classList.add('hidden')
       btnReanalyze?.classList.add('hidden')
+      btnSaveFavorite?.classList.add('hidden')
       btnSave?.classList.add('hidden')
       btnAnalyze?.classList.remove('hidden')
       if (btnAnalyze) {
@@ -550,6 +587,18 @@ export function renderDietTracker(container, { navigate }) {
           }
         }
       }
+    }, { signal })
+
+    btnSaveFavorite?.addEventListener('click', () => {
+      if (!pendingAnalysis) return
+      const baseLabel = pendingDescription.trim() || pendingAnalysis.summary || 'Saved favorite'
+      const label = prompt('Favorite name', baseLabel.slice(0, 60))
+      if (!label) return
+      createFavorite({
+        label: label.trim().slice(0, 60) || 'Saved favorite',
+        description: pendingDescription,
+        analysis: pendingAnalysis,
+      })
     }, { signal })
 
     backdrop?.addEventListener('click', e => {
@@ -692,6 +741,89 @@ function dayRecommendation(consumed, goals) {
     return 'Healthy-fat add-on: avocado toast with eggs, salmon with rice, or yogurt + nuts.'
   }
   return 'You are close to target: keep the next meal light and balanced (lean protein + veggie + modest carb).'
+}
+
+/**
+ * @param {{ onPick: (fav: import('./diet-storage.js').DietFavorite) => void }} options
+ */
+function openFavoritePicker(options) {
+  const wrapper = document.createElement('div')
+  wrapper.innerHTML = `
+    <div class="modal-backdrop" id="diet-fav-modal">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-title">Saved favorites</div>
+        <div class="diet-fav-list">
+          ${renderFavoriteList()}
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" type="button" id="diet-fav-close">Close</button>
+        </div>
+      </div>
+    </div>
+  `
+  document.body.appendChild(wrapper)
+  const modal = wrapper.querySelector('#diet-fav-modal')
+
+  const close = () => wrapper.remove()
+  wrapper.querySelector('#diet-fav-close')?.addEventListener('click', close)
+  modal?.addEventListener('click', e => {
+    if (e.target === modal) close()
+  })
+
+  wrapper.querySelectorAll('[data-fav-use]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-fav-use')
+      const fav = getFavorites().find(item => item.id === id)
+      if (!fav) return
+      close()
+      options.onPick(fav)
+    })
+  })
+
+  wrapper.querySelectorAll('[data-fav-delete]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-fav-delete')
+      if (!id) return
+      if (!confirm('Delete this favorite?')) return
+      deleteFavorite(id)
+      close()
+      openFavoritePicker(options)
+    })
+  })
+
+  wrapper.querySelectorAll('[data-fav-edit]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-fav-edit')
+      const fav = getFavorites().find(item => item.id === id)
+      if (!fav) return
+      const label = prompt('Favorite name', fav.label)
+      if (!label) return
+      updateFavorite(id, { label: label.trim().slice(0, 60) || fav.label })
+      close()
+      openFavoritePicker(options)
+    })
+  })
+}
+
+function renderFavoriteList() {
+  const favorites = getFavorites()
+  if (!favorites.length) {
+    return `<p class="diet-empty">No saved favorites yet. Analyze a meal, then tap "Save favorite".</p>`
+  }
+  return favorites.map(fav => `
+    <div class="diet-fav-item">
+      <div class="diet-fav-main">
+        <div class="diet-fav-title">${escapeHtml(fav.label)}</div>
+        <div class="diet-fav-meta">${Math.round(fav.analysis.calories)} kcal · P ${fmtMacro(fav.analysis.proteinG)} · C ${fmtMacro(fav.analysis.carbsG)} · F ${fmtMacro(fav.analysis.fatG)}</div>
+      </div>
+      <div class="diet-fav-actions">
+        <button class="btn btn-secondary" type="button" data-fav-use="${fav.id}">Use</button>
+        <button class="btn btn-secondary" type="button" data-fav-edit="${fav.id}">Edit</button>
+        <button class="btn btn-secondary" type="button" data-fav-delete="${fav.id}">Delete</button>
+      </div>
+    </div>
+  `).join('')
 }
 
 function escapeHtml(s) {

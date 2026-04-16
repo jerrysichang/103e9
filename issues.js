@@ -62,7 +62,7 @@ export function renderIssuesList(container, { navigate }) {
       openSortable = makeSortable(openList, ids => {
         suppressRemoteRender()
         issueStorage.reorder(ids, false)
-      }, { handleSelector: '[data-sort-handle]' })
+      }, { handleSelector: '[data-sort-handle]', holdDelayMs: 220 })
     }
   }
 
@@ -244,8 +244,22 @@ function openIssueCreator(rerender) {
   modal?.addEventListener('click', e => {
     if (e.target === modal) close()
   })
-  setTimeout(() => {
-    input?.focus()
-    input?.select()
-  }, 30)
+  queueInputFocus(input)
+}
+
+/**
+ * @param {HTMLTextAreaElement | null} input
+ */
+function queueInputFocus(input) {
+  const focusNow = () => {
+    if (!input) return
+    input.focus({ preventScroll: true })
+    input.select()
+    const end = input.value.length
+    input.setSelectionRange(0, end)
+  }
+  requestAnimationFrame(() => {
+    focusNow()
+    requestAnimationFrame(focusNow)
+  })
 }

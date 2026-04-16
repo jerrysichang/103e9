@@ -15,6 +15,7 @@ function defaultState() {
       fatG: 65,
     },
     days: {},
+    favorites: [],
   }
 }
 
@@ -38,7 +39,12 @@ function normalizeState(raw) {
     const entries = Array.isArray(day.entries) ? day.entries.filter(isEntryLike).map(normalizeEntry) : []
     days[k] = { entries }
   }
-  return { goals, days }
+  const favoritesRaw = Array.isArray(o.favorites) ? o.favorites : []
+  const favorites = favoritesRaw
+    .filter(f => f && typeof f === 'object')
+    .map(normalizeFavorite)
+    .filter(Boolean)
+  return { goals, days, favorites }
 }
 
 function isEntryLike(e) {
@@ -63,6 +69,32 @@ function normalizeEntry(e) {
       fatG: Math.max(0, Number(analysis.fatG) || 0),
       summary: typeof analysis.summary === 'string' ? analysis.summary : '',
     },
+  }
+}
+
+/** @param {unknown} raw */
+function normalizeFavorite(raw) {
+  const x = raw && typeof raw === 'object' ? /** @type {Record<string, unknown>} */ (raw) : null
+  if (!x || typeof x.id !== 'string') return null
+  const analysis = x.analysis && typeof x.analysis === 'object'
+    ? /** @type {Record<string, unknown>} */ (x.analysis)
+    : {}
+  const label = typeof x.label === 'string' && x.label.trim()
+    ? x.label.trim()
+    : 'Saved favorite'
+  return {
+    id: x.id,
+    label,
+    description: typeof x.description === 'string' ? x.description : '',
+    analysis: {
+      calories: Math.max(0, Number(analysis.calories) || 0),
+      proteinG: Math.max(0, Number(analysis.proteinG) || 0),
+      carbsG: Math.max(0, Number(analysis.carbsG) || 0),
+      fatG: Math.max(0, Number(analysis.fatG) || 0),
+      summary: typeof analysis.summary === 'string' ? analysis.summary : '',
+    },
+    createdAt: typeof x.createdAt === 'string' ? x.createdAt : new Date().toISOString(),
+    updatedAt: typeof x.updatedAt === 'string' ? x.updatedAt : new Date().toISOString(),
   }
 }
 
@@ -109,7 +141,7 @@ export function stripForCloud(state) {
       })),
     }
   }
-  return { goals: state.goals, days }
+  return { goals: state.goals, days, favorites: state.favorites }
 }
 
 /**
@@ -127,6 +159,7 @@ export function applyRemoteDiet(remoteRaw) {
 function mergePreservingImages(local, remote) {
   const goals = remote.goals
   const days = { ...local.days }
+  const favorites = remote.favorites
 
   for (const [dateKey, remoteDay] of Object.entries(remote.days)) {
     const localDay = local.days[dateKey] || { entries: [] }
@@ -142,7 +175,7 @@ function mergePreservingImages(local, remote) {
     days[dateKey] = { entries: [...mergedEntries, ...orphanLocal] }
   }
 
-  return { goals, days }
+  return { goals, days, favorites }
 }
 
 /** For first-time vault upload — same shape as cloud. */
@@ -181,6 +214,61 @@ export function removeEntry(dateKey, entryId) {
 export function setGoals(patch) {
   const state = load()
   state.goals = { ...state.goals, ...patch }
+  save(state)
+}
+
+export function getFavorites() {
+  return [...load().favorites].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+}
+
+/**
+ * @param {{ label: string, description: string, analysis: DietAnalysis }} input
+ */
+export function createFavorite(input) {
+  const state = load()
+  const now = new Date().toISOString()
+  const item = normalizeFavorite({
+    id: crypto.randomUUID(),
+    label: input.label,
+    description: input.description,
+    analysis: input.analysis,
+    createdAt: now,
+    updatedAt: now,
+  })
+  if (!item) return null
+  state.favorites = [item, ...state.favorites]
+  save(state)
+  return item
+}
+
+/**
+ * @param {string} id
+ * @param {{ label?: string, description?: string, analysis?: DietAnalysis }} patch
+ */
+export function updateFavorite(id, patch) {
+  const state = load()
+  let changed = false
+  state.favorites = state.favorites.map(item => {
+    if (item.id !== id) return item
+    changed = true
+    const updated = normalizeFavorite({
+      ...item,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    })
+    return updated || item
+  })
+  if (changed) save(state)
+}
+
+/**
+ * @param {string} id
+ */
+export function deleteFavorite(id) {
+  const state = load()
+  const next = state.favorites.filter(item => item.id !== id)
+  if (next.length === state.favorites.length) return
+  state.favorites = next
   save(state)
 }
 
@@ -243,4 +331,15 @@ export function dayTotals(dateKey, goals) {
  * @typedef {Object} DietState
  * @property {DietGoals} goals
  * @property {Record<string, DietDay>} days
+ * @property {DietFavorite[]} favorites
+ */
+
+/**
+ * @typedef {Object} DietFavorite
+ * @property {string} id
+ * @property {string} label
+ * @property {string} description
+ * @property {DietAnalysis} analysis
+ * @property {string} createdAt
+ * @property {string} updatedAt
  */
