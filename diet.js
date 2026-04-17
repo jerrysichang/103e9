@@ -21,6 +21,7 @@ import {
 
 const WORKER_URL = 'https://jos.jerry-si-chang.workers.dev'
 const DIET_MODEL = 'claude-sonnet-4-20250514'
+const OPEN_FOOD_FACTS_SEARCH_URL = 'https://world.openfoodfacts.org/cgi/search.pl'
 
 const ANALYSIS_SYSTEM = `You estimate calories and macronutrients for a single eating occasion.
 
@@ -100,6 +101,141 @@ async function analyzeMeal(description, image) {
     carbsG: Math.max(0, Number(parsed.carbs_g) || 0),
     fatG: Math.max(0, Number(parsed.fat_g) || 0),
     summary: typeof parsed.summary === 'string' ? parsed.summary : 'Logged meal',
+  }
+}
+
+function toNum(v) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+function firstNum(obj, keys) {
+  for (const key of keys) {
+    const n = toNum(obj?.[key])
+    if (n !== null) return n
+  }
+  return null
+}
+
+function parseAmountGramsFromText(text) {
+  const raw = String(text || '').toLowerCase()
+  const unitMatch = raw.match(/(\d+(?:\.\d+)?)\s*(g|gram|grams|ml|millilit(?:er|re)s?|l|lit(?:er|re)s?)/i)
+  if (!unitMatch) return null
+  const val = Number(unitMatch[1])
+  if (!Number.isFinite(val) || val <= 0) return null
+  const unit = unitMatch[2].toLowerCase()
+  if (unit === 'l' || unit.startsWith('lit')) return val * 1000
+  return val
+}
+
+function parseAmountGramsFromLabel(text) {
+  const raw = String(text || '').toLowerCase()
+  const m = raw.match(/(\d+(?:\.\d+)?)\s*(g|gram|grams|ml|millilit(?:er|re)s?|l|lit(?:er|re)s?)/i)
+  if (!m) return null
+  const val = Number(m[1])
+  if (!Number.isFinite(val) || val <= 0) return null
+  const unit = m[2].toLowerCase()
+  if (unit === 'l' || unit.startsWith('lit')) return val * 1000
+  return val
+}
+
+function extractOpenFoodFactsAnalysis(product, queryText) {
+  const nutriments = product?.nutriments || {}
+  const servingProtein = firstNum(nutriments, ['proteins_serving'])
+  const servingCarbs = firstNum(nutriments, ['carbohydrates_serving'])
+  const servingFat = firstNum(nutriments, ['fat_serving'])
+  const servingKcal = firstNum(nutriments, ['energy-kcal_serving', 'energy-kcal_value'])
+
+  let protein = servingProtein
+  let carbs = servingCarbs
+  let fat = servingFat
+  let calories = servingKcal
+  let servingHint = ''
+
+  if (protein === null || carbs === null || fat === null) {
+    const per100Protein = firstNum(nutriments, ['proteins_100g'])
+    const per100Carbs = firstNum(nutriments, ['carbohydrates_100g'])
+    const per100Fat = firstNum(nutriments, ['fat_100g'])
+    const per100Kcal = firstNum(nutriments, ['energy-kcal_100g'])
+    if (per100Protein === null || per100Carbs === null || per100Fat === null) return null
+    const amountG =
+      parseAmountGramsFromText(queryText) ||
+      parseAmountGramsFromLabel(product?.serving_size) ||
+      parseAmountGramsFromLabel(product?.quantity) ||
+      100
+    const factor = amountG / 100
+    protein = per100Protein * factor
+    carbs = per100Carbs * factor
+    fat = per100Fat * factor
+    calories = per100Kcal !== null ? per100Kcal * factor : (protein * 4 + carbs * 4 + fat * 9)
+    if (!parseAmountGramsFromText(queryText)) servingHint = ` (estimated for ~${Math.round(amountG)}g)`
+  }
+
+  return {
+    calories: Math.max(0, Math.round(calories || 0)),
+    proteinG: Math.max(0, Number((protein || 0).toFixed(1))),
+    carbsG: Math.max(0, Number((carbs || 0).toFixed(1))),
+    fatG: Math.max(0, Number((fat || 0).toFixed(1))),
+    summary: `Matched ${product.product_name || 'packaged food'} from Open Food Facts${servingHint}.`,
+  }
+}
+
+async function lookupPackagedFoodAnalysis(queryText) {
+  const q = String(queryText || '').trim()
+  if (!q) return null
+  const params = new URLSearchParams({
+    search_terms: q,
+    search_simple: '1',
+    action: 'process',
+    json: '1',
+    page_size: '12',
+    fields: 'product_name,brands,serving_size,quantity,nutriments',
+  })
+  const res = await fetch(`${OPEN_FOOD_FACTS_SEARCH_URL}?${params.toString()}`)
+  if (!res.ok) return null
+  const data = await res.json()
+  const products = Array.isArray(data?.products) ? data.products : []
+  if (!products.length) return null
+
+  const tokens = q.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 2)
+  let best = null
+  let bestScore = -1
+  for (const p of products) {
+    const haystack = `${p?.product_name || ''} ${p?.brands || ''}`.toLowerCase()
+    const tokenMatches = tokens.reduce((acc, t) => (haystack.includes(t) ? acc + 1 : acc), 0)
+    const hasServing = toNum(p?.nutriments?.proteins_serving) !== null && toNum(p?.nutriments?.carbohydrates_serving) !== null
+    const hasPer100 = toNum(p?.nutriments?.proteins_100g) !== null && toNum(p?.nutriments?.carbohydrates_100g) !== null
+    const score = tokenMatches * 5 + (hasServing ? 7 : 0) + (hasPer100 ? 3 : 0)
+    if (score > bestScore) {
+      best = p
+      bestScore = score
+    }
+  }
+  if (!best || bestScore < 8) return null
+  return extractOpenFoodFactsAnalysis(best, q)
+}
+
+async function analyzeMealReliable(description, image) {
+  const text = String(description || '').trim()
+  let packaged = null
+  if (text) {
+    try {
+      packaged = await lookupPackagedFoodAnalysis(text)
+    } catch (err) {
+      console.warn('Packaged food lookup failed:', err)
+    }
+  }
+
+  if (packaged && !image) return packaged
+  const ai = await analyzeMeal(description, image)
+  if (!packaged) return ai
+  return {
+    ...ai,
+    calories: packaged.calories,
+    proteinG: packaged.proteinG,
+    carbsG: packaged.carbsG,
+    fatG: packaged.fatG,
+    summary: packaged.summary,
   }
 }
 
@@ -515,7 +651,7 @@ export function renderDietTracker(container, { navigate }) {
         const prompt = corrections
           ? `${text}\n\nCorrections from user: ${corrections}`
           : text
-        const result = await analyzeMeal(prompt, pendingImage)
+        const result = await analyzeMealReliable(prompt, pendingImage)
         pendingAnalysis = applyExplicitMacroOverrides(prompt, result)
         pendingDescription = text
         const goals = load().goals
