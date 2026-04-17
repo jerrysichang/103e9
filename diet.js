@@ -26,6 +26,12 @@ const ANALYSIS_SYSTEM = `You estimate calories and macronutrients for a single e
 
 The user may describe food in text, attach a photo of a meal, or both. Use every clue you have. If portions are unclear, make your best reasonable guess and say so briefly in the summary.
 
+Accuracy rules (important):
+- If this is a packaged/branded product and a nutrition label is visible or described, prioritize the label over generic estimates.
+- Use values for the amount actually consumed (for example: per bottle, per bar, per serving eaten). If the label is per 100g/ml and serving size is known, convert.
+- Treat carbs as TOTAL carbohydrate shown on the label. Do not return net carbs and do not subtract fiber or sugar alcohols.
+- If the user provides explicit numbers in text/corrections (for example "29g carbs"), those numbers should override your estimate.
+
 Return ONLY valid JSON (no markdown, no code fences) with exactly these keys:
 {
   "calories": <number, total kcal>,
@@ -95,6 +101,43 @@ async function analyzeMeal(description, image) {
     fatG: Math.max(0, Number(parsed.fat_g) || 0),
     summary: typeof parsed.summary === 'string' ? parsed.summary : 'Logged meal',
   }
+}
+
+/**
+ * Parse user-provided macro numbers from free text and apply as hard overrides.
+ * This improves reliability for packaged foods where users type label values.
+ * @param {string} text
+ * @param {{ calories: number, proteinG: number, carbsG: number, fatG: number, summary: string }} analysis
+ */
+function applyExplicitMacroOverrides(text, analysis) {
+  const raw = String(text || '')
+  const next = { ...analysis }
+
+  const caloriesMatch = raw.match(/(?:^|[^\w])(kcal|calories?|cals?)\s*[:=-]?\s*(\d{2,4}(?:\.\d+)?)|(\d{2,4}(?:\.\d+)?)\s*(?:kcal|calories?|cals?)(?:[^\w]|$)/i)
+  if (caloriesMatch) {
+    const cal = Number(caloriesMatch[2] || caloriesMatch[3])
+    if (Number.isFinite(cal) && cal >= 0) next.calories = Math.round(cal)
+  }
+
+  const proteinMatch = raw.match(/(?:protein|prot(?:ein)?)\s*[:=-]?\s*(\d{1,3}(?:\.\d+)?)\s*g|(\d{1,3}(?:\.\d+)?)\s*g\s*(?:protein|prot(?:ein)?)/i)
+  if (proteinMatch) {
+    const p = Number(proteinMatch[1] || proteinMatch[2])
+    if (Number.isFinite(p) && p >= 0) next.proteinG = p
+  }
+
+  const carbsMatch = raw.match(/(?:total\s+)?(?:carb|carbs|carbohydrate|carbohydrates)\s*[:=-]?\s*(\d{1,3}(?:\.\d+)?)\s*g|(\d{1,3}(?:\.\d+)?)\s*g\s*(?:total\s+)?(?:carb|carbs|carbohydrate|carbohydrates)/i)
+  if (carbsMatch) {
+    const c = Number(carbsMatch[1] || carbsMatch[2])
+    if (Number.isFinite(c) && c >= 0) next.carbsG = c
+  }
+
+  const fatMatch = raw.match(/(?:fat|fats)\s*[:=-]?\s*(\d{1,3}(?:\.\d+)?)\s*g|(\d{1,3}(?:\.\d+)?)\s*g\s*(?:fat|fats)/i)
+  if (fatMatch) {
+    const f = Number(fatMatch[1] || fatMatch[2])
+    if (Number.isFinite(f) && f >= 0) next.fatG = f
+  }
+
+  return next
 }
 
 /**
@@ -473,7 +516,7 @@ export function renderDietTracker(container, { navigate }) {
           ? `${text}\n\nCorrections from user: ${corrections}`
           : text
         const result = await analyzeMeal(prompt, pendingImage)
-        pendingAnalysis = result
+        pendingAnalysis = applyExplicitMacroOverrides(prompt, result)
         pendingDescription = text
         const goals = load().goals
         if (analysisDescEl) {
@@ -481,9 +524,9 @@ export function renderDietTracker(container, { navigate }) {
         }
         analysisEl.innerHTML = `
           <div class="diet-analysis-title">Estimate</div>
-          <p class="diet-analysis-line">${escapeHtml(result.summary)}</p>
-          ${analysisComparisonBars(currentTotals, result, goals)}
-          <p class="diet-analysis-line">${escapeHtml(mealSuggestion(result, currentTotals, goals))}</p>
+          <p class="diet-analysis-line">${escapeHtml(pendingAnalysis.summary)}</p>
+          ${analysisComparisonBars(currentTotals, pendingAnalysis, goals)}
+          <p class="diet-analysis-line">${escapeHtml(mealSuggestion(pendingAnalysis, currentTotals, goals))}</p>
         `
         analysisEl.classList.remove('hidden')
         initialInputs?.classList.add('hidden')
