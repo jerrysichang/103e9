@@ -198,21 +198,39 @@ async function lookupPackagedFoodAnalysis(queryText) {
   if (!products.length) return null
 
   const tokens = q.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 2)
-  let best = null
-  let bestScore = -1
-  for (const p of products) {
+  const scored = products.map((p) => {
     const haystack = `${p?.product_name || ''} ${p?.brands || ''}`.toLowerCase()
     const tokenMatches = tokens.reduce((acc, t) => (haystack.includes(t) ? acc + 1 : acc), 0)
     const hasServing = toNum(p?.nutriments?.proteins_serving) !== null && toNum(p?.nutriments?.carbohydrates_serving) !== null
     const hasPer100 = toNum(p?.nutriments?.proteins_100g) !== null && toNum(p?.nutriments?.carbohydrates_100g) !== null
     const score = tokenMatches * 5 + (hasServing ? 7 : 0) + (hasPer100 ? 3 : 0)
-    if (score > bestScore) {
-      best = p
-      bestScore = score
-    }
+    return { product: p, score }
+  }).sort((a, b) => b.score - a.score)
+
+  const top = scored.slice(0, 3).filter(item => item.score >= 8)
+  if (!top.length) return null
+  const best = top[0]
+  const second = top[1]
+  const isClearlyBest = best.score >= 14 && (!second || best.score - second.score >= 4)
+  if (isClearlyBest) {
+    return extractOpenFoodFactsAnalysis(best.product, q)
   }
-  if (!best || bestScore < 8) return null
-  return extractOpenFoodFactsAnalysis(best, q)
+
+  // Ambiguous match: ask user to pick so we avoid silently logging wrong macros.
+  const optionsText = top.map((item, i) => {
+    const p = item.product
+    const name = p?.product_name || 'Unknown product'
+    const brand = p?.brands ? ` (${p.brands})` : ''
+    const serving = p?.serving_size ? `, serving ${p.serving_size}` : ''
+    return `${i + 1}) ${name}${brand}${serving}`
+  }).join('\n')
+  const choice = prompt(
+    `Pick the correct packaged-food match:\n${optionsText}\n\nEnter 1-${top.length}, or Cancel to skip and use AI estimate.`,
+  )
+  if (!choice) return null
+  const idx = Number(choice) - 1
+  if (!Number.isInteger(idx) || idx < 0 || idx >= top.length) return null
+  return extractOpenFoodFactsAnalysis(top[idx].product, q)
 }
 
 async function analyzeMealReliable(description, image) {
