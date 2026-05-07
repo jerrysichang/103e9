@@ -1191,14 +1191,6 @@ textarea.coach-input {
   margin-top: 8px;
 }
 
-.diet-reco-card {
-  background: var(--surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
-  margin-top: 10px;
-}
-
 .diet-empty {
   color: var(--text-muted);
   font-size: 15px;
@@ -1288,6 +1280,137 @@ textarea.coach-input {
 .diet-log-modal-inner {
   max-height: min(90dvh, 620px);
   overflow-y: auto;
+}
+
+.diet-mode-switch {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 4px;
+  margin-bottom: 14px;
+}
+
+.diet-mode-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 12px;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.diet-mode-btn.diet-mode-active {
+  background: var(--accent);
+  color: #000;
+}
+
+.diet-manual-name {
+  margin-bottom: 14px;
+}
+
+.diet-manual-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+
+.diet-manual-row {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.diet-manual-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.diet-manual-row-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.diet-manual-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.diet-manual-input {
+  width: 88px;
+  padding: 8px 10px;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.diet-manual-unit {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.diet-manual-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+}
+
+.diet-manual-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.diet-manual-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.diet-manual-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  margin-top: -8px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.diet-manual-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .diet-modal-hint {

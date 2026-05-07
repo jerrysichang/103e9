@@ -362,6 +362,37 @@ function compressForLog(dataUrl) {
 
 // ─── UI bits ──────────────────────────────────────────────────────────────
 
+function manualMacroRow({ key, label, unit, max, step }) {
+  return `
+    <div class="diet-manual-row" data-manual-row="${key}">
+      <div class="diet-manual-row-head">
+        <span class="diet-manual-row-label">${label}</span>
+        <div class="diet-manual-input-wrap">
+          <input
+            class="input diet-manual-input"
+            id="diet-manual-${key}"
+            type="number"
+            inputmode="decimal"
+            min="0"
+            step="${step}"
+            value="0"
+          />
+          ${unit ? `<span class="diet-manual-unit">${unit}</span>` : ''}
+        </div>
+      </div>
+      <input
+        class="diet-manual-slider"
+        id="diet-manual-${key}-slider"
+        type="range"
+        min="0"
+        max="${max}"
+        step="${step}"
+        value="0"
+      />
+    </div>
+  `
+}
+
 function macroBar(label, consumed, goal, pct) {
   const over = goal > 0 && consumed > goal
   const overAmount = over ? consumed - goal : 0
@@ -428,10 +459,6 @@ export function renderDietTracker(container, { navigate }) {
             ${macroBar('Carbs', consumed.carbsG, goals.carbsG, pct.carbsG)}
             ${macroBar('Fat', consumed.fatG, goals.fatG, pct.fatG)}
           </div>
-          <div class="diet-reco-card">
-            <div class="diet-analysis-title">Recommendation</div>
-            <p class="diet-analysis-line">${escapeHtml(dayRecommendation(consumed, goals))}</p>
-          </div>
 
           <div class="section-header" style="margin-top:8px">
             <span class="section-label">Today</span>
@@ -453,26 +480,46 @@ export function renderDietTracker(container, { navigate }) {
           <div class="modal diet-log-modal-inner">
             <div class="modal-handle"></div>
             <div class="modal-title">Log food</div>
-            <p class="diet-modal-hint">Describe what you ate and/or add a photo. We’ll estimate calories and macros.</p>
-            <div id="diet-log-initial-inputs">
-              <textarea class="input diet-log-textarea" id="diet-log-desc" rows="3" placeholder="e.g. Greek yogurt, berries, coffee with milk…"></textarea>
-              <div class="diet-photo-row">
-                <input type="file" id="diet-log-photo" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
-                <button type="button" class="btn btn-secondary diet-photo-btn" id="btn-pick-photo">Use image</button>
-                <button type="button" class="btn btn-secondary diet-photo-btn" id="btn-use-favorite">Use saved</button>
-                <span class="diet-photo-name" id="diet-photo-label"></span>
+
+            <div class="diet-mode-switch" role="tablist" aria-label="Log mode">
+              <button type="button" class="diet-mode-btn diet-mode-active" data-mode="auto" role="tab">Auto</button>
+              <button type="button" class="diet-mode-btn" data-mode="manual" role="tab">Manual</button>
+            </div>
+
+            <div id="diet-log-auto">
+              <p class="diet-modal-hint">Describe what you ate and/or add a photo. We’ll estimate calories and macros.</p>
+              <div id="diet-log-initial-inputs">
+                <textarea class="input diet-log-textarea" id="diet-log-desc" rows="3" placeholder="e.g. Greek yogurt, berries, coffee with milk…"></textarea>
+                <div class="diet-photo-row">
+                  <input type="file" id="diet-log-photo" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
+                  <button type="button" class="btn btn-secondary diet-photo-btn" id="btn-pick-photo">Use image</button>
+                  <button type="button" class="btn btn-secondary diet-photo-btn" id="btn-use-favorite">Use saved</button>
+                  <span class="diet-photo-name" id="diet-photo-label"></span>
+                </div>
+              </div>
+              <div id="diet-preview-wrap" class="hidden"></div>
+              <div id="diet-analysis-preview" class="diet-analysis-preview hidden"></div>
+              <div id="diet-analysis-controls" class="diet-analysis-controls hidden">
+                <div class="diet-analysis-title">Description</div>
+                <p id="diet-analysis-description" class="diet-analysis-line"></p>
+                <label class="diet-field" style="margin-top:8px">
+                  <span>Corrections</span>
+                  <textarea class="input diet-log-textarea" id="diet-analysis-corrections" rows="2" placeholder="e.g. this was half a portion, extra olive oil, no rice"></textarea>
+                </label>
               </div>
             </div>
-            <div id="diet-preview-wrap" class="hidden"></div>
-            <div id="diet-analysis-preview" class="diet-analysis-preview hidden"></div>
-            <div id="diet-analysis-controls" class="diet-analysis-controls hidden">
-              <div class="diet-analysis-title">Description</div>
-              <p id="diet-analysis-description" class="diet-analysis-line"></p>
-              <label class="diet-field" style="margin-top:8px">
-                <span>Corrections</span>
-                <textarea class="input diet-log-textarea" id="diet-analysis-corrections" rows="2" placeholder="e.g. this was half a portion, extra olive oil, no rice"></textarea>
-              </label>
+
+            <div id="diet-log-manual" class="hidden">
+              <p class="diet-modal-hint">Type or slide to dial in calories and macros.</p>
+              <input class="input diet-manual-name" id="diet-manual-name" type="text" maxlength="120" placeholder="What did you eat? (optional)" />
+              <div class="diet-manual-rows">
+                ${manualMacroRow({ key: 'cal', label: 'Calories', unit: '', max: 2000, step: 5 })}
+                ${manualMacroRow({ key: 'p',   label: 'Protein',  unit: 'g', max: 100,  step: 1 })}
+                ${manualMacroRow({ key: 'c',   label: 'Carbs',    unit: 'g', max: 150,  step: 1 })}
+                ${manualMacroRow({ key: 'f',   label: 'Fat',      unit: 'g', max: 100,  step: 1 })}
+              </div>
             </div>
+
             <div class="modal-actions">
               <button type="button" class="btn btn-secondary" id="diet-cancel">Cancel</button>
               <button type="button" class="btn btn-primary" id="diet-analyze">Analyze</button>
@@ -480,6 +527,7 @@ export function renderDietTracker(container, { navigate }) {
               <button type="button" class="btn btn-secondary hidden" id="diet-reanalyze">Reanalyze</button>
               <button type="button" class="btn btn-secondary hidden" id="diet-save-favorite">Save favorite</button>
               <button type="button" class="btn btn-primary hidden" id="diet-save-entry">Save</button>
+              <button type="button" class="btn btn-primary hidden" id="diet-save-manual">Save</button>
             </div>
           </div>
         </div>
@@ -566,6 +614,18 @@ export function renderDietTracker(container, { navigate }) {
     const btnReanalyze = container.querySelector('#diet-reanalyze')
     const btnSaveFavorite = container.querySelector('#diet-save-favorite')
     const btnSave = container.querySelector('#diet-save-entry')
+    const btnSaveManual = container.querySelector('#diet-save-manual')
+    const autoSection = container.querySelector('#diet-log-auto')
+    const manualSection = container.querySelector('#diet-log-manual')
+    const modeBtns = container.querySelectorAll('[data-mode]')
+    const manualNameEl = container.querySelector('#diet-manual-name')
+    const manualFields = [
+      { key: 'cal', macroKey: 'calories' },
+      { key: 'p',   macroKey: 'proteinG' },
+      { key: 'c',   macroKey: 'carbsG' },
+      { key: 'f',   macroKey: 'fatG' },
+    ]
+    let currentMode = 'auto'
     const currentTotals = dayTotals(todayKey(), load().goals).consumed
 
     backdrop?.classList.remove('hidden')
@@ -598,6 +658,110 @@ export function renderDietTracker(container, { navigate }) {
       btnReanalyze.disabled = false
     }
     if (btnSave) btnSave.disabled = true
+    btnSaveManual?.classList.add('hidden')
+    if (manualNameEl) manualNameEl.value = ''
+    manualFields.forEach(({ key }) => {
+      const input = container.querySelector(`#diet-manual-${key}`)
+      const slider = container.querySelector(`#diet-manual-${key}-slider`)
+      if (input) input.value = '0'
+      if (slider) slider.value = '0'
+    })
+
+    function setMode(nextMode) {
+      currentMode = nextMode
+      modeBtns.forEach(b => {
+        b.classList.toggle('diet-mode-active', b.getAttribute('data-mode') === nextMode)
+      })
+      if (nextMode === 'auto') {
+        autoSection?.classList.remove('hidden')
+        manualSection?.classList.add('hidden')
+        btnSaveManual?.classList.add('hidden')
+        if (pendingAnalysis) {
+          btnAnalyze?.classList.add('hidden')
+          btnRestart?.classList.remove('hidden')
+          btnReanalyze?.classList.remove('hidden')
+          btnSaveFavorite?.classList.remove('hidden')
+          btnSave?.classList.remove('hidden')
+        } else {
+          btnAnalyze?.classList.remove('hidden')
+          btnRestart?.classList.add('hidden')
+          btnReanalyze?.classList.add('hidden')
+          btnSaveFavorite?.classList.add('hidden')
+          btnSave?.classList.add('hidden')
+        }
+      } else {
+        autoSection?.classList.add('hidden')
+        manualSection?.classList.remove('hidden')
+        btnAnalyze?.classList.add('hidden')
+        btnRestart?.classList.add('hidden')
+        btnReanalyze?.classList.add('hidden')
+        btnSaveFavorite?.classList.add('hidden')
+        btnSave?.classList.add('hidden')
+        btnSaveManual?.classList.remove('hidden')
+      }
+    }
+    modeBtns.forEach(b => {
+      b.addEventListener('click', () => {
+        const m = b.getAttribute('data-mode')
+        if (m === 'auto' || m === 'manual') setMode(m)
+      }, { signal })
+    })
+
+    manualFields.forEach(({ key }) => {
+      const input = container.querySelector(`#diet-manual-${key}`)
+      const slider = container.querySelector(`#diet-manual-${key}-slider`)
+      if (!input || !slider) return
+      const sync = (source) => {
+        const raw = Number(source.value)
+        const v = Number.isFinite(raw) ? Math.max(0, raw) : 0
+        if (source === input) {
+          const sliderMax = Number(slider.max) || 0
+          if (v > sliderMax) slider.max = String(Math.ceil(v * 1.25))
+          slider.value = String(v)
+        } else {
+          input.value = String(v)
+        }
+      }
+      input.addEventListener('input', () => sync(input), { signal })
+      slider.addEventListener('input', () => sync(slider), { signal })
+    })
+
+    setMode('auto')
+
+    btnSaveManual?.addEventListener('click', () => {
+      const get = (key) => {
+        const v = Number(container.querySelector(`#diet-manual-${key}`)?.value)
+        return Number.isFinite(v) && v >= 0 ? v : 0
+      }
+      const calories = Math.round(get('cal'))
+      const proteinG = Number(get('p').toFixed(1))
+      const carbsG = Number(get('c').toFixed(1))
+      const fatG = Number(get('f').toFixed(1))
+      if (calories === 0 && proteinG === 0 && carbsG === 0 && fatG === 0) {
+        manualNameEl?.focus()
+        return
+      }
+      const name = String(manualNameEl?.value || '').trim().slice(0, 120)
+      const entry = {
+        id: crypto.randomUUID(),
+        loggedAt: new Date().toISOString(),
+        description: name,
+        analysis: {
+          calories,
+          proteinG,
+          carbsG,
+          fatG,
+          summary: name || 'Manual entry',
+        },
+      }
+      try {
+        addEntry(todayKey(), entry)
+        closeLogModal()
+        render()
+      } catch (err) {
+        console.error(err)
+      }
+    }, { signal })
 
     function closeLogModal() {
       logModalAbort?.abort()
@@ -905,39 +1069,6 @@ function mealSuggestion(result, currentTotals, goals) {
     return 'Suggestion: add healthy fats with salmon + rice, avocado toast, or yogurt + nuts.'
   }
   return 'Suggestion: you are close to target; keep the next meal light and balanced.'
-}
-
-function dayRecommendation(consumed, goals) {
-  const left = macroRemaining(consumed, goals)
-  const nowHour = new Date().getHours()
-  const overFat = left.fatG < -8
-  const overCarbs = left.carbsG < -20
-  const lowProtein = left.proteinG > 18
-
-  if (overFat && lowProtein) {
-    return nowHour < 17
-      ? 'Try a low-fat, high-protein meal: grilled chicken rice bowl (minimal oil) or tuna + rice + fruit.'
-      : 'Try a low-fat evening option: egg-white scramble with toast, or 0% greek yogurt with berries and cereal.'
-  }
-  if (overFat) {
-    return 'You are already high on fat today: choose lean options next (turkey sandwich, chicken wrap, sushi, fruit + yogurt).'
-  }
-  if (overCarbs && lowProtein) {
-    return 'Carbs are already high: pick a protein-forward snack like greek yogurt, protein shake + banana, or cottage cheese + fruit.'
-  }
-  if (left.proteinG > 20 && left.carbsG > 20) {
-    return 'Balanced top-up idea: chicken rice bowl, turkey sandwich + fruit, or tofu stir-fry with rice.'
-  }
-  if (left.proteinG > 20) {
-    return 'Protein-focused idea: tuna wrap, greek yogurt + whey, or egg-white omelet with toast.'
-  }
-  if (left.carbsG > 25) {
-    return 'Carb-focused idea: oatmeal + banana, rice + lean protein, or toast with jam + yogurt.'
-  }
-  if (left.fatG > 12) {
-    return 'Healthy-fat add-on: avocado toast with eggs, salmon with rice, or yogurt + nuts.'
-  }
-  return 'You are close to target: keep the next meal light and balanced (lean protein + veggie + modest carb).'
 }
 
 /**
