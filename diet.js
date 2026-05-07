@@ -365,20 +365,18 @@ function compressForLog(dataUrl) {
 function manualMacroRow({ key, label, unit, max, step }) {
   return `
     <div class="diet-manual-row" data-manual-row="${key}">
-      <div class="diet-manual-row-head">
-        <span class="diet-manual-row-label">${label}</span>
-        <div class="diet-manual-input-wrap">
-          <input
-            class="input diet-manual-input"
-            id="diet-manual-${key}"
-            type="number"
-            inputmode="decimal"
-            min="0"
-            step="${step}"
-            value="0"
-          />
-          ${unit ? `<span class="diet-manual-unit">${unit}</span>` : ''}
-        </div>
+      <span class="diet-manual-row-label">${label}</span>
+      <div class="diet-manual-input-wrap">
+        <input
+          class="input diet-manual-input"
+          id="diet-manual-${key}"
+          type="number"
+          inputmode="decimal"
+          min="0"
+          step="${step}"
+          value="0"
+        />
+        ${unit ? `<span class="diet-manual-unit">${unit}</span>` : ''}
       </div>
       <input
         class="diet-manual-slider"
@@ -487,7 +485,6 @@ export function renderDietTracker(container, { navigate }) {
             </div>
 
             <div id="diet-log-auto">
-              <p class="diet-modal-hint">Describe what you ate and/or add a photo. We’ll estimate calories and macros.</p>
               <div id="diet-log-initial-inputs">
                 <textarea class="input diet-log-textarea" id="diet-log-desc" rows="3" placeholder="e.g. Greek yogurt, berries, coffee with milk…"></textarea>
                 <div class="diet-photo-row">
@@ -510,7 +507,6 @@ export function renderDietTracker(container, { navigate }) {
             </div>
 
             <div id="diet-log-manual" class="hidden">
-              <p class="diet-modal-hint">Type or slide to dial in calories and macros.</p>
               <input class="input diet-manual-name" id="diet-manual-name" type="text" maxlength="120" placeholder="What did you eat? (optional)" />
               <div class="diet-manual-rows">
                 ${manualMacroRow({ key: 'cal', label: 'Calories', unit: '', max: 2000, step: 5 })}
