@@ -111,13 +111,13 @@ export function renderGratitudeList(container, { navigate }) {
       pursuingSortable = makeSortable(pursuingList, ids => {
         suppressRemoteRender()
         gratitudeStorage.reorder(ids, false)
-      }, { handleSelector: '[data-sort-handle]' })
+      }, { handleSelector: '[data-sort-handle]', holdDelayMs: 350 })
     }
     if (achieved.length > 1) {
       achievedSortable = makeSortable(achievedList, ids => {
         suppressRemoteRender()
         gratitudeStorage.reorder(ids, true)
-      }, { handleSelector: '[data-sort-handle]' })
+      }, { handleSelector: '[data-sort-handle]', holdDelayMs: 350 })
     }
   }
 

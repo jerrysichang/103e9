@@ -11,6 +11,7 @@ export function makeSortable(listEl, onSort, options = {}) {
   let state = null
   let lastDragAt = 0
   const DRAG_THRESHOLD = 5 // px before drag activates
+  const SCROLL_CANCEL_THRESHOLD = 8 // px before a pre-hold gesture is treated as scroll
   const holdDelayMs = Math.max(0, Number(options.holdDelayMs) || 0)
   const handleSelector = Object.prototype.hasOwnProperty.call(options, 'handleSelector')
     ? options.handleSelector
@@ -27,8 +28,8 @@ export function makeSortable(listEl, onSort, options = {}) {
     const handle = handleSelector ? e.target.closest(handleSelector) : item
     if (handleSelector && !handle) return
 
-    e.preventDefault()
-    if (handle && typeof handle.setPointerCapture === 'function') {
+    if (holdDelayMs === 0) e.preventDefault()
+    if (holdDelayMs === 0 && handle && typeof handle.setPointerCapture === 'function') {
       handle.setPointerCapture(e.pointerId)
     }
 
@@ -50,7 +51,11 @@ export function makeSortable(listEl, onSort, options = {}) {
 
     if (!state.canDrag) {
       state.holdTimer = window.setTimeout(() => {
-        if (state) state.canDrag = true
+        if (!state) return
+        state.canDrag = true
+        if (state.captureEl && typeof state.captureEl.setPointerCapture === 'function') {
+          try { state.captureEl.setPointerCapture(state.pointerId) } catch {}
+        }
       }, holdDelayMs)
     }
 
@@ -87,15 +92,20 @@ export function makeSortable(listEl, onSort, options = {}) {
 
   function onPointerMove(e) {
     if (!state) return
-    e.preventDefault()
 
     const dy = e.clientY - state.startY
 
     // Don't start dragging until threshold is met
     if (!state.dragging) {
-      if (!state.canDrag) return
+      if (!state.canDrag) {
+        if (Math.abs(dy) >= SCROLL_CANCEL_THRESHOLD) cancelPendingDrag()
+        return
+      }
+      e.preventDefault()
       if (Math.abs(dy) < DRAG_THRESHOLD) return
       activateDrag()
+    } else {
+      e.preventDefault()
     }
 
     const top = state.ghostTop + dy
@@ -123,6 +133,7 @@ export function makeSortable(listEl, onSort, options = {}) {
     if (!state) return
 
     const { item, ghost, placeholder, dragging, pointerId, captureEl } = state
+    const suppressClick = !dragging && state.canDrag && holdDelayMs > 0
     if (state.holdTimer) window.clearTimeout(state.holdTimer)
     state = null
 
@@ -134,7 +145,10 @@ export function makeSortable(listEl, onSort, options = {}) {
     document.removeEventListener('pointerup',   onPointerUp)
     document.removeEventListener('pointercancel', onPointerUp)
 
-    if (!dragging) return // was just a tap, not a drag
+    if (!dragging) {
+      if (suppressClick) lastDragAt = Date.now()
+      return // was just a tap, not a drag
+    }
 
     // Drop item where placeholder is
     placeholder.before(item)
@@ -145,6 +159,19 @@ export function makeSortable(listEl, onSort, options = {}) {
 
     const orderedIds = getItems().map(el => el.dataset.sortId)
     onSort(orderedIds)
+  }
+
+  function cancelPendingDrag() {
+    if (!state) return
+    const { holdTimer, pointerId, captureEl } = state
+    if (holdTimer) window.clearTimeout(holdTimer)
+    state = null
+    if (captureEl && typeof captureEl.releasePointerCapture === 'function') {
+      try { captureEl.releasePointerCapture(pointerId) } catch {}
+    }
+    document.removeEventListener('pointermove', onPointerMove)
+    document.removeEventListener('pointerup',   onPointerUp)
+    document.removeEventListener('pointercancel', onPointerUp)
   }
 
   function onClickCapture(e) {

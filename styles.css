@@ -1740,7 +1740,13 @@ textarea.coach-input {
   padding: 14px;
 }
 
-.gratitude-item[data-sort-handle],
+.gratitude-item[data-sort-handle] {
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .issues-lines .item[data-sort-handle] {
   touch-action: none;
   cursor: grab;
