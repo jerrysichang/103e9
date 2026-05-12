@@ -1,67 +1,92 @@
 /**
  * Touch + mouse drag-and-drop for list reordering.
  * Works on iPhone and desktop via Pointer Events.
- * Requires a minimum drag distance before activating to avoid jank on taps.
+ *
+ * Behavior:
+ *  - With `holdDelayMs: 0` (default), drag activates immediately on pointer move
+ *    past a small threshold. Best for desktops and explicit drag handles.
+ *  - With `holdDelayMs > 0`, the user must press-and-hold a touch item for that
+ *    many milliseconds before drag is "armed". During the hold, normal page
+ *    scrolling is allowed; once armed, the item visually lifts and subsequent
+ *    movement reorders the list. Moving the finger past `CANCEL_THRESHOLD`
+ *    before arming cancels the gesture, letting the page scroll instead.
  *
  * Usage:
- *   const sort = makeSortable(listEl, (orderedIds) => { ... })
- *   sort.destroy() // when done
+ *   const sort = makeSortable(listEl, (orderedIds) => { ... }, options)
+ *   sort.destroy()
  */
 export function makeSortable(listEl, onSort, options = {}) {
-  let state = null
-  let lastDragAt = 0
-  const DRAG_THRESHOLD = 5 // px before drag activates
-  const SCROLL_CANCEL_THRESHOLD = 8 // px before a pre-hold gesture is treated as scroll
-  const holdDelayMs = Math.max(0, Number(options.holdDelayMs) || 0)
+  const DRAG_THRESHOLD = 5      // px before drag activates after armed
+  const CANCEL_THRESHOLD = 14   // px finger jitter tolerated during hold
+  const CLICK_SUPPRESS_MS = 250
+  const HOLD_MS = Math.max(0, Number(options.holdDelayMs) || 0)
   const handleSelector = Object.prototype.hasOwnProperty.call(options, 'handleSelector')
     ? options.handleSelector
     : '[data-sort-handle]'
+
+  /** @type {null | ReturnType<typeof createState>} */
+  let state = null
+  let lastDragAt = 0
+
+  function createState(item, handle, rect, e, requiresHold) {
+    return {
+      item,
+      handle,
+      rect,
+      startX: e.clientX,
+      startY: e.clientY,
+      ghostTop: rect.top,
+      pointerId: e.pointerId,
+      pointerType: e.pointerType || 'mouse',
+      captureEl: handle || item,
+      armed: !requiresHold,
+      dragging: false,
+      ghost: null,
+      placeholder: null,
+      holdTimer: null,
+    }
+  }
 
   function getItems() {
     return [...listEl.querySelectorAll('[data-sort-id]')]
   }
 
   function onPointerDown(e) {
+    if (state) return // ignore secondary pointers
+
     const item = e.target.closest('[data-sort-id]')
     if (!item) return
-
     const handle = handleSelector ? e.target.closest(handleSelector) : item
     if (handleSelector && !handle) return
 
-    if (holdDelayMs === 0) e.preventDefault()
-    if (holdDelayMs === 0 && handle && typeof handle.setPointerCapture === 'function') {
-      handle.setPointerCapture(e.pointerId)
-    }
+    const isTouch = e.pointerType === 'touch'
+    const requiresHold = isTouch && HOLD_MS > 0
 
     const rect = item.getBoundingClientRect()
+    state = createState(item, handle, rect, e, requiresHold)
 
-    state = {
-      item,
-      ghost: null,
-      placeholder: null,
-      startY:   e.clientY,
-      ghostTop: rect.top,
-      rect,
-      dragging: false,
-      pointerId: e.pointerId,
-      captureEl: handle || item,
-      canDrag: holdDelayMs === 0,
-      holdTimer: null,
-    }
-
-    if (!state.canDrag) {
-      state.holdTimer = window.setTimeout(() => {
-        if (!state) return
-        state.canDrag = true
-        if (state.captureEl && typeof state.captureEl.setPointerCapture === 'function') {
-          try { state.captureEl.setPointerCapture(state.pointerId) } catch {}
-        }
-      }, holdDelayMs)
+    if (!requiresHold) {
+      // Mouse / immediate-drag path: take ownership of the gesture now.
+      e.preventDefault()
+      try { state.captureEl.setPointerCapture?.(e.pointerId) } catch {}
+    } else {
+      // Touch + hold path: defer ownership until hold completes so the user
+      // can still scroll the page.
+      state.holdTimer = window.setTimeout(armDrag, HOLD_MS)
     }
 
     document.addEventListener('pointermove', onPointerMove, { passive: false })
-    document.addEventListener('pointerup',   onPointerUp)
+    document.addEventListener('pointerup', onPointerUp)
     document.addEventListener('pointercancel', onPointerUp)
+  }
+
+  function armDrag() {
+    if (!state || state.armed) return
+    state.armed = true
+    state.holdTimer = null
+    state.item.classList.add('sort-armed')
+    try { state.captureEl?.setPointerCapture?.(state.pointerId) } catch {}
+    try { navigator.vibrate?.(10) } catch {}
   }
 
   function activateDrag() {
@@ -70,16 +95,15 @@ export function makeSortable(listEl, onSort, options = {}) {
 
     const { item, rect } = state
 
-    // Ghost (visual drag proxy)
     const ghost = item.cloneNode(true)
     ghost.classList.add('sort-ghost')
+    ghost.classList.remove('sort-armed')
     ghost.style.width  = rect.width  + 'px'
     ghost.style.height = rect.height + 'px'
     ghost.style.top    = rect.top    + 'px'
     ghost.style.left   = rect.left   + 'px'
     document.body.appendChild(ghost)
 
-    // Placeholder (keeps space in list)
     const placeholder = document.createElement('li')
     placeholder.className    = 'sort-placeholder'
     placeholder.style.height = rect.height + 'px'
@@ -93,26 +117,27 @@ export function makeSortable(listEl, onSort, options = {}) {
   function onPointerMove(e) {
     if (!state) return
 
+    const dx = e.clientX - state.startX
     const dy = e.clientY - state.startY
 
-    // Don't start dragging until threshold is met
+    if (!state.armed) {
+      // Pre-hold: tolerate small jitter, otherwise treat as scroll and cancel.
+      if (Math.hypot(dx, dy) >= CANCEL_THRESHOLD) cancelGesture()
+      return
+    }
+
+    // Armed: take over the gesture so the browser stops considering scroll.
+    e.preventDefault()
+
     if (!state.dragging) {
-      if (!state.canDrag) {
-        if (Math.abs(dy) >= SCROLL_CANCEL_THRESHOLD) cancelPendingDrag()
-        return
-      }
-      e.preventDefault()
       if (Math.abs(dy) < DRAG_THRESHOLD) return
       activateDrag()
-    } else {
-      e.preventDefault()
     }
 
     const top = state.ghostTop + dy
     state.ghost.style.top = top + 'px'
 
-    // Determine where placeholder should be
-    const midY    = top + state.ghost.offsetHeight / 2
+    const midY = top + state.ghost.offsetHeight / 2
     const siblings = getItems().filter(el => el !== state.item)
 
     let placed = false
@@ -132,9 +157,9 @@ export function makeSortable(listEl, onSort, options = {}) {
   function onPointerUp() {
     if (!state) return
 
-    const { item, ghost, placeholder, dragging, pointerId, captureEl } = state
-    const suppressClick = !dragging && state.canDrag && holdDelayMs > 0
+    const { item, ghost, placeholder, dragging, armed, pointerId, captureEl } = state
     if (state.holdTimer) window.clearTimeout(state.holdTimer)
+    item?.classList.remove('sort-armed')
     state = null
 
     if (captureEl && typeof captureEl.releasePointerCapture === 'function') {
@@ -142,15 +167,16 @@ export function makeSortable(listEl, onSort, options = {}) {
     }
 
     document.removeEventListener('pointermove', onPointerMove)
-    document.removeEventListener('pointerup',   onPointerUp)
+    document.removeEventListener('pointerup', onPointerUp)
     document.removeEventListener('pointercancel', onPointerUp)
 
     if (!dragging) {
-      if (suppressClick) lastDragAt = Date.now()
-      return // was just a tap, not a drag
+      // Armed but never dragged → suppress the synthetic click so it doesn't
+      // navigate when the user lifts after a hold.
+      if (armed) lastDragAt = Date.now()
+      return
     }
 
-    // Drop item where placeholder is
     placeholder.before(item)
     item.style.display = ''
     placeholder.remove()
@@ -161,21 +187,22 @@ export function makeSortable(listEl, onSort, options = {}) {
     onSort(orderedIds)
   }
 
-  function cancelPendingDrag() {
+  function cancelGesture() {
     if (!state) return
-    const { holdTimer, pointerId, captureEl } = state
+    const { item, holdTimer, pointerId, captureEl } = state
     if (holdTimer) window.clearTimeout(holdTimer)
+    item?.classList.remove('sort-armed')
     state = null
     if (captureEl && typeof captureEl.releasePointerCapture === 'function') {
       try { captureEl.releasePointerCapture(pointerId) } catch {}
     }
     document.removeEventListener('pointermove', onPointerMove)
-    document.removeEventListener('pointerup',   onPointerUp)
+    document.removeEventListener('pointerup', onPointerUp)
     document.removeEventListener('pointercancel', onPointerUp)
   }
 
   function onClickCapture(e) {
-    if (Date.now() - lastDragAt < 250) {
+    if (Date.now() - lastDragAt < CLICK_SUPPRESS_MS) {
       e.preventDefault()
       e.stopPropagation()
     }
@@ -186,6 +213,7 @@ export function makeSortable(listEl, onSort, options = {}) {
 
   return {
     destroy() {
+      cancelGesture()
       listEl.removeEventListener('pointerdown', onPointerDown)
       listEl.removeEventListener('click', onClickCapture, true)
     },
