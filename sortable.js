@@ -44,6 +44,7 @@ export function makeSortable(listEl, onSort, options = {}) {
       ghost: null,
       placeholder: null,
       holdTimer: null,
+      prevTouchAction: undefined,
     }
   }
 
@@ -78,6 +79,16 @@ export function makeSortable(listEl, onSort, options = {}) {
     document.addEventListener('pointermove', onPointerMove, { passive: false })
     document.addEventListener('pointerup', onPointerUp)
     document.addEventListener('pointercancel', onPointerUp)
+    // iOS Safari: pointermove preventDefault does not stop scrolling. Listen to
+    // the underlying touchmove with passive:false so we can actually cancel
+    // scroll once the user has armed the drag.
+    if (isTouch) {
+      document.addEventListener('touchmove', onTouchMove, { passive: false })
+    }
+  }
+
+  function onTouchMove(e) {
+    if (state && state.armed && e.cancelable) e.preventDefault()
   }
 
   function armDrag() {
@@ -85,6 +96,9 @@ export function makeSortable(listEl, onSort, options = {}) {
     state.armed = true
     state.holdTimer = null
     state.item.classList.add('sort-armed')
+    // Belt-and-suspenders: tell the browser this element should not scroll.
+    state.prevTouchAction = state.item.style.touchAction
+    state.item.style.touchAction = 'none'
     try { state.captureEl?.setPointerCapture?.(state.pointerId) } catch {}
     try { navigator.vibrate?.(10) } catch {}
   }
@@ -157,9 +171,10 @@ export function makeSortable(listEl, onSort, options = {}) {
   function onPointerUp() {
     if (!state) return
 
-    const { item, ghost, placeholder, dragging, armed, pointerId, captureEl } = state
+    const { item, ghost, placeholder, dragging, armed, pointerId, captureEl, prevTouchAction } = state
     if (state.holdTimer) window.clearTimeout(state.holdTimer)
     item?.classList.remove('sort-armed')
+    if (item && prevTouchAction !== undefined) item.style.touchAction = prevTouchAction
     state = null
 
     if (captureEl && typeof captureEl.releasePointerCapture === 'function') {
@@ -169,6 +184,7 @@ export function makeSortable(listEl, onSort, options = {}) {
     document.removeEventListener('pointermove', onPointerMove)
     document.removeEventListener('pointerup', onPointerUp)
     document.removeEventListener('pointercancel', onPointerUp)
+    document.removeEventListener('touchmove', onTouchMove)
 
     if (!dragging) {
       // Armed but never dragged → suppress the synthetic click so it doesn't
@@ -189,9 +205,10 @@ export function makeSortable(listEl, onSort, options = {}) {
 
   function cancelGesture() {
     if (!state) return
-    const { item, holdTimer, pointerId, captureEl } = state
+    const { item, holdTimer, pointerId, captureEl, prevTouchAction } = state
     if (holdTimer) window.clearTimeout(holdTimer)
     item?.classList.remove('sort-armed')
+    if (item && prevTouchAction !== undefined) item.style.touchAction = prevTouchAction
     state = null
     if (captureEl && typeof captureEl.releasePointerCapture === 'function') {
       try { captureEl.releasePointerCapture(pointerId) } catch {}
@@ -199,6 +216,7 @@ export function makeSortable(listEl, onSort, options = {}) {
     document.removeEventListener('pointermove', onPointerMove)
     document.removeEventListener('pointerup', onPointerUp)
     document.removeEventListener('pointercancel', onPointerUp)
+    document.removeEventListener('touchmove', onTouchMove)
   }
 
   function onClickCapture(e) {
