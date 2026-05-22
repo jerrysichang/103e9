@@ -236,10 +236,23 @@ export const gratitudeStorage = {
     const items = this.getAll()
     const idx = items.findIndex(i => i.id === id)
     if (idx === -1) return
-    items[idx].achieved = achieved
-    items[idx].achievedAt = achieved ? new Date().toISOString() : null
-    const section = items.filter(i => i.achieved === achieved)
-    section.forEach((item, i) => { item.order = i })
+
+    const item = items[idx]
+    item.achieved = achieved
+    item.achievedAt = achieved ? new Date().toISOString() : null
+
+    // Place toggled item at the bottom of its new section before renumbering.
+    const peers = items.filter(i => i.achieved === achieved && i.id !== id)
+    const maxOrder = peers.reduce((max, entry) => Math.max(max, entry.order), -1)
+    item.order = maxOrder + 1
+
+    for (const inSection of [true, false]) {
+      items
+        .filter(i => i.achieved === inSection)
+        .sort((a, b) => a.order - b.order)
+        .forEach((entry, i) => { entry.order = i })
+    }
+
     this._saveAll(items)
   },
 
