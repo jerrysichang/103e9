@@ -1,4 +1,5 @@
 const KEY = 'ps_citibike_v1'
+const COMPASS_PREF_KEY = 'ps_citibike_compass_on'
 const GBFS_BASE = 'https://gbfs.citibikenyc.com/gbfs/en'
 /** NYC-area magnetic declination (°W). Compass APIs use magnetic north. */
 const MAGNETIC_DECLINATION_WEST_DEG = 12.5
@@ -172,7 +173,15 @@ function headingFromOrientationEvent(e) {
 function smoothHeading(prev, next) {
   if (prev == null) return next
   let delta = ((next - prev + 540) % 360) - 180
-  return (prev + delta * 0.25 + 360) % 360
+  if (Math.abs(delta) < 3) return prev
+  return (prev + delta * 0.12 + 360) % 360
+}
+
+function orientationEventName() {
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+  if (isIOS) return 'deviceorientation'
+  if ('ondeviceorientationabsolute' in window) return 'deviceorientationabsolute'
+  return 'deviceorientation'
 }
 
 function arrowRotationDeg(magneticBearing, deviceHeading, live) {
@@ -209,6 +218,8 @@ export function renderCitibike(container, { navigate }) {
   let compassSupported = typeof DeviceOrientationEvent !== 'undefined'
   let lastFetchedAt = null
   let orientationHandler = null
+  let orientationEvent = null
+  let arrowFrame = null
 
   function stationById(id) {
     return stations.find(s => s.id === id)
@@ -241,9 +252,7 @@ export function renderCitibike(container, { navigate }) {
 
         <div class="scroll">
           <div class="citibike-near-block">
-            <div class="section-header citibike-section-tight">
-              <span class="section-label">Near me</span>
-            </div>
+            <h3 class="text-h3 citibike-block-title">Near me</h3>
 
             <div class="citibike-mode-switch" role="tablist" aria-label="Find nearest">
               <button type="button" class="citibike-mode-btn${state.findMode === 'bike' ? ' citibike-mode-active' : ''}" data-find-mode="bike" role="tab">Any bike</button>
@@ -254,12 +263,19 @@ export function renderCitibike(container, { navigate }) {
             ${renderNearestCard(nearest, state.findMode, geoStatus, geoError)}
           </div>
 
-          <div class="section-header">
-            <span class="section-label">My racks</span>
-            <span class="section-count">${saved.length}</span>
+          <div class="citibike-racks-head">
+            <h3 class="text-h3 citibike-block-title">My racks</h3>
+            <span class="citibike-racks-count">${saved.length}</span>
           </div>
 
-          <div class="issues-add-wrap">
+          <ul class="item-list citibike-saved-list">
+            ${loading && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state"><p>Loading stations…</p></div></li>` : ''}
+            ${!loading && error ? `<li style="list-style:none"><div class="empty-state"><p>${escapeHtml(error)}</p></div></li>` : ''}
+            ${!loading && !error && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state"><p>Add racks you check often — search below.</p></div></li>` : ''}
+            ${saved.map(entry => renderSaved(entry)).join('')}
+          </ul>
+
+          <div class="issues-add-wrap citibike-add-wrap">
             <input
               class="input"
               id="citibike-search"
@@ -269,13 +285,6 @@ export function renderCitibike(container, { navigate }) {
             />
             <div class="citibike-search-results hidden" id="citibike-search-results"></div>
           </div>
-
-          <ul class="item-list">
-            ${loading && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state"><p>Loading stations…</p></div></li>` : ''}
-            ${!loading && error ? `<li style="list-style:none"><div class="empty-state"><p>${escapeHtml(error)}</p></div></li>` : ''}
-            ${!loading && !error && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state"><p>Add racks you check often — search above or pick from results.</p></div></li>` : ''}
-            ${saved.map(entry => renderSaved(entry)).join('')}
-          </ul>
         </div>
 
         <div class="modal-backdrop${editingStationId ? '' : ' hidden'}" id="citibike-edit-modal">
@@ -299,27 +308,50 @@ export function renderCitibike(container, { navigate }) {
     `
 
     bind(state)
-    updateCompassArrow()
+    scheduleCompassUpdate()
     if (compassActive) startCompassListener()
   }
 
   function stopCompassListener() {
-    if (!orientationHandler) return
-    window.removeEventListener('deviceorientationabsolute', orientationHandler, true)
-    window.removeEventListener('deviceorientation', orientationHandler, true)
+    if (arrowFrame) {
+      cancelAnimationFrame(arrowFrame)
+      arrowFrame = null
+    }
+    if (orientationHandler && orientationEvent) {
+      window.removeEventListener(orientationEvent, orientationHandler, true)
+    }
     orientationHandler = null
+    orientationEvent = null
   }
 
   function startCompassListener() {
     stopCompassListener()
+    orientationEvent = orientationEventName()
     orientationHandler = e => {
       const heading = headingFromOrientationEvent(e)
       if (heading == null) return
       deviceHeading = smoothHeading(deviceHeading, heading)
-      updateCompassArrow()
+      scheduleCompassUpdate()
     }
-    window.addEventListener('deviceorientationabsolute', orientationHandler, true)
-    window.addEventListener('deviceorientation', orientationHandler, true)
+    window.addEventListener(orientationEvent, orientationHandler, true)
+  }
+
+  function scheduleCompassUpdate() {
+    if (arrowFrame) return
+    arrowFrame = requestAnimationFrame(() => {
+      arrowFrame = null
+      updateCompassArrow()
+    })
+  }
+
+  function setCompassLive(live) {
+    const btn = container.querySelector('#citibike-compass-btn')
+    if (!btn) return
+    btn.classList.toggle('citibike-compass-live', live)
+    btn.setAttribute(
+      'aria-label',
+      live ? 'Live direction toward rack' : 'Tap to enable live direction'
+    )
   }
 
   function updateCompassArrow() {
@@ -330,20 +362,41 @@ export function renderCitibike(container, { navigate }) {
       deviceHeading,
       compassActive
     )
-    arrow.style.transform = `rotate(${rotation}deg)`
+    arrow.style.transform = `rotate3d(0, 0, 1, ${rotation}deg)`
   }
 
-  async function enableCompass() {
+  async function enableCompass(fromUserTap = false) {
     if (!compassSupported || compassActive) return
     try {
-      const granted = await requestCompassPermission()
-      if (!granted) return
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        if (!fromUserTap) return
+        const granted = await requestCompassPermission()
+        if (!granted) return
+      }
       compassActive = true
+      sessionStorage.setItem(COMPASS_PREF_KEY, '1')
+      deviceHeading = null
       startCompassListener()
-      updateCompassArrow()
+      setCompassLive(true)
+      scheduleCompassUpdate()
     } catch (err) {
       console.warn('Compass permission failed:', err)
     }
+  }
+
+  async function tryRestoreCompass() {
+    if (!compassSupported || compassActive) return
+    if (sessionStorage.getItem(COMPASS_PREF_KEY) !== '1') return
+
+    startCompassListener()
+    await new Promise(resolve => setTimeout(resolve, 450))
+    if (deviceHeading == null) {
+      stopCompassListener()
+      return
+    }
+    compassActive = true
+    setCompassLive(true)
+    scheduleCompassUpdate()
   }
 
   compassCleanup = () => {
@@ -375,22 +428,26 @@ export function renderCitibike(container, { navigate }) {
 
     return `
       <div class="citibike-nearest-card">
-        <div class="citibike-nearest-name">${escapeHtml(station.name)}</div>
-        <div class="citibike-nearest-meta">
-          <button
-            type="button"
-            class="citibike-compass-btn${compassActive ? ' citibike-compass-live' : ''}"
-            id="citibike-compass-btn"
-            aria-label="${compassActive ? 'Direction toward rack' : 'Enable live direction'}"
-          >
-            <svg id="citibike-compass-arrow" class="citibike-compass-arrow" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 2.5 L19.5 21.5 L12 17.5 L4.5 21.5 Z" fill="currentColor"/>
-            </svg>
-          </button>
-          <span class="citibike-nearest-distance">${formatDistance(dist)}</span>
+        <div class="citibike-row">
+          <div class="citibike-row-main">
+            <div class="citibike-nearest-name">${escapeHtml(station.name)}</div>
+            <div class="citibike-nearest-meta">
+              <button
+                type="button"
+                class="citibike-compass-btn${compassActive ? ' citibike-compass-live' : ''}"
+                id="citibike-compass-btn"
+                aria-label="${compassActive ? 'Live direction toward rack' : 'Tap to enable live direction'}"
+              >
+                <svg id="citibike-compass-arrow" class="citibike-compass-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2.5 L19.5 21.5 L12 17.5 L4.5 21.5 Z" fill="currentColor"/>
+                </svg>
+              </button>
+              <span class="citibike-nearest-distance">${formatDistance(dist)}</span>
+            </div>
+            <div class="citibike-nearest-detail">${escapeHtml(modeDetail)}</div>
+          </div>
+          <div class="citibike-pills-row">${availabilityLine(station)}</div>
         </div>
-        <div class="citibike-nearest-detail">${escapeHtml(modeDetail)}</div>
-        <div class="citibike-nearest-pills">${availabilityLine(station)}</div>
         ${lastFetchedAt ? `<p class="citibike-live-note">Live counts · updated ${formatFetchedAt(lastFetchedAt)}</p>` : ''}
       </div>
     `
@@ -403,12 +460,12 @@ export function renderCitibike(container, { navigate }) {
 
     return `
       <li class="item citibike-saved-item">
-        <button class="item-body citibike-item-body citibike-saved-body" type="button" data-edit-station="${stationId}">
-          <div class="citibike-station-text">
+        <button class="citibike-saved-row" type="button" data-edit-station="${stationId}">
+          <div class="citibike-row-main">
             <span class="item-title issue-title">${escapeHtml(title)}</span>
             ${subtitle ? `<span class="item-subtitle">${escapeHtml(subtitle)}</span>` : ''}
-            <div class="citibike-nearest-pills">${availabilityLine(station)}</div>
           </div>
+          <div class="citibike-pills-row">${availabilityLine(station)}</div>
         </button>
       </li>
     `
@@ -425,7 +482,7 @@ export function renderCitibike(container, { navigate }) {
     })
 
     container.querySelector('#citibike-compass-btn')?.addEventListener('click', () => {
-      if (!compassActive) enableCompass()
+      if (!compassActive) enableCompass(true)
     })
 
     container.querySelectorAll('[data-find-mode]').forEach(btn => {
@@ -577,7 +634,8 @@ export function renderCitibike(container, { navigate }) {
       userPos = await getUserLocation()
       geoStatus = 'ready'
       geoError = ''
-      if (compassSupported) enableCompass()
+      await tryRestoreCompass()
+      scheduleCompassUpdate()
     } catch (err) {
       userPos = null
       geoStatus = err?.code === 1 ? 'denied' : 'error'
