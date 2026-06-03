@@ -11,6 +11,12 @@
   --accent:          #ffffff;
   --achieved:        #22c55e;
   --achieved-dim:    #16a34a33;
+  --citibike-bike:       #22c55e;
+  --citibike-bike-dim:   #16a34a33;
+  --citibike-ebike:      #facc15;
+  --citibike-ebike-dim:  #eab30828;
+  --citibike-dock:       #60a5fa;
+  --citibike-dock-dim:   #3b82f628;
   --danger:          #ef4444;
   --danger-dim:      #ef444420;
   --radius:          14px;
@@ -2054,16 +2060,17 @@ textarea.coach-input {
   flex-shrink: 0;
 }
 
-.citibike-near-countdown {
+.citibike-near-ago {
   font-size: var(--font-size-caption);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
-  min-width: 2.5em;
+  min-width: 4.5em;
   text-align: right;
+  white-space: nowrap;
 }
 
-.citibike-near-countdown--idle {
+.citibike-near-ago--idle {
   min-width: 0;
 }
 
@@ -2114,7 +2121,7 @@ textarea.coach-input {
   margin: 0;
 }
 
-.citibike-nearest-aside-col {
+.citibike-aside-col {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -2139,16 +2146,15 @@ textarea.coach-input {
 }
 
 .citibike-cap-bike {
-  background: var(--achieved);
+  background: var(--citibike-bike);
 }
 
 .citibike-cap-ebike {
-  background: #facc15;
+  background: var(--citibike-ebike);
 }
 
 .citibike-cap-dock {
-  background: var(--text-muted);
-  opacity: 0.45;
+  background: var(--citibike-dock);
 }
 
 .citibike-cap-empty {
@@ -2160,7 +2166,7 @@ textarea.coach-input {
   opacity: 0.35;
 }
 
-.citibike-nearest-pills {
+.citibike-aside-col .citibike-pills-wrap {
   align-self: center;
 }
 
@@ -2272,20 +2278,26 @@ textarea.coach-input {
   margin-top: 12px;
 }
 
-.citibike-pill-ok {
-  color: var(--achieved);
+.citibike-pill-bike {
+  color: var(--citibike-bike);
   border-color: #22c55e44;
-  background: var(--achieved-dim);
+  background: var(--citibike-bike-dim);
 }
 
-.citibike-pill-warn {
-  color: #facc15;
+.citibike-pill-ebike {
+  color: var(--citibike-ebike);
   border-color: #eab30855;
-  background: #eab30822;
+  background: var(--citibike-ebike-dim);
+}
+
+.citibike-pill-dock {
+  color: var(--citibike-dock);
+  border-color: #3b82f655;
+  background: var(--citibike-dock-dim);
 }
 
 .citibike-pill-empty {
-  opacity: 0.55;
+  opacity: 0.45;
 }
 
 .citibike-saved-item.item {
