@@ -127,23 +127,43 @@ function findNearest(stations, lat, lon, mode) {
   return nearest
 }
 
-function availabilityLine(station) {
-  if (station.isOffline) return 'Offline'
-  return [
-    pill('bike', station.classic, station.classic > 0),
-    pill('ebike', station.ebikes, station.ebikes > 0),
-    pill('dock', station.docks, station.docks > 0),
-  ].join('')
-}
-
-const PILL_ICONS = {
-  bike: '<span class="citibike-pill-icon" aria-hidden="true">🚲</span>',
-  ebike: '<span class="citibike-pill-icon" aria-hidden="true">⚡</span>',
-  dock: '<span class="citibike-pill-icon citibike-pill-p" aria-hidden="true">P</span>',
+const ICON_SVG = {
+  bike: `<svg class="citibike-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="18" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8.5 18h7M6 16l2.2-5h7.6l2.2 5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  ebike: `<svg class="citibike-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h6.5l-1.2 8L21 10h-6.5L16 2z" fill="currentColor"/></svg>`,
+  dock: `<svg class="citibike-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h5.5a3.5 3.5 0 010 7H11v7H9V5zm2 2v3h3.5a1.5 1.5 0 000-3H11z" fill="currentColor"/></svg>`,
 }
 
 function pill(kind, count, ok) {
-  return `<span class="citibike-pill${ok ? ' citibike-pill-ok' : ' citibike-pill-empty'}">${PILL_ICONS[kind]}<span class="citibike-pill-count">${count}</span></span>`
+  return `<span class="citibike-pill${ok ? ' citibike-pill-ok' : ' citibike-pill-empty'}">${ICON_SVG[kind]}<span class="citibike-pill-count">${count}</span></span>`
+}
+
+function availabilityPillsStacked(station) {
+  if (station.isOffline) return '<span class="citibike-offline">Offline</span>'
+  return `
+    <div class="citibike-pills-stack">
+      <div class="citibike-pill-row">
+        ${pill('bike', station.classic, station.classic > 0)}
+        ${pill('ebike', station.ebikes, station.ebikes > 0)}
+      </div>
+      <div class="citibike-pill-row">
+        ${pill('dock', station.docks, station.docks > 0)}
+      </div>
+    </div>
+  `
+}
+
+function nearestAsideReadout(station, mode) {
+  if (station.isOffline) return 'Offline'
+  if (mode === 'ebike') {
+    const n = station.ebikes
+    return `${n} e-bike${n === 1 ? '' : 's'}`
+  }
+  if (mode === 'parking') {
+    const n = station.docks
+    return `${n} dock${n === 1 ? '' : 's'}`
+  }
+  const n = station.bikes
+  return `${n} bike${n === 1 ? '' : 's'}`
 }
 
 function getUserLocation() {
@@ -419,18 +439,19 @@ export function renderCitibike(container, { navigate }) {
       return `<div class="citibike-nearest-card"><p class="citibike-nearest-empty">No racks with ${modeLabel} nearby right now.</p></div>`
     }
 
-    const { station, dist, bearing } = nearest
-    const modeDetail = mode === 'ebike'
-      ? `${station.ebikes} e-bike${station.ebikes === 1 ? '' : 's'}`
-      : mode === 'parking'
-        ? `${station.docks} open dock${station.docks === 1 ? '' : 's'}`
-        : `${station.bikes} bike${station.bikes === 1 ? '' : 's'} (${station.classic} classic · ${station.ebikes} e-bike)`
+    const { station, dist } = nearest
+    const liveInline = lastFetchedAt
+      ? `<span class="citibike-live-inline">Updated ${formatFetchedAt(lastFetchedAt)}</span>`
+      : ''
 
     return `
       <div class="citibike-nearest-card">
         <div class="citibike-row">
           <div class="citibike-row-main">
-            <div class="citibike-nearest-name">${escapeHtml(station.name)}</div>
+            <div class="citibike-nearest-top">
+              <span class="citibike-nearest-name">${escapeHtml(station.name)}</span>
+              ${liveInline}
+            </div>
             <div class="citibike-nearest-meta">
               <button
                 type="button"
@@ -444,11 +465,9 @@ export function renderCitibike(container, { navigate }) {
               </button>
               <span class="citibike-nearest-distance">${formatDistance(dist)}</span>
             </div>
-            <div class="citibike-nearest-detail">${escapeHtml(modeDetail)}</div>
           </div>
-          <div class="citibike-pills-row">${availabilityLine(station)}</div>
+          <div class="citibike-nearest-aside">${escapeHtml(nearestAsideReadout(station, mode))}</div>
         </div>
-        ${lastFetchedAt ? `<p class="citibike-live-note">Live counts · updated ${formatFetchedAt(lastFetchedAt)}</p>` : ''}
       </div>
     `
   }
@@ -465,7 +484,7 @@ export function renderCitibike(container, { navigate }) {
             <span class="item-title issue-title">${escapeHtml(title)}</span>
             ${subtitle ? `<span class="item-subtitle">${escapeHtml(subtitle)}</span>` : ''}
           </div>
-          <div class="citibike-pills-row">${availabilityLine(station)}</div>
+          <div class="citibike-pills-stack-wrap">${availabilityPillsStacked(station)}</div>
         </button>
       </li>
     `
@@ -569,7 +588,7 @@ export function renderCitibike(container, { navigate }) {
 
   function availabilityText(station) {
     if (station.isOffline) return 'Offline'
-    return `🚲 ${station.classic} · ⚡ ${station.ebikes} · P ${station.docks}`
+    return `${station.classic} classic · ${station.ebikes} e-bike · ${station.docks} dock`
   }
 
   function addSaved(stationId) {
