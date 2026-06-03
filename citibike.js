@@ -137,17 +137,13 @@ function pill(kind, count, ok) {
   return `<span class="citibike-pill${ok ? ' citibike-pill-ok' : ' citibike-pill-empty'}">${ICON_SVG[kind]}<span class="citibike-pill-count">${count}</span></span>`
 }
 
-function availabilityPillsStacked(station) {
+function availabilityPillsRow(station) {
   if (station.isOffline) return '<span class="citibike-offline">Offline</span>'
   return `
-    <div class="citibike-pills-stack">
-      <div class="citibike-pill-row">
-        ${pill('bike', station.classic, station.classic > 0)}
-        ${pill('ebike', station.ebikes, station.ebikes > 0)}
-      </div>
-      <div class="citibike-pill-row">
-        ${pill('dock', station.docks, station.docks > 0)}
-      </div>
+    <div class="citibike-pill-row">
+      ${pill('bike', station.classic, station.classic > 0)}
+      ${pill('ebike', station.ebikes, station.ebikes > 0)}
+      ${pill('dock', station.docks, station.docks > 0)}
     </div>
   `
 }
@@ -283,19 +279,17 @@ export function renderCitibike(container, { navigate }) {
             ${renderNearestCard(nearest, state.findMode, geoStatus, geoError)}
           </div>
 
-          <div class="citibike-racks-head">
-            <h3 class="text-h3 citibike-block-title">My racks</h3>
-            <span class="citibike-racks-count">${saved.length}</span>
-          </div>
+          <div class="citibike-racks-block">
+            <h3 class="text-h3 citibike-block-title citibike-racks-title">My racks</h3>
 
-          <ul class="item-list citibike-saved-list">
-            ${loading && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state"><p>Loading stations…</p></div></li>` : ''}
-            ${!loading && error ? `<li style="list-style:none"><div class="empty-state"><p>${escapeHtml(error)}</p></div></li>` : ''}
-            ${!loading && !error && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state"><p>Add racks you check often — search below.</p></div></li>` : ''}
-            ${saved.map(entry => renderSaved(entry)).join('')}
-          </ul>
+            <ul class="item-list citibike-saved-list">
+              ${loading && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state citibike-empty"><p>Loading stations…</p></div></li>` : ''}
+              ${!loading && error ? `<li style="list-style:none"><div class="empty-state citibike-empty"><p>${escapeHtml(error)}</p></div></li>` : ''}
+              ${!loading && !error && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state citibike-empty"><p>Add racks you check often — search below.</p></div></li>` : ''}
+              ${saved.map(entry => renderSaved(entry)).join('')}
+            </ul>
 
-          <div class="issues-add-wrap citibike-add-wrap">
+            <div class="issues-add-wrap citibike-add-wrap">
             <input
               class="input"
               id="citibike-search"
@@ -304,6 +298,7 @@ export function renderCitibike(container, { navigate }) {
               autocomplete="off"
             />
             <div class="citibike-search-results hidden" id="citibike-search-results"></div>
+            </div>
           </div>
         </div>
 
@@ -484,7 +479,7 @@ export function renderCitibike(container, { navigate }) {
             <span class="item-title issue-title">${escapeHtml(title)}</span>
             ${subtitle ? `<span class="item-subtitle">${escapeHtml(subtitle)}</span>` : ''}
           </div>
-          <div class="citibike-pills-stack-wrap">${availabilityPillsStacked(station)}</div>
+          <div class="citibike-pills-wrap">${availabilityPillsRow(station)}</div>
         </button>
       </li>
     `

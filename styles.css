@@ -1870,33 +1870,29 @@ textarea.coach-input {
   margin: 0;
 }
 
-.citibike-racks-head {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 20px 20px 0;
+.citibike-racks-block {
+  padding: 0 20px;
 }
 
-.citibike-racks-head .citibike-block-title {
+.citibike-racks-title {
+  padding: 20px 0 10px;
+}
+
+.citibike-saved-list.item-list {
+  margin: 0;
   padding: 0;
 }
 
-.citibike-racks-count {
-  font: var(--text-body-sm);
-  color: var(--text-secondary);
-  background: var(--surface);
-  padding: 2px 8px;
-  border-radius: 100px;
-  border: 1px solid var(--border);
-}
-
-.citibike-saved-list {
-  margin-top: 8px;
+.citibike-racks-block .issues-add-wrap {
+  padding: 16px 0 8px;
 }
 
 .citibike-add-wrap {
-  padding-top: 16px;
   padding-bottom: 24px;
+}
+
+.citibike-empty {
+  padding: 32px 16px;
 }
 
 .citibike-row {
@@ -1911,15 +1907,8 @@ textarea.coach-input {
   min-width: 0;
 }
 
-.citibike-pills-stack-wrap {
+.citibike-pills-wrap {
   flex-shrink: 0;
-}
-
-.citibike-pills-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
 }
 
 .citibike-pill-row {
@@ -1927,6 +1916,7 @@ textarea.coach-input {
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
+  flex-wrap: nowrap;
 }
 
 .citibike-row-main .item-subtitle {
@@ -2165,6 +2155,10 @@ textarea.coach-input {
   opacity: 0.55;
 }
 
+.citibike-saved-item.item {
+  cursor: default;
+}
+
 .citibike-saved-row {
   display: flex;
   align-items: center;
@@ -2176,7 +2170,7 @@ textarea.coach-input {
   text-align: left;
   cursor: pointer;
   font-family: var(--font);
-  padding: 10px 12px 10px 14px;
+  padding: 12px 14px;
 }
 
 .citibike-saved-row:active {
@@ -2185,14 +2179,15 @@ textarea.coach-input {
 
 .citibike-saved-item .item-title {
   padding: 0;
-  font-size: var(--font-size-body-md);
-  font-weight: 600;
-  line-height: 1.25;
+  font: var(--text-h4);
+  color: var(--text);
 }
 
 .citibike-saved-item .item-subtitle {
-  margin-top: 2px;
-  font-size: var(--font-size-micro);
+  display: block;
+  margin-top: 4px;
+  font: var(--text-body-sm);
+  color: var(--text-secondary);
 }
 
 .citibike-row {
