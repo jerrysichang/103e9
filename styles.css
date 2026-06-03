@@ -2180,6 +2180,14 @@ textarea.coach-input {
   flex-wrap: wrap;
 }
 
+.citibike-compass-hint {
+  flex: 1 1 100%;
+  margin: 4px 0 0;
+  font-size: var(--font-size-micro);
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
 .citibike-nearest-distance {
   font: 600 var(--font-size-body-md) / 1.2 var(--font);
   color: var(--accent);

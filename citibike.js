@@ -218,15 +218,20 @@ function isIosDevice() {
   return /iPhone|iPad|iPod/i.test(navigator.userAgent || '')
 }
 
-/** Device heading in degrees clockwise from magnetic north (top of device = 0°). */
+/**
+ * Device heading: degrees clockwise from north, 0 = top of device points north.
+ * iOS webkitCompassHeading is magnetic; absolute alpha uses (360 - alpha) on Android.
+ */
 function headingFromOrientationEvent(e) {
   if (typeof e.webkitCompassHeading === 'number' && !Number.isNaN(e.webkitCompassHeading)) {
+    if (typeof e.webkitCompassAccuracy === 'number' && e.webkitCompassAccuracy > 30) {
+      return null
+    }
     return e.webkitCompassHeading
   }
-  // iOS: only webkitCompassHeading is a reliable compass; alpha is not north-referenced.
   if (isIosDevice()) return null
   if (e.absolute === true && typeof e.alpha === 'number' && !Number.isNaN(e.alpha)) {
-    return e.alpha
+    return (360 - e.alpha) % 360
   }
   return null
 }
@@ -244,11 +249,10 @@ function orientationEventName() {
   return 'deviceorientation'
 }
 
-function arrowRotationDeg(magneticBearing, deviceHeading, live) {
-  if (live && deviceHeading != null) {
-    return (magneticBearing - deviceHeading + 360) % 360
-  }
-  return magneticBearing
+/** Rotate arrow on screen: 0° = up (phone top), clockwise. */
+function arrowRotationDeg(targetBearing, deviceHeading, live) {
+  if (!live || deviceHeading == null || targetBearing == null) return 0
+  return (targetBearing - deviceHeading + 360) % 360
 }
 
 async function requestCompassPermission() {
@@ -274,6 +278,7 @@ export function renderCitibike(container, { navigate }) {
   let editingStationId = null
   let nearestMagneticBearing = null
   let deviceHeading = null
+  let compassHeadingIsTrueNorth = false
   let compassActive = false
   let compassSupported = typeof DeviceOrientationEvent !== 'undefined'
   let lastFetchedAt = null
@@ -291,11 +296,11 @@ export function renderCitibike(container, { navigate }) {
     return stations.find(s => s.id === id)
   }
 
-  function magneticBearingToStation(station) {
+  function bearingToStation(station) {
     if (!userPos || !station) return null
-    return trueBearingToMagnetic(
-      bearingDeg(userPos.lat, userPos.lon, station.lat, station.lon)
-    )
+    const trueDeg = bearingDeg(userPos.lat, userPos.lon, station.lat, station.lon)
+    if (compassHeadingIsTrueNorth) return trueDeg
+    return trueBearingToMagnetic(trueDeg)
   }
 
   function activeNearestStation() {
@@ -305,7 +310,7 @@ export function renderCitibike(container, { navigate }) {
 
   function syncNearestMagneticBearing() {
     const station = activeNearestStation()
-    nearestMagneticBearing = station ? magneticBearingToStation(station) : null
+    nearestMagneticBearing = station ? bearingToStation(station) : null
   }
 
   function rerender({ preserveSearch = false } = {}) {
@@ -323,7 +328,7 @@ export function renderCitibike(container, { navigate }) {
 
     const nearest = nearMeNeedsLoad() ? null : nearestByMode[state.findMode]
     nearestMagneticBearing = nearest?.station
-      ? magneticBearingToStation(nearest.station)
+      ? bearingToStation(nearest.station)
       : null
 
     container.innerHTML = `
@@ -418,6 +423,7 @@ export function renderCitibike(container, { navigate }) {
     orientationHandler = e => {
       const heading = headingFromOrientationEvent(e)
       if (heading == null) return
+      compassHeadingIsTrueNorth = false
       deviceHeading = smoothHeading(deviceHeading, heading)
       scheduleCompassUpdate()
     }
@@ -465,9 +471,11 @@ export function renderCitibike(container, { navigate }) {
       compassActive = true
       sessionStorage.setItem(COMPASS_PREF_KEY, '1')
       deviceHeading = null
+      compassHeadingIsTrueNorth = false
       startCompassListener()
       setCompassLive(true)
       scheduleCompassUpdate()
+      rerender({ preserveSearch: true })
     } catch (err) {
       console.warn('Compass permission failed:', err)
     }
@@ -585,6 +593,15 @@ export function renderCitibike(container, { navigate }) {
     positionWatchId = navigator.geolocation.watchPosition(
       pos => {
         userPos = { lat: pos.coords.latitude, lon: pos.coords.longitude }
+        if (
+          compassActive
+          && typeof pos.coords.heading === 'number'
+          && !Number.isNaN(pos.coords.heading)
+          && pos.coords.heading >= 0
+        ) {
+          compassHeadingIsTrueNorth = true
+          deviceHeading = smoothHeading(deviceHeading, pos.coords.heading)
+        }
         if (nearMeLoadedAt && nearMeNeedsLoad()) {
           rerender({ preserveSearch: true })
           return
@@ -665,6 +682,7 @@ export function renderCitibike(container, { navigate }) {
                 data-directions-mode="${mode}"
               >Directions</button>
             </div>
+            ${compassActive ? '<p class="citibike-compass-hint">Lay phone flat, screen up — top edge toward the rack.</p>' : ''}
           </div>
           ${availabilityAside(station)}
         </div>
