@@ -306,14 +306,11 @@ export function renderCitibike(container, { navigate }) {
       <div class="view" id="view-citibike">
         <header class="header">
           <div class="header-title">Citibike</div>
-          <div class="header-right">
-            <button class="btn btn-icon" id="btn-citibike-refresh" aria-label="Refresh" type="button">↻</button>
-          </div>
         </header>
 
         <div class="scroll">
           <div class="citibike-near-block">
-            <h3 class="text-h3 citibike-block-title">Near me</h3>
+            <h3 class="text-h3 citibike-block-title">Nearest</h3>
 
             <div class="citibike-mode-switch" role="tablist" aria-label="Find nearest">
               <button type="button" class="citibike-mode-btn${state.findMode === 'bike' ? ' citibike-mode-active' : ''}" data-find-mode="bike" role="tab">Any bike</button>
@@ -582,32 +579,32 @@ export function renderCitibike(container, { navigate }) {
   function renderNearestCard(nearest, mode, geo, geoErr) {
     if (loading && stations.length === 0) {
       return wrapNearestCard(
-        nearestHeaderHtml('Nearby', { loading: true }),
+        nearestHeaderHtml('Nearest', { loading: true }),
         '<p class="citibike-nearest-empty citibike-nearest-body-msg">Loading station data…</p>'
       )
     }
     if (nearMeLoading) {
       return wrapNearestCard(
-        nearestHeaderHtml('Nearby', { loading: true }),
+        nearestHeaderHtml('Nearest', { loading: true }),
         '<p class="citibike-nearest-empty citibike-nearest-body-msg">Finding nearby racks…</p>'
       )
     }
     if (geo === 'denied' || geo === 'error') {
       return wrapNearestCard(
-        nearestHeaderHtml('Nearby', {}),
+        nearestHeaderHtml('Nearest', {}),
         `<p class="citibike-nearest-empty citibike-nearest-body-msg">${escapeHtml(geoErr || 'Location unavailable.')}</p><button class="btn btn-secondary citibike-retry-geo citibike-nearest-body-action" type="button">Try again</button>`
       )
     }
     if (nearMeNeedsLoad()) {
       return wrapNearestCard(
-        nearestHeaderHtml('Near me', {}),
+        nearestHeaderHtml('Nearest', {}),
         `<p class="citibike-nearest-empty citibike-nearest-body-msg">${escapeHtml(nearMeLoadHint())}</p><button class="btn btn-primary citibike-load-near citibike-nearest-body-action" type="button">Load</button>`
       )
     }
     if (!nearest) {
       const modeLabel = mode === 'ebike' ? 'e-bikes' : mode === 'parking' ? 'open docks' : 'bikes'
       return wrapNearestCard(
-        nearestHeaderHtml('Near me', { showAgo: true }),
+        nearestHeaderHtml('Nearest', { showAgo: true }),
         `<p class="citibike-nearest-empty citibike-nearest-body-msg">No racks with ${modeLabel} nearby right now.</p><button class="btn btn-secondary citibike-load-near citibike-nearest-body-action" type="button">Load again</button>`
       )
     }
@@ -667,10 +664,6 @@ export function renderCitibike(container, { navigate }) {
 
   function bind(state) {
     container.querySelector('#btn-citibike-home')?.addEventListener('click', () => navigate('home'))
-    container.querySelector('#btn-citibike-refresh')?.addEventListener('click', () => {
-      refreshAll()
-    })
-
     container.querySelectorAll('.citibike-load-near').forEach(btn => {
       btn.addEventListener('click', () => loadNearMe())
     })
@@ -887,10 +880,6 @@ export function renderCitibike(container, { navigate }) {
       nearMeLoading = false
       rerender({ preserveSearch: true })
     }
-  }
-
-  async function refreshAll() {
-    await loadNearMe()
   }
 
   loadStations().then(() => {
