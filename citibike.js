@@ -2,7 +2,7 @@ const KEY = 'ps_citibike_v1'
 const COMPASS_PREF_KEY = 'ps_citibike_compass_on'
 const GBFS_BASE = 'https://gbfs.citibikenyc.com/gbfs/en'
 const NEAR_ME_MOVE_M = 120
-/** NYC-area magnetic declination (°W). Compass APIs use magnetic north. */
+/** NYC-area magnetic declination (degrees west of true north). iOS webkitCompassHeading is magnetic. */
 const MAGNETIC_DECLINATION_WEST_DEG = 12.5
 
 const DEFAULT_STATE = {
@@ -97,8 +97,9 @@ function bearingDeg(fromLat, fromLon, toLat, toLon) {
   return (toDeg(Math.atan2(y, x)) + 360) % 360
 }
 
+/** GPS bearing is true north; subtract west declination for magnetic north. */
 function trueBearingToMagnetic(deg) {
-  return (deg + MAGNETIC_DECLINATION_WEST_DEG + 360) % 360
+  return (deg - MAGNETIC_DECLINATION_WEST_DEG + 360) % 360
 }
 
 function formatDistance(meters) {
