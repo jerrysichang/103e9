@@ -152,7 +152,30 @@ function getUserLocation() {
   })
 }
 
+function headingFromOrientationEvent(e) {
+  if (e.webkitCompassHeading != null && !Number.isNaN(e.webkitCompassHeading)) {
+    return e.webkitCompassHeading
+  }
+  if (e.absolute && e.alpha != null && !Number.isNaN(e.alpha)) {
+    return (360 - e.alpha) % 360
+  }
+  return null
+}
+
+async function requestCompassPermission() {
+  if (typeof DeviceOrientationEvent === 'undefined') return false
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    const result = await DeviceOrientationEvent.requestPermission()
+    return result === 'granted'
+  }
+  return true
+}
+
+let compassCleanup = null
+
 export function renderCitibike(container, { navigate }) {
+  compassCleanup?.()
+
   let stations = []
   let loading = true
   let error = ''
@@ -160,6 +183,12 @@ export function renderCitibike(container, { navigate }) {
   let geoStatus = 'idle'
   let geoError = ''
   let editingStationId = null
+  let nearestBearing = null
+  let deviceHeading = null
+  let compassActive = false
+  let compassSupported = typeof DeviceOrientationEvent !== 'undefined'
+  let lastFetchedAt = null
+  let orientationHandler = null
 
   function stationById(id) {
     return stations.find(s => s.id === id)
@@ -177,6 +206,7 @@ export function renderCitibike(container, { navigate }) {
     const nearest = userPos
       ? findNearest(stations, userPos.lat, userPos.lon, state.findMode)
       : null
+    nearestBearing = nearest?.bearing ?? null
 
     container.innerHTML = `
       <div class="view" id="view-citibike">
@@ -246,6 +276,56 @@ export function renderCitibike(container, { navigate }) {
     `
 
     bind(state)
+    updateCompassArrow()
+    if (compassActive) startCompassListener()
+  }
+
+  function stopCompassListener() {
+    if (!orientationHandler) return
+    window.removeEventListener('deviceorientationabsolute', orientationHandler, true)
+    window.removeEventListener('deviceorientation', orientationHandler, true)
+    orientationHandler = null
+  }
+
+  function startCompassListener() {
+    stopCompassListener()
+    orientationHandler = e => {
+      const heading = headingFromOrientationEvent(e)
+      if (heading == null) return
+      deviceHeading = heading
+      updateCompassArrow()
+    }
+    window.addEventListener('deviceorientationabsolute', orientationHandler, true)
+    window.addEventListener('deviceorientation', orientationHandler, true)
+  }
+
+  function updateCompassArrow() {
+    const arrow = container.querySelector('#citibike-compass-arrow')
+    if (!arrow || nearestBearing == null) return
+    const rotation = compassActive && deviceHeading != null
+      ? (nearestBearing - deviceHeading + 360) % 360
+      : nearestBearing
+    arrow.style.transform = `rotate(${rotation}deg)`
+  }
+
+  async function enableCompass() {
+    if (!compassSupported) return
+    try {
+      const granted = await requestCompassPermission()
+      if (!granted) return
+      compassActive = true
+      startCompassListener()
+      const hint = container.querySelector('#citibike-compass-hint')
+      if (hint) hint.textContent = 'Point phone toward arrow'
+      updateCompassArrow()
+    } catch (err) {
+      console.warn('Compass permission failed:', err)
+    }
+  }
+
+  compassCleanup = () => {
+    stopCompassListener()
+    compassCleanup = null
   }
 
   function renderNearestCard(nearest, mode, geo, geoErr) {
@@ -274,11 +354,25 @@ export function renderCitibike(container, { navigate }) {
       <div class="citibike-nearest-card">
         <div class="citibike-nearest-name">${escapeHtml(station.name)}</div>
         <div class="citibike-nearest-meta">
-          <span class="citibike-compass" style="transform: rotate(${bearing}deg)" aria-hidden="true">↑</span>
-          <span>${compassLabel(bearing)} · ${formatDistance(dist)}</span>
+          <div class="citibike-compass-wrap">
+            <button
+              type="button"
+              class="citibike-compass-btn${compassActive ? ' citibike-compass-live' : ''}"
+              id="citibike-compass-btn"
+              aria-label="${compassActive ? 'Live compass toward rack' : 'Enable live compass'}"
+            >
+              <svg id="citibike-compass-arrow" class="citibike-compass-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2.5 L19.5 21.5 L12 17.5 L4.5 21.5 Z" fill="currentColor"/>
+              </svg>
+            </button>
+            ${compassSupported && !compassActive ? '<span class="citibike-compass-hint" id="citibike-compass-hint">Tap arrow for live direction</span>' : ''}
+            ${compassActive ? '<span class="citibike-compass-hint" id="citibike-compass-hint">Point phone toward arrow</span>' : ''}
+          </div>
+          <span class="citibike-nearest-bearing">${compassLabel(bearing)} · ${formatDistance(dist)}</span>
         </div>
         <div class="citibike-nearest-detail">${escapeHtml(modeDetail)}</div>
         <div class="citibike-nearest-pills">${availabilityLine(station)}</div>
+        ${lastFetchedAt ? `<p class="citibike-live-note">Live counts · updated ${formatFetchedAt(lastFetchedAt)}</p>` : ''}
       </div>
     `
   }
@@ -310,6 +404,10 @@ export function renderCitibike(container, { navigate }) {
 
     container.querySelector('.citibike-retry-geo')?.addEventListener('click', () => {
       locateUser()
+    })
+
+    container.querySelector('#citibike-compass-btn')?.addEventListener('click', () => {
+      if (!compassActive) enableCompass()
     })
 
     container.querySelectorAll('[data-find-mode]').forEach(btn => {
@@ -445,6 +543,7 @@ export function renderCitibike(container, { navigate }) {
     rerender()
     try {
       stations = await fetchStations()
+      lastFetchedAt = Date.now()
       loading = false
     } catch (err) {
       loading = false
@@ -486,4 +585,11 @@ function escapeHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+function formatFetchedAt(ts) {
+  const sec = Math.max(0, Math.round((Date.now() - ts) / 1000))
+  if (sec < 8) return 'just now'
+  if (sec < 60) return `${sec}s ago`
+  return `${Math.round(sec / 60)}m ago`
 }

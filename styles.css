@@ -1920,22 +1920,65 @@ textarea.coach-input {
 .citibike-nearest-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.citibike-nearest-bearing {
   font-size: 15px;
   font-weight: 600;
   color: var(--accent);
 }
 
-.citibike-compass {
+.citibike-compass-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.citibike-compass-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--accent);
   display: inline-flex;
-  width: 22px;
-  height: 22px;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font);
+}
+
+.citibike-compass-btn.citibike-compass-live {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px #22c55e33;
+}
+
+.citibike-compass-arrow {
+  width: 28px;
+  height: 28px;
   transform-origin: center center;
+  transition: transform 0.08s linear;
+  will-change: transform;
+}
+
+.citibike-compass-hint {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: 72px;
+  line-height: 1.2;
+}
+
+.citibike-live-note {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .citibike-nearest-detail {
