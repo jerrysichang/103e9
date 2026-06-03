@@ -174,10 +174,7 @@ export function renderChallenges(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-challenges">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn" id="btn-challenges-home" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
-            <div class="header-title">Challenges</div>
-          </div>
+          <div class="header-title">Challenges</div>
           <div class="header-right">
             <button class="btn btn-secondary" id="btn-diff-down" type="button">-</button>
             <button class="btn btn-secondary" id="btn-diff-up" type="button">+</button>
@@ -225,6 +222,7 @@ export function renderChallenges(container, { navigate }) {
             `).join('')}
           </ul>
         </div>
+        <button class="btn btn-icon menu-grid-btn menu-fab" id="btn-challenges-home" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
       </div>
     `
 

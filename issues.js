@@ -21,10 +21,7 @@ export function renderIssuesList(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-issues">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn" id="btn-home-issues" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
-            <div class="header-title">Changes</div>
-          </div>
+          <div class="header-title">Changes</div>
         </header>
 
         <div class="scroll">
@@ -53,6 +50,7 @@ export function renderIssuesList(container, { navigate }) {
           </ul>
         </div>
         <button class="btn btn-primary fab-btn" id="btn-add-issue-fab" aria-label="Add change">＋</button>
+        <button class="btn btn-icon menu-grid-btn menu-fab" id="btn-home-issues" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
       </div>
     `
 

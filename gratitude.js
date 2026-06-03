@@ -50,10 +50,7 @@ export function renderGratitudeList(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-list">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn" id="btn-home-list" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
-            <div class="header-title">Gratitude</div>
-          </div>
+          <div class="header-title">Gratitude</div>
         </header>
 
         <div class="scroll">
@@ -78,6 +75,7 @@ export function renderGratitudeList(container, { navigate }) {
           </ul>
         </div>
         <button class="btn btn-primary fab-btn" id="btn-add" aria-label="Add goal">＋</button>
+        <button class="btn btn-icon menu-grid-btn menu-fab" id="btn-home-list" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
 
         <!-- Add modal (hidden by default) -->
         <div class="modal-backdrop hidden" id="add-modal">
@@ -223,9 +221,6 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
               ${ICONS.back} Back
             </button>
           </div>
-          <div class="header-right">
-            <button class="btn btn-icon menu-grid-btn" id="btn-home-detail" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
-          </div>
         </header>
 
         <div class="scroll">
@@ -265,6 +260,7 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
             <button class="btn btn-danger" id="btn-delete">Delete Goal</button>
           </div>
         </div>
+        <button class="btn btn-icon menu-grid-btn menu-fab" id="btn-home-detail" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
       </div>
     `
 

@@ -14,6 +14,7 @@ import { renderCoachChat, renderCoachProfile } from './coach.js'
 import { renderDietTracker, renderDietGoals } from './diet.js'
 import { renderIssuesList } from './issues.js'
 import { renderChallenges } from './challenges.js'
+import { renderCitibike } from './citibike.js'
 import { onRemoteUpdate, handleRemoteData } from './storage.js'
 import { hasPassphrase, getPassphrase, connect, disconnect } from './firebase-sync.js'
 
@@ -54,6 +55,13 @@ const TOOLS = [
     description: 'Track fixes and changes for 103e3',
     icon:        '□',
     defaultView: 'issues',
+  },
+  {
+    id:          'citibike',
+    name:        'Citibike',
+    description: 'Check bike and dock availability at NYC stations',
+    icon:        '◉',
+    defaultView: 'citibike',
   },
 ]
 
@@ -145,6 +153,11 @@ function renderApp() {
 
   if (view === 'challenges') {
     renderChallenges(app, { navigate })
+    return
+  }
+
+  if (view === 'citibike') {
+    renderCitibike(app, { navigate })
     return
   }
 }
