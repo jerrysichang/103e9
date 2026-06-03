@@ -1,7 +1,7 @@
 const KEY = 'ps_citibike_v1'
 const COMPASS_PREF_KEY = 'ps_citibike_compass_on'
 const GBFS_BASE = 'https://gbfs.citibikenyc.com/gbfs/en'
-const NEAR_ME_STALE_MS = 30_000
+const NEAR_ME_STALE_MS = 60_000
 const NEAR_ME_MOVE_M = 120
 /** NYC-area magnetic declination (°W). Compass APIs use magnetic north. */
 const MAGNETIC_DECLINATION_WEST_DEG = 12.5
@@ -156,6 +156,35 @@ function availabilityPillsRow(station) {
   `
 }
 
+function availabilityCapacityBar(station) {
+  if (station.isOffline) {
+    return '<div class="citibike-cap-bar citibike-cap-bar--offline" aria-hidden="true"></div>'
+  }
+  const classic = station.classic
+  const ebikes = station.ebikes
+  const docks = station.docks
+  const total = classic + ebikes + docks
+  if (total === 0) {
+    return '<div class="citibike-cap-bar" aria-hidden="true"><span class="citibike-cap-seg citibike-cap-empty"></span></div>'
+  }
+  const segs = []
+  if (classic > 0) segs.push(`<span class="citibike-cap-seg citibike-cap-bike" style="flex:${classic}"></span>`)
+  if (ebikes > 0) segs.push(`<span class="citibike-cap-seg citibike-cap-ebike" style="flex:${ebikes}"></span>`)
+  if (docks > 0) segs.push(`<span class="citibike-cap-seg citibike-cap-dock" style="flex:${docks}"></span>`)
+  return `<div class="citibike-cap-bar" aria-hidden="true">${segs.join('')}</div>`
+}
+
+function nearMeSecondsLeft(loadedAt) {
+  if (!loadedAt) return 0
+  return Math.max(0, Math.ceil((NEAR_ME_STALE_MS - (Date.now() - loadedAt)) / 1000))
+}
+
+function formatNearMeCountdown(seconds) {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 function googleMapsDirectionsUrl(destLat, destLon, mode, origin) {
   const travelmode = mode === 'parking' ? 'bicycling' : 'walking'
   const params = new URLSearchParams({
@@ -247,6 +276,7 @@ export function renderCitibike(container, { navigate }) {
   let nearMeLoading = false
   let positionWatchId = null
   let staleCheckTimer = null
+  let nearMeCountdownTimer = null
 
   function stationById(id) {
     return stations.find(s => s.id === id)
@@ -458,7 +488,66 @@ export function renderCitibike(container, { navigate }) {
         return 'You\'ve moved to a new area. Tap Load to refresh nearby racks.'
       }
     }
-    return 'Results are over 30 seconds old. Tap Load to refresh.'
+    return 'Results are over 1 minute old. Tap Load to refresh.'
+  }
+
+  function wrapNearestCard(headerHtml, bodyHtml, filled = false) {
+    return `
+      <div class="citibike-nearest-card citibike-nearest-card--stable">
+        <div class="citibike-nearest-header">${headerHtml}</div>
+        <div class="citibike-nearest-card-body${filled ? ' citibike-nearest-card-body--filled' : ''}">${bodyHtml}</div>
+      </div>
+    `
+  }
+
+  function nearestStatusHtml({ showCountdown = false, loading = false } = {}) {
+    if (showCountdown && nearMeLoadedAt) {
+      return `
+        <div class="citibike-nearest-status">
+          <span id="citibike-near-countdown" class="citibike-near-countdown">${formatNearMeCountdown(nearMeSecondsLeft(nearMeLoadedAt))}</span>
+          <button type="button" class="btn btn-icon citibike-near-refresh" aria-label="Refresh nearby">↻</button>
+        </div>
+      `
+    }
+    return `
+      <div class="citibike-nearest-status">
+        <span class="citibike-near-countdown citibike-near-countdown--idle" aria-hidden="true">${loading ? '…' : ''}</span>
+        <button type="button" class="btn btn-icon citibike-near-refresh"${loading ? ' disabled' : ''} aria-label="Refresh nearby">↻</button>
+      </div>
+    `
+  }
+
+  function nearestHeaderHtml(title, statusOpts) {
+    return `
+      <span class="item-title citibike-nearest-name">${escapeHtml(title)}</span>
+      ${nearestStatusHtml(statusOpts)}
+    `
+  }
+
+  function stopNearMeCountdown() {
+    if (nearMeCountdownTimer) {
+      clearInterval(nearMeCountdownTimer)
+      nearMeCountdownTimer = null
+    }
+  }
+
+  function startNearMeCountdown() {
+    stopNearMeCountdown()
+    const tick = () => {
+      const el = container.querySelector('#citibike-near-countdown')
+      if (!el || !nearMeLoadedAt) {
+        stopNearMeCountdown()
+        return
+      }
+      if (nearMeNeedsLoad()) {
+        stopNearMeCountdown()
+        rerender({ preserveSearch: true })
+        return
+      }
+      el.textContent = formatNearMeCountdown(nearMeSecondsLeft(nearMeLoadedAt))
+    }
+    tick()
+    nearMeCountdownTimer = setInterval(tick, 1000)
   }
 
   function recomputeNearestByMode() {
@@ -514,45 +603,50 @@ export function renderCitibike(container, { navigate }) {
     stopCompassListener()
     stopStaleCheck()
     stopPositionWatch()
+    stopNearMeCountdown()
     compassCleanup = null
   }
 
   function renderNearestCard(nearest, mode, geo, geoErr) {
     if (loading && stations.length === 0) {
-      return `<div class="citibike-nearest-card"><p class="citibike-nearest-empty">Loading station data…</p></div>`
+      return wrapNearestCard(
+        nearestHeaderHtml('Nearby', { loading: true }),
+        '<p class="citibike-nearest-empty citibike-nearest-body-msg">Loading station data…</p>'
+      )
     }
     if (nearMeLoading) {
-      return `<div class="citibike-nearest-card"><p class="citibike-nearest-empty">Finding nearby racks…</p></div>`
+      return wrapNearestCard(
+        nearestHeaderHtml('Nearby', { loading: true }),
+        '<p class="citibike-nearest-empty citibike-nearest-body-msg">Finding nearby racks…</p>'
+      )
     }
     if (geo === 'denied' || geo === 'error') {
-      return `<div class="citibike-nearest-card"><p class="citibike-nearest-empty">${escapeHtml(geoErr || 'Location unavailable.')}</p><button class="btn btn-secondary citibike-retry-geo" type="button">Try again</button></div>`
+      return wrapNearestCard(
+        nearestHeaderHtml('Nearby', {}),
+        `<p class="citibike-nearest-empty citibike-nearest-body-msg">${escapeHtml(geoErr || 'Location unavailable.')}</p><button class="btn btn-secondary citibike-retry-geo citibike-nearest-body-action" type="button">Try again</button>`
+      )
     }
     if (nearMeNeedsLoad()) {
-      return `
-        <div class="citibike-nearest-card citibike-nearest-prompt">
-          <p class="citibike-nearest-empty">${escapeHtml(nearMeLoadHint())}</p>
-          <button class="btn btn-primary citibike-load-near" type="button">Load</button>
-        </div>
-      `
+      return wrapNearestCard(
+        nearestHeaderHtml('Near me', {}),
+        `<p class="citibike-nearest-empty citibike-nearest-body-msg">${escapeHtml(nearMeLoadHint())}</p><button class="btn btn-primary citibike-load-near citibike-nearest-body-action" type="button">Load</button>`
+      )
     }
     if (!nearest) {
       const modeLabel = mode === 'ebike' ? 'e-bikes' : mode === 'parking' ? 'open docks' : 'bikes'
-      return `<div class="citibike-nearest-card"><p class="citibike-nearest-empty">No racks with ${modeLabel} nearby right now.</p><button class="btn btn-secondary citibike-load-near" type="button">Load again</button></div>`
+      return wrapNearestCard(
+        nearestHeaderHtml('Near me', { showCountdown: true }),
+        `<p class="citibike-nearest-empty citibike-nearest-body-msg">No racks with ${modeLabel} nearby right now.</p><button class="btn btn-secondary citibike-load-near citibike-nearest-body-action" type="button">Load again</button>`
+      )
     }
 
     const { station, dist } = nearest
-    const liveInline = nearMeLoadedAt
-      ? `<span class="citibike-live-inline">Loaded ${formatFetchedAt(nearMeLoadedAt)}</span>`
-      : ''
 
-    return `
-      <div class="citibike-nearest-card">
-        <div class="citibike-row">
+    return wrapNearestCard(
+      nearestHeaderHtml(station.name, { showCountdown: true }),
+      `
+        <div class="citibike-row citibike-nearest-content">
           <div class="citibike-row-main">
-            <div class="citibike-nearest-top">
-              <span class="item-title citibike-nearest-name">${escapeHtml(station.name)}</span>
-              ${liveInline}
-            </div>
             <div class="citibike-nearest-meta">
               <button
                 type="button"
@@ -574,10 +668,14 @@ export function renderCitibike(container, { navigate }) {
               >Directions</button>
             </div>
           </div>
-          <div class="citibike-pills-wrap citibike-nearest-pills">${availabilityPillsRow(station)}</div>
+          <div class="citibike-nearest-aside-col">
+            ${availabilityCapacityBar(station)}
+            <div class="citibike-pills-wrap citibike-nearest-pills">${availabilityPillsRow(station)}</div>
+          </div>
         </div>
-      </div>
-    `
+      `,
+      true
+    )
   }
 
   function renderSaved(entry) {
@@ -607,6 +705,18 @@ export function renderCitibike(container, { navigate }) {
     container.querySelectorAll('.citibike-load-near').forEach(btn => {
       btn.addEventListener('click', () => loadNearMe())
     })
+
+    container.querySelectorAll('.citibike-near-refresh').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!btn.disabled) loadNearMe()
+      })
+    })
+
+    if (nearMeLoadedAt && !nearMeNeedsLoad() && !nearMeLoading) {
+      startNearMeCountdown()
+    } else {
+      stopNearMeCountdown()
+    }
 
     container.querySelectorAll('.citibike-directions-btn').forEach(btn => {
       btn.addEventListener('click', () => {
