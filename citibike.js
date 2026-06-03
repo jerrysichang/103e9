@@ -123,7 +123,7 @@ function findNearest(stations, lat, lon, mode) {
     const dist = distanceMeters(lat, lon, station.lat, station.lon)
     if (dist < nearestDist) {
       nearestDist = dist
-      nearest = { station, dist, bearing: bearingDeg(lat, lon, station.lat, station.lon) }
+      nearest = { station, dist }
     }
   }
   return nearest
@@ -214,10 +214,17 @@ function getUserLocation() {
   })
 }
 
+function isIosDevice() {
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+}
+
+/** Device heading in degrees clockwise from magnetic north (top of device = 0°). */
 function headingFromOrientationEvent(e) {
   if (typeof e.webkitCompassHeading === 'number' && !Number.isNaN(e.webkitCompassHeading)) {
     return e.webkitCompassHeading
   }
+  // iOS: only webkitCompassHeading is a reliable compass; alpha is not north-referenced.
+  if (isIosDevice()) return null
   if (e.absolute === true && typeof e.alpha === 'number' && !Number.isNaN(e.alpha)) {
     return e.alpha
   }
@@ -232,8 +239,7 @@ function smoothHeading(prev, next) {
 }
 
 function orientationEventName() {
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '')
-  if (isIOS) return 'deviceorientation'
+  if (isIosDevice()) return 'deviceorientation'
   if ('ondeviceorientationabsolute' in window) return 'deviceorientationabsolute'
   return 'deviceorientation'
 }
@@ -285,6 +291,23 @@ export function renderCitibike(container, { navigate }) {
     return stations.find(s => s.id === id)
   }
 
+  function magneticBearingToStation(station) {
+    if (!userPos || !station) return null
+    return trueBearingToMagnetic(
+      bearingDeg(userPos.lat, userPos.lon, station.lat, station.lon)
+    )
+  }
+
+  function activeNearestStation() {
+    const mode = loadState().findMode
+    return nearestByMode[mode]?.station ?? null
+  }
+
+  function syncNearestMagneticBearing() {
+    const station = activeNearestStation()
+    nearestMagneticBearing = station ? magneticBearingToStation(station) : null
+  }
+
   function rerender({ preserveSearch = false } = {}) {
     const prevSearchEl = preserveSearch ? container.querySelector('#citibike-search') : null
     const searchVal = prevSearchEl?.value ?? ''
@@ -299,8 +322,8 @@ export function renderCitibike(container, { navigate }) {
       .filter(Boolean)
 
     const nearest = nearMeNeedsLoad() ? null : nearestByMode[state.findMode]
-    nearestMagneticBearing = nearest != null
-      ? trueBearingToMagnetic(nearest.bearing)
+    nearestMagneticBearing = nearest?.station
+      ? magneticBearingToStation(nearest.station)
       : null
 
     container.innerHTML = `
@@ -421,6 +444,7 @@ export function renderCitibike(container, { navigate }) {
 
   function updateCompassArrow() {
     const arrow = container.querySelector('#citibike-compass-arrow')
+    syncNearestMagneticBearing()
     if (!arrow || nearestMagneticBearing == null) return
     const rotation = arrowRotationDeg(
       nearestMagneticBearing,
@@ -563,6 +587,10 @@ export function renderCitibike(container, { navigate }) {
         userPos = { lat: pos.coords.latitude, lon: pos.coords.longitude }
         if (nearMeLoadedAt && nearMeNeedsLoad()) {
           rerender({ preserveSearch: true })
+          return
+        }
+        if (compassActive || activeNearestStation()) {
+          scheduleCompassUpdate()
         }
       },
       () => {},
