@@ -560,8 +560,9 @@ export function renderCitibike(container, { navigate }) {
     container.querySelector('#citibike-edit-save')?.addEventListener('click', saveEditModal)
     container.querySelector('#citibike-edit-remove')?.addEventListener('click', () => {
       if (!editingStationId) return
-      removeSaved(editingStationId)
+      const id = editingStationId
       editingStationId = null
+      removeSaved(id)
     })
     editInput?.addEventListener('keydown', e => {
       if (e.key === 'Enter') saveEditModal()
@@ -595,6 +596,7 @@ export function renderCitibike(container, { navigate }) {
   }
 
   function removeSaved(stationId) {
+    editingStationId = null
     const next = loadState()
     next.saved = next.saved.filter(s => s.stationId !== stationId)
     saveState(next)
