@@ -1,5 +1,23 @@
 # Agent Workflow Commands
 
+## Typography (103e9)
+
+Defined in `styles.css` `:root` tokens and utility classes:
+
+| Level | Utility | Typical use |
+|-------|---------|-------------|
+| H1 | `.text-h1` | Home title (`103e9`) |
+| H2 | `.text-h2` / `.header-title` | Tool screen headers |
+| H3 | `.text-h3` | Modal titles, large icons |
+| H4 | `.text-h4` / `.item-title` | List row titles, card names |
+| Body-large | `.text-body-lg` | Inputs, emphasis |
+| Body | `.text-body` | Default UI copy |
+| Body-small | `.text-body-sm` | Meta, subtitles, hints |
+| Overline | `.text-overline` / `.section-label` | Section eyebrows (uppercase) |
+
+Prefer semantic classes already in the app; use utilities for new markup. Adjust the scale via `--font-size-*` variables only.
+
+
 When the user says exactly `make logged changes`, run this workflow:
 
 1. Export open issues from the synced vault:

@@ -1,6 +1,7 @@
 const KEY = 'ps_citibike_v1'
 const GBFS_BASE = 'https://gbfs.citibikenyc.com/gbfs/en'
-const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+/** NYC-area magnetic declination (°W). Compass APIs use magnetic north. */
+const MAGNETIC_DECLINATION_WEST_DEG = 12.5
 
 const DEFAULT_STATE = {
   saved: [],
@@ -94,8 +95,8 @@ function bearingDeg(fromLat, fromLon, toLat, toLon) {
   return (toDeg(Math.atan2(y, x)) + 360) % 360
 }
 
-function compassLabel(deg) {
-  return COMPASS[Math.round(deg / 45) % 8]
+function trueBearingToMagnetic(deg) {
+  return (deg + MAGNETIC_DECLINATION_WEST_DEG + 360) % 360
 }
 
 function formatDistance(meters) {
@@ -128,14 +129,20 @@ function findNearest(stations, lat, lon, mode) {
 function availabilityLine(station) {
   if (station.isOffline) return 'Offline'
   return [
-    pill('Classic', station.classic, station.classic > 0),
-    pill('E-bike', station.ebikes, station.ebikes > 0),
-    pill('Dock', station.docks, station.docks > 0),
+    pill('bike', station.classic, station.classic > 0),
+    pill('ebike', station.ebikes, station.ebikes > 0),
+    pill('dock', station.docks, station.docks > 0),
   ].join('')
 }
 
-function pill(label, count, ok) {
-  return `<span class="citibike-pill${ok ? ' citibike-pill-ok' : ' citibike-pill-empty'}">${label} ${count}</span>`
+const PILL_ICONS = {
+  bike: '<span class="citibike-pill-icon" aria-hidden="true">🚲</span>',
+  ebike: '<span class="citibike-pill-icon" aria-hidden="true">⚡</span>',
+  dock: '<span class="citibike-pill-icon citibike-pill-p" aria-hidden="true">P</span>',
+}
+
+function pill(kind, count, ok) {
+  return `<span class="citibike-pill${ok ? ' citibike-pill-ok' : ' citibike-pill-empty'}">${PILL_ICONS[kind]}<span class="citibike-pill-count">${count}</span></span>`
 }
 
 function getUserLocation() {
@@ -153,13 +160,26 @@ function getUserLocation() {
 }
 
 function headingFromOrientationEvent(e) {
-  if (e.webkitCompassHeading != null && !Number.isNaN(e.webkitCompassHeading)) {
+  if (typeof e.webkitCompassHeading === 'number' && !Number.isNaN(e.webkitCompassHeading)) {
     return e.webkitCompassHeading
   }
-  if (e.absolute && e.alpha != null && !Number.isNaN(e.alpha)) {
-    return (360 - e.alpha) % 360
+  if (e.absolute === true && typeof e.alpha === 'number' && !Number.isNaN(e.alpha)) {
+    return e.alpha
   }
   return null
+}
+
+function smoothHeading(prev, next) {
+  if (prev == null) return next
+  let delta = ((next - prev + 540) % 360) - 180
+  return (prev + delta * 0.25 + 360) % 360
+}
+
+function arrowRotationDeg(magneticBearing, deviceHeading, live) {
+  if (live && deviceHeading != null) {
+    return (magneticBearing - deviceHeading + 360) % 360
+  }
+  return magneticBearing
 }
 
 async function requestCompassPermission() {
@@ -183,7 +203,7 @@ export function renderCitibike(container, { navigate }) {
   let geoStatus = 'idle'
   let geoError = ''
   let editingStationId = null
-  let nearestBearing = null
+  let nearestMagneticBearing = null
   let deviceHeading = null
   let compassActive = false
   let compassSupported = typeof DeviceOrientationEvent !== 'undefined'
@@ -206,7 +226,9 @@ export function renderCitibike(container, { navigate }) {
     const nearest = userPos
       ? findNearest(stations, userPos.lat, userPos.lon, state.findMode)
       : null
-    nearestBearing = nearest?.bearing ?? null
+    nearestMagneticBearing = nearest != null
+      ? trueBearingToMagnetic(nearest.bearing)
+      : null
 
     container.innerHTML = `
       <div class="view" id="view-citibike">
@@ -266,6 +288,7 @@ export function renderCitibike(container, { navigate }) {
               <button class="btn btn-secondary" id="citibike-edit-cancel" type="button">Cancel</button>
               <button class="btn btn-primary" id="citibike-edit-save" type="button">Save</button>
             </div>
+            <button class="btn btn-danger citibike-edit-remove" id="citibike-edit-remove" type="button">Remove rack</button>
           </div>
         </div>
 
@@ -292,7 +315,7 @@ export function renderCitibike(container, { navigate }) {
     orientationHandler = e => {
       const heading = headingFromOrientationEvent(e)
       if (heading == null) return
-      deviceHeading = heading
+      deviceHeading = smoothHeading(deviceHeading, heading)
       updateCompassArrow()
     }
     window.addEventListener('deviceorientationabsolute', orientationHandler, true)
@@ -301,22 +324,22 @@ export function renderCitibike(container, { navigate }) {
 
   function updateCompassArrow() {
     const arrow = container.querySelector('#citibike-compass-arrow')
-    if (!arrow || nearestBearing == null) return
-    const rotation = compassActive && deviceHeading != null
-      ? (nearestBearing - deviceHeading + 360) % 360
-      : nearestBearing
+    if (!arrow || nearestMagneticBearing == null) return
+    const rotation = arrowRotationDeg(
+      nearestMagneticBearing,
+      deviceHeading,
+      compassActive
+    )
     arrow.style.transform = `rotate(${rotation}deg)`
   }
 
   async function enableCompass() {
-    if (!compassSupported) return
+    if (!compassSupported || compassActive) return
     try {
       const granted = await requestCompassPermission()
       if (!granted) return
       compassActive = true
       startCompassListener()
-      const hint = container.querySelector('#citibike-compass-hint')
-      if (hint) hint.textContent = 'Point phone toward arrow'
       updateCompassArrow()
     } catch (err) {
       console.warn('Compass permission failed:', err)
@@ -354,21 +377,17 @@ export function renderCitibike(container, { navigate }) {
       <div class="citibike-nearest-card">
         <div class="citibike-nearest-name">${escapeHtml(station.name)}</div>
         <div class="citibike-nearest-meta">
-          <div class="citibike-compass-wrap">
-            <button
-              type="button"
-              class="citibike-compass-btn${compassActive ? ' citibike-compass-live' : ''}"
-              id="citibike-compass-btn"
-              aria-label="${compassActive ? 'Live compass toward rack' : 'Enable live compass'}"
-            >
-              <svg id="citibike-compass-arrow" class="citibike-compass-arrow" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 2.5 L19.5 21.5 L12 17.5 L4.5 21.5 Z" fill="currentColor"/>
-              </svg>
-            </button>
-            ${compassSupported && !compassActive ? '<span class="citibike-compass-hint" id="citibike-compass-hint">Tap arrow for live direction</span>' : ''}
-            ${compassActive ? '<span class="citibike-compass-hint" id="citibike-compass-hint">Point phone toward arrow</span>' : ''}
-          </div>
-          <span class="citibike-nearest-bearing">${compassLabel(bearing)} · ${formatDistance(dist)}</span>
+          <button
+            type="button"
+            class="citibike-compass-btn${compassActive ? ' citibike-compass-live' : ''}"
+            id="citibike-compass-btn"
+            aria-label="${compassActive ? 'Direction toward rack' : 'Enable live direction'}"
+          >
+            <svg id="citibike-compass-arrow" class="citibike-compass-arrow" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2.5 L19.5 21.5 L12 17.5 L4.5 21.5 Z" fill="currentColor"/>
+            </svg>
+          </button>
+          <span class="citibike-nearest-distance">${formatDistance(dist)}</span>
         </div>
         <div class="citibike-nearest-detail">${escapeHtml(modeDetail)}</div>
         <div class="citibike-nearest-pills">${availabilityLine(station)}</div>
@@ -391,7 +410,6 @@ export function renderCitibike(container, { navigate }) {
             <div class="citibike-nearest-pills">${availabilityLine(station)}</div>
           </div>
         </button>
-        <button class="btn issue-delete-btn" type="button" data-station-delete="${stationId}" aria-label="Remove rack">×</button>
       </li>
     `
   }
@@ -456,13 +474,6 @@ export function renderCitibike(container, { navigate }) {
       results.innerHTML = ''
     })
 
-    container.querySelectorAll('[data-station-delete]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation()
-        removeSaved(btn.dataset.stationDelete)
-      })
-    })
-
     container.querySelectorAll('[data-edit-station]').forEach(btn => {
       btn.addEventListener('click', () => {
         openEditModal(btn.dataset.editStation)
@@ -476,6 +487,11 @@ export function renderCitibike(container, { navigate }) {
     })
     container.querySelector('#citibike-edit-cancel')?.addEventListener('click', closeEditModal)
     container.querySelector('#citibike-edit-save')?.addEventListener('click', saveEditModal)
+    container.querySelector('#citibike-edit-remove')?.addEventListener('click', () => {
+      if (!editingStationId) return
+      removeSaved(editingStationId)
+      editingStationId = null
+    })
     editInput?.addEventListener('keydown', e => {
       if (e.key === 'Enter') saveEditModal()
       if (e.key === 'Escape') closeEditModal()
@@ -496,7 +512,7 @@ export function renderCitibike(container, { navigate }) {
 
   function availabilityText(station) {
     if (station.isOffline) return 'Offline'
-    return `${station.classic} classic · ${station.ebikes} e-bike · ${station.docks} dock`
+    return `🚲 ${station.classic} · ⚡ ${station.ebikes} · P ${station.docks}`
   }
 
   function addSaved(stationId) {
@@ -561,6 +577,7 @@ export function renderCitibike(container, { navigate }) {
       userPos = await getUserLocation()
       geoStatus = 'ready'
       geoError = ''
+      if (compassSupported) enableCompass()
     } catch (err) {
       userPos = null
       geoStatus = err?.code === 1 ? 'denied' : 'error'

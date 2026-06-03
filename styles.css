@@ -21,6 +21,37 @@
   --safe-right:      env(safe-area-inset-right, 0px);
   --header-h:        60px;
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+
+  /* Type scale — sizes */
+  --font-size-h1:         44px;
+  --font-size-h1-compact: 40px;
+  --font-size-h1-detail:  36px;
+  --font-size-h2:         28px;
+  --font-size-h3:         22px;
+  --font-size-h4:         18px;
+  --font-size-body-lg:    17px;
+  --font-size-body:       16px;
+  --font-size-body-md:    15px;
+  --font-size-body-sm:    13px;
+  --font-size-caption:    14px;
+  --font-size-overline:   12px;
+  --font-size-micro:      11px;
+
+  /* Type scale — tracking */
+  --tracking-tight:    -0.03em;
+  --tracking-display:  -0.04em;
+  --tracking-title:    -0.02em;
+  --tracking-overline: 0.14em;
+
+  /* Composite styles (font: weight size/line-height family) */
+  --text-h1:       800 var(--font-size-h1) / 1.05 var(--font);
+  --text-h2:       800 var(--font-size-h2) / 1.1 var(--font);
+  --text-h3:       700 var(--font-size-h3) / 1.15 var(--font);
+  --text-h4:       600 var(--font-size-h4) / 1.3 var(--font);
+  --text-body-lg:  400 var(--font-size-body-lg) / 1.45 var(--font);
+  --text-body:     400 var(--font-size-body) / 1.5 var(--font);
+  --text-body-sm:  400 var(--font-size-body-sm) / 1.4 var(--font);
+  --text-overline: 700 var(--font-size-overline) / 1.2 var(--font);
 }
 
 /* ─── Utility ────────────────────────────────────────────────────────────── */
@@ -41,8 +72,7 @@ html, body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 16px;
-  line-height: 1.5;
+  font: var(--text-body);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -54,12 +84,57 @@ html, body {
   overflow: hidden;
 }
 
-/* ─── Typography ─────────────────────────────────────────────────────────── */
-h1, h2, h3 {
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+/* ─── Typography system ──────────────────────────────────────────────────── */
+/*
+  Scale: H1 → H4 (headings), Body-large / Body / Body-small (copy), Overline (section labels).
+  Prefer semantic classes (.header-title, .section-label) or utilities (.text-h2) in markup.
+*/
+.text-h1,
+.text-h2,
+.text-h3,
+.text-h4,
+.text-body-lg,
+.text-body,
+.text-body-sm,
+.text-overline {
+  font-family: var(--font);
+  color: inherit;
 }
+
+.text-h1 {
+  font: var(--text-h1);
+  letter-spacing: var(--tracking-display);
+}
+
+.text-h2 {
+  font: var(--text-h2);
+  letter-spacing: var(--tracking-tight);
+}
+
+.text-h3 { font: var(--text-h3); }
+
+.text-h4 { font: var(--text-h4); }
+
+.text-body-lg { font: var(--text-body-lg); }
+
+.text-body { font: var(--text-body); }
+
+.text-body-sm {
+  font: var(--text-body-sm);
+  color: var(--text-secondary);
+}
+
+.text-overline {
+  font: var(--text-overline);
+  letter-spacing: var(--tracking-overline);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+h1 { font: var(--text-h1); letter-spacing: var(--tracking-display); }
+h2 { font: var(--text-h2); letter-spacing: var(--tracking-tight); }
+h3 { font: var(--text-h3); }
+h4 { font: var(--text-h4); }
 
 /* ─── App Shell ──────────────────────────────────────────────────────────── */
 .app {
@@ -89,9 +164,8 @@ h1, h2, h3 {
 }
 
 .header-title {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font: var(--text-h2);
+  letter-spacing: var(--tracking-tight);
   color: var(--text);
   position: absolute;
   left: 50%;
@@ -118,8 +192,7 @@ h1, h2, h3 {
   gap: 6px;
   border: none;
   cursor: pointer;
-  font-family: var(--font);
-  font-size: 16px;
+  font: var(--text-body);
   font-weight: 500;
   transition: opacity 0.15s, transform 0.1s;
   user-select: none;
@@ -140,7 +213,7 @@ h1, h2, h3 {
 }
 
 .menu-grid-btn {
-  font-size: 16px;
+  font-size: var(--font-size-body);
   line-height: 1;
 }
 
@@ -174,7 +247,7 @@ h1, h2, h3 {
 .btn-back {
   background: none;
   color: var(--text-secondary);
-  font-size: 16px;
+  font: var(--text-body);
   font-weight: 500;
   padding: 8px 0;
   border-radius: 8px;
@@ -298,16 +371,14 @@ h1, h2, h3 {
 }
 
 .section-label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font: var(--text-overline);
+  letter-spacing: var(--tracking-overline);
   text-transform: uppercase;
   color: var(--text-secondary);
 }
 
 .section-count {
-  font-size: 12px;
-  font-weight: 700;
+  font: var(--text-overline);
   color: var(--text-secondary);
   background: var(--surface);
   padding: 2px 8px;
@@ -394,15 +465,18 @@ h1, h2, h3 {
 
 .item-title {
   flex: 1;
-  font-size: 18px;
-  font-weight: 600;
+  font: var(--text-h4);
   color: var(--text);
-  line-height: 1.3;
   word-break: break-word;
 }
 
 .achieved-item .item-title {
   color: var(--text);
+}
+
+.item-subtitle {
+  font: var(--text-body-sm);
+  color: var(--text-secondary);
 }
 
 .item-chevron {
@@ -459,8 +533,7 @@ h1, h2, h3 {
 }
 
 .empty-state p {
-  font-size: 16px;
-  line-height: 1.6;
+  font: var(--text-body);
 }
 
 /* ─── Modal (Add Item) ────────────────────────────────────────────────────── */
@@ -494,10 +567,9 @@ h1, h2, h3 {
 }
 
 .modal-title {
-  font-size: 28px;
-  font-weight: 800;
+  font: var(--text-h2);
+  letter-spacing: var(--tracking-tight);
   margin-bottom: 16px;
-  letter-spacing: -0.03em;
 }
 
 .modal-actions {
@@ -525,8 +597,7 @@ h1, h2, h3 {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-family: var(--font);
-  font-size: 17px;
+  font: var(--text-body-lg);
   padding: 14px 16px;
   outline: none;
   transition: border-color 0.15s;
@@ -559,15 +630,12 @@ textarea.input {
 }
 
 .detail-title {
-  font-size: 36px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  font: 800 var(--font-size-h1-detail) / 1.15 var(--font);
+  letter-spacing: var(--tracking-display);
   color: var(--text);
-  line-height: 1.15;
   background: none;
   border: none;
   width: 100%;
-  font-family: var(--font);
   outline: none;
   caret-color: var(--accent);
   resize: none;
@@ -586,7 +654,7 @@ textarea.input {
 }
 
 .detail-date {
-  font-size: 14px;
+  font: var(--text-body-sm);
   color: var(--text-muted);
   margin-top: 6px;
 }
@@ -602,7 +670,7 @@ textarea.input {
 }
 
 .detail-actions .btn {
-  font-size: 15px;
+  font-size: var(--font-size-body-md);
   padding: 11px 18px;
 }
 
@@ -619,11 +687,9 @@ textarea.input {
 }
 
 .prompt-question {
-  font-size: 17px;
-  font-weight: 700;
+  font: 700 var(--font-size-body-lg) / 1.4 var(--font);
   color: var(--text);
   margin-bottom: 12px;
-  line-height: 1.4;
 }
 
 .prompt-entries {
@@ -659,7 +725,7 @@ textarea.input {
 }
 
 .prompt-answer {
-  font-size: 17px;
+  font: var(--text-body-lg);
   background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -676,7 +742,7 @@ textarea.input {
   border-radius: var(--radius-sm);
   border: 1px dashed var(--border);
   color: var(--text-secondary);
-  font-size: 15px;
+  font-size: var(--font-size-body-md);
   line-height: 1.45;
 }
 
@@ -699,12 +765,12 @@ textarea.input {
 }
 
 .achieved-banner-icon {
-  font-size: 18px;
+  font-size: var(--font-size-h4);
   flex-shrink: 0;
 }
 
 .achieved-banner-text {
-  font-size: 15px;
+  font-size: var(--font-size-body-md);
   color: var(--achieved);
   font-weight: 500;
   line-height: 1.4;
@@ -716,18 +782,16 @@ textarea.input {
 }
 
 .home-eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font: var(--text-overline);
+  letter-spacing: var(--tracking-overline);
   text-transform: uppercase;
   color: var(--text-secondary);
   margin-bottom: 6px;
 }
 
 .home-title {
-  font-size: 44px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  font: var(--text-h1);
+  letter-spacing: var(--tracking-display);
 }
 
 .tools-grid {
@@ -761,15 +825,14 @@ textarea.input {
 }
 
 .tool-card-icon {
-  font-size: 22px;
+  font-size: var(--font-size-h3);
   margin-bottom: 8px;
 }
 
 .tool-card-name {
-  font-size: 16px;
-  font-weight: 800;
+  font: 800 var(--font-size-body) / 1.3 var(--font);
+  letter-spacing: var(--tracking-title);
   color: var(--text);
-  letter-spacing: -0.02em;
   text-align: left;
 }
 
@@ -779,42 +842,37 @@ textarea.input {
 
 /* ─── Passphrase Screen ─────────────────────────────────────────────────── */
 .passphrase-eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font: var(--text-overline);
+  letter-spacing: var(--tracking-overline);
   text-transform: uppercase;
   color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
 .passphrase-title {
-  font-size: 40px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
+  font: 800 var(--font-size-h1-compact) / 1.1 var(--font);
+  letter-spacing: var(--tracking-display);
   margin-bottom: 12px;
 }
 
 .passphrase-desc {
-  font-size: 16px;
+  font: var(--text-body);
   color: var(--text-secondary);
-  line-height: 1.5;
   margin-bottom: 28px;
 }
 
 .passphrase-input {
-  font-size: 18px;
+  font: var(--text-h4);
   padding: 16px;
   text-align: center;
   letter-spacing: 0.05em;
 }
 
 .passphrase-hint {
-  font-size: 13px;
+  font: var(--text-body-sm);
   color: var(--text-muted);
   text-align: center;
   margin-top: 16px;
-  line-height: 1.5;
 }
 
 /* ─── Desktop adjustments ────────────────────────────────────────────────── */
@@ -865,7 +923,7 @@ textarea.input {
   text-align: center;
   padding: 40px 32px;
   color: var(--text-muted);
-  font-size: 16px;
+  font-size: var(--font-size-body);
   line-height: 1.6;
 }
 
@@ -892,7 +950,7 @@ textarea.input {
 .coach-bubble {
   padding: 12px 15px;
   border-radius: var(--radius);
-  font-size: 16px;
+  font-size: var(--font-size-body);
   line-height: 1.55;
   word-break: break-word;
   white-space: pre-wrap;
@@ -963,7 +1021,7 @@ textarea.coach-input {
   min-height: 44px;
   max-height: 160px;
   padding: 11px 14px;
-  font-size: 16px;
+  font-size: var(--font-size-body);
   line-height: 1.45;
   resize: none;
   overflow-y: auto;
@@ -974,7 +1032,7 @@ textarea.coach-input {
   flex-shrink: 0;
   padding: 11px 18px;
   border-radius: var(--radius-sm);
-  font-size: 15px;
+  font-size: var(--font-size-body-md);
   font-weight: 600;
   height: 44px;
   width: auto;
@@ -988,7 +1046,7 @@ textarea.coach-input {
 /* ─── Coach — Profile View ───────────────────────────────────────────────── */
 .profile-meta {
   padding: 16px 20px 8px;
-  font-size: 13px;
+  font-size: var(--font-size-body-sm);
   color: var(--text-muted);
   line-height: 1.5;
 }
@@ -1025,7 +1083,7 @@ textarea.coach-input {
 .profile-section-header:active { opacity: 0.7; }
 
 .profile-section-label {
-  font-size: 14px;
+  font-size: var(--font-size-caption);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1059,14 +1117,14 @@ textarea.coach-input {
 .profile-field:last-child { border-bottom: none; }
 
 .profile-field-label {
-  font-size: 12px;
+  font-size: var(--font-size-overline);
   font-weight: 600;
   color: var(--text-muted);
   letter-spacing: 0.03em;
 }
 
 .profile-field-value {
-  font-size: 15px;
+  font-size: var(--font-size-body-md);
   color: var(--text);
   line-height: 1.5;
 }
@@ -1095,7 +1153,7 @@ textarea.coach-input {
 
 .profile-field-dict dt {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--font-size-body-sm);
 }
 
 .profile-field-dict dd { color: var(--text); }
@@ -1128,7 +1186,7 @@ textarea.coach-input {
 }
 
 .diet-date-line {
-  font-size: 14px;
+  font-size: var(--font-size-caption);
   color: var(--text-muted);
   margin-bottom: 14px;
 }
@@ -1151,7 +1209,7 @@ textarea.coach-input {
 }
 
 .diet-macro-label {
-  font-size: 12px;
+  font-size: var(--font-size-overline);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1159,7 +1217,7 @@ textarea.coach-input {
 }
 
 .diet-macro-values {
-  font-size: 14px;
+  font-size: var(--font-size-caption);
   font-weight: 600;
   color: var(--text);
 }
@@ -1221,7 +1279,7 @@ textarea.coach-input {
 
 .diet-empty {
   color: var(--text-muted);
-  font-size: 15px;
+  font-size: var(--font-size-body-md);
   line-height: 1.55;
   padding: 8px 0 20px;
 }
@@ -1256,7 +1314,7 @@ textarea.coach-input {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: var(--font-size-h4);
 }
 
 .diet-entry-body {
@@ -1265,7 +1323,7 @@ textarea.coach-input {
 }
 
 .diet-entry-summary {
-  font-size: 15px;
+  font-size: var(--font-size-body-md);
   font-weight: 600;
   color: var(--text);
   line-height: 1.4;
@@ -1273,7 +1331,7 @@ textarea.coach-input {
 }
 
 .diet-entry-meta {
-  font-size: 13px;
+  font-size: var(--font-size-body-sm);
   color: var(--text-muted);
   line-height: 1.45;
   margin-bottom: 6px;
@@ -1284,7 +1342,7 @@ textarea.coach-input {
 }
 
 .diet-entry-macros {
-  font-size: 12px;
+  font-size: var(--font-size-overline);
   color: var(--text-secondary);
   letter-spacing: 0.02em;
 }
@@ -1297,7 +1355,7 @@ textarea.coach-input {
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
-  font-size: 22px;
+  font-size: var(--font-size-h3);
   line-height: 1;
 }
 
@@ -1356,7 +1414,7 @@ textarea.coach-input {
   background: transparent;
   color: var(--text-secondary);
   font-family: var(--font);
-  font-size: 14px;
+  font-size: var(--font-size-caption);
   font-weight: 600;
   padding: 8px 12px;
   border-radius: 100px;
@@ -1389,7 +1447,7 @@ textarea.coach-input {
 }
 
 .diet-manual-row-label {
-  font-size: 12px;
+  font-size: var(--font-size-overline);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1405,13 +1463,13 @@ textarea.coach-input {
 .diet-manual-input {
   width: 62px;
   padding: 7px 8px;
-  font-size: 16px;
+  font-size: var(--font-size-body);
   font-weight: 700;
   text-align: right;
 }
 
 .diet-manual-unit {
-  font-size: 14px;
+  font-size: var(--font-size-caption);
   color: var(--text-muted);
   font-weight: 600;
 }
@@ -1463,7 +1521,7 @@ textarea.coach-input {
 }
 
 .diet-modal-hint {
-  font-size: 14px;
+  font-size: var(--font-size-caption);
   color: var(--text-muted);
   margin-bottom: 12px;
   line-height: 1.5;
@@ -1489,7 +1547,7 @@ textarea.coach-input {
 }
 
 .diet-photo-name {
-  font-size: 13px;
+  font-size: var(--font-size-body-sm);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1526,7 +1584,7 @@ textarea.coach-input {
 }
 
 .diet-analysis-title {
-  font-size: 11px;
+  font-size: var(--font-size-micro);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1535,14 +1593,14 @@ textarea.coach-input {
 }
 
 .diet-analysis-line {
-  font-size: 15px;
+  font-size: var(--font-size-body-md);
   color: var(--text);
   line-height: 1.5;
   margin-bottom: 8px;
 }
 
 .diet-analysis-macros {
-  font-size: 14px;
+  font-size: var(--font-size-caption);
   color: var(--text-secondary);
 }
 
@@ -1563,7 +1621,7 @@ textarea.coach-input {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
+  font-size: var(--font-size-overline);
   color: var(--text-secondary);
 }
 
@@ -1582,7 +1640,7 @@ textarea.coach-input {
 }
 
 .diet-analysis-err {
-  font-size: 14px;
+  font-size: var(--font-size-caption);
   color: var(--danger);
   line-height: 1.45;
 }
@@ -1601,13 +1659,13 @@ textarea.coach-input {
 }
 
 .diet-fav-title {
-  font-size: 15px;
+  font-size: var(--font-size-body-md);
   font-weight: 700;
   margin-bottom: 4px;
 }
 
 .diet-fav-meta {
-  font-size: 12px;
+  font-size: var(--font-size-overline);
   color: var(--text-secondary);
 }
 
@@ -1623,7 +1681,7 @@ textarea.coach-input {
 }
 
 .diet-goals-intro {
-  font-size: 14px;
+  font-size: var(--font-size-caption);
   color: var(--text-muted);
   line-height: 1.55;
   margin-bottom: 20px;
@@ -1639,13 +1697,13 @@ textarea.coach-input {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--font-size-body-sm);
   font-weight: 600;
   color: var(--text-secondary);
 }
 
 .diet-field .input {
-  font-size: 17px;
+  font-size: var(--font-size-body-lg);
 }
 
 /* ─── Issues ─────────────────────────────────────────────────────────────── */
@@ -1692,12 +1750,12 @@ textarea.coach-input {
   align-items: center;
   justify-content: center;
   color: var(--achieved);
-  font-size: 14px;
+  font-size: var(--font-size-caption);
   font-weight: 700;
 }
 
 .issue-title {
-  font-size: 16px;
+  font-size: var(--font-size-body);
   line-height: 1.45;
 }
 
@@ -1709,7 +1767,7 @@ textarea.coach-input {
   margin-right: 10px;
   background: transparent;
   color: var(--text-muted);
-  font-size: 22px;
+  font-size: var(--font-size-h3);
   line-height: 1;
 }
 
@@ -1725,7 +1783,7 @@ textarea.coach-input {
 .issues-export-btn {
   width: auto;
   padding: 10px 14px;
-  font-size: 14px;
+  font-size: var(--font-size-caption);
   white-space: nowrap;
 }
 
@@ -1807,12 +1865,9 @@ textarea.coach-input {
 }
 
 /* ─── Citibike ───────────────────────────────────────────────────────────── */
-.item-subtitle {
+.citibike-station-text .item-subtitle {
   display: block;
-  font-size: 13px;
-  color: var(--text-secondary);
   margin-top: 4px;
-  line-height: 1.35;
 }
 
 .citibike-search-results {
@@ -1834,13 +1889,13 @@ textarea.coach-input {
   background: var(--surface-raised);
   border: 1px solid var(--border);
   color: var(--text);
-  font-family: var(--font);
-  font-size: 15px;
+  font: var(--text-body-md);
+  font-size: var(--font-size-body-md);
   cursor: pointer;
 }
 
 .citibike-search-meta {
-  font-size: 12px;
+  font: var(--text-body-sm);
   color: var(--text-secondary);
 }
 
@@ -1851,7 +1906,7 @@ textarea.coach-input {
   padding: 0;
   border-radius: var(--radius-sm);
   margin-right: 10px;
-  font-size: 18px;
+  font-size: var(--font-size-h4);
   line-height: 1;
 }
 
@@ -1890,9 +1945,7 @@ textarea.coach-input {
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-family: var(--font);
-  font-size: 13px;
-  font-weight: 600;
+  font: 600 var(--font-size-body-sm) / 1.2 var(--font);
   padding: 10px 6px;
   border-radius: calc(var(--radius-sm) - 2px);
   cursor: pointer;
@@ -1911,9 +1964,7 @@ textarea.coach-input {
 }
 
 .citibike-nearest-name {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.3;
+  font: 700 var(--font-size-h4) / 1.3 var(--font);
   color: var(--text);
 }
 
@@ -1924,18 +1975,9 @@ textarea.coach-input {
   margin-top: 10px;
 }
 
-.citibike-nearest-bearing {
-  font-size: 15px;
-  font-weight: 600;
+.citibike-nearest-distance {
+  font: 600 var(--font-size-body-md) / 1.2 var(--font);
   color: var(--accent);
-}
-
-.citibike-compass-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
 }
 
 .citibike-compass-btn {
@@ -1966,29 +2008,21 @@ textarea.coach-input {
   will-change: transform;
 }
 
-.citibike-compass-hint {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-align: center;
-  max-width: 72px;
-  line-height: 1.2;
-}
-
 .citibike-live-note {
   margin: 12px 0 0;
-  font-size: 11px;
+  font-size: var(--font-size-micro);
   color: var(--text-muted);
 }
 
 .citibike-nearest-detail {
   margin-top: 8px;
-  font-size: 14px;
+  font: var(--text-body-sm);
+  font-size: var(--font-size-caption);
   color: var(--text);
 }
 
 .citibike-nearest-empty {
-  font-size: 14px;
+  font-size: var(--font-size-caption);
   color: var(--text-secondary);
   line-height: 1.45;
   margin: 0;
@@ -2009,13 +2043,34 @@ textarea.coach-input {
 .citibike-pill {
   display: inline-flex;
   align-items: center;
-  font-size: 12px;
-  font-weight: 600;
+  gap: 4px;
+  font: 600 var(--font-size-overline) / 1 var(--font);
   padding: 4px 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
   color: var(--text-muted);
   background: var(--surface-raised);
+}
+
+.citibike-pill-icon {
+  font-size: var(--font-size-body-sm);
+  line-height: 1;
+}
+
+.citibike-pill-p {
+  font-size: var(--font-size-micro);
+  font-weight: 800;
+  width: 12px;
+  text-align: center;
+}
+
+.citibike-pill-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.citibike-edit-remove {
+  width: 100%;
+  margin-top: 12px;
 }
 
 .citibike-pill-ok {
@@ -2042,7 +2097,7 @@ textarea.coach-input {
 }
 
 .citibike-search-empty {
-  font-size: 13px;
+  font: var(--text-body-sm);
   color: var(--text-secondary);
   margin: 0;
   padding: 4px 2px;
