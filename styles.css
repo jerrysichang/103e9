@@ -2034,9 +2034,8 @@ textarea.coach-input {
 }
 
 .citibike-nearest-name {
-  font: 700 var(--font-size-body-md) / 1.25 var(--font);
-  color: var(--text);
   min-width: 0;
+  padding: 0;
 }
 
 .citibike-live-inline {
@@ -2059,6 +2058,18 @@ textarea.coach-input {
 .citibike-nearest-distance {
   font: 600 var(--font-size-body-md) / 1.2 var(--font);
   color: var(--accent);
+}
+
+.citibike-directions-btn {
+  padding: 6px 12px;
+  font-size: var(--font-size-body-sm);
+  width: auto;
+  flex-shrink: 0;
+}
+
+.citibike-nearest-prompt .citibike-load-near {
+  margin-top: 12px;
+  width: 100%;
 }
 
 .citibike-compass-btn {
@@ -2154,6 +2165,12 @@ textarea.coach-input {
   color: var(--achieved);
   border-color: #22c55e44;
   background: var(--achieved-dim);
+}
+
+.citibike-pill-warn {
+  color: #facc15;
+  border-color: #eab30855;
+  background: #eab30822;
 }
 
 .citibike-pill-empty {

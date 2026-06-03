@@ -1,7 +1,8 @@
 const KEY = 'ps_citibike_v1'
 const COMPASS_PREF_KEY = 'ps_citibike_compass_on'
 const GBFS_BASE = 'https://gbfs.citibikenyc.com/gbfs/en'
-const LIVE_REFRESH_MS = 60_000
+const NEAR_ME_STALE_MS = 30_000
+const NEAR_ME_MOVE_M = 120
 /** NYC-area magnetic declination (°W). Compass APIs use magnetic north. */
 const MAGNETIC_DECLINATION_WEST_DEG = 12.5
 
@@ -134,19 +135,36 @@ const ICON_SVG = {
   dock: `<svg class="citibike-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h5.5a3.5 3.5 0 010 7H11v7H9V5zm2 2v3h3.5a1.5 1.5 0 000-3H11z" fill="currentColor"/></svg>`,
 }
 
-function pill(kind, count, ok) {
-  return `<span class="citibike-pill${ok ? ' citibike-pill-ok' : ' citibike-pill-empty'}">${ICON_SVG[kind]}<span class="citibike-pill-count">${count}</span></span>`
+function pillClassForCount(count) {
+  if (count <= 0) return 'citibike-pill-empty'
+  if (count <= 3) return 'citibike-pill-warn'
+  return 'citibike-pill-ok'
+}
+
+function pill(kind, count) {
+  return `<span class="citibike-pill ${pillClassForCount(count)}">${ICON_SVG[kind]}<span class="citibike-pill-count">${count}</span></span>`
 }
 
 function availabilityPillsRow(station) {
   if (station.isOffline) return '<span class="citibike-offline">Offline</span>'
   return `
     <div class="citibike-pill-row">
-      ${pill('bike', station.classic, station.classic > 0)}
-      ${pill('ebike', station.ebikes, station.ebikes > 0)}
-      ${pill('dock', station.docks, station.docks > 0)}
+      ${pill('bike', station.classic)}
+      ${pill('ebike', station.ebikes)}
+      ${pill('dock', station.docks)}
     </div>
   `
+}
+
+function googleMapsDirectionsUrl(destLat, destLon, mode, origin) {
+  const travelmode = mode === 'parking' ? 'bicycling' : 'walking'
+  const params = new URLSearchParams({
+    api: '1',
+    destination: `${destLat},${destLon}`,
+    travelmode,
+  })
+  if (origin) params.set('origin', `${origin.lat},${origin.lon}`)
+  return `https://www.google.com/maps/dir/?${params}`
 }
 
 function getUserLocation() {
@@ -223,7 +241,12 @@ export function renderCitibike(container, { navigate }) {
   let orientationHandler = null
   let orientationEvent = null
   let arrowFrame = null
-  let refreshTimer = null
+  let nearestByMode = { bike: null, ebike: null, parking: null }
+  let nearMeLoadedAt = null
+  let nearMeAnchor = null
+  let nearMeLoading = false
+  let positionWatchId = null
+  let staleCheckTimer = null
 
   function stationById(id) {
     return stations.find(s => s.id === id)
@@ -242,9 +265,7 @@ export function renderCitibike(container, { navigate }) {
       })
       .filter(Boolean)
 
-    const nearest = userPos
-      ? findNearest(stations, userPos.lat, userPos.lon, state.findMode)
-      : null
+    const nearest = nearMeNeedsLoad() ? null : nearestByMode[state.findMode]
     nearestMagneticBearing = nearest != null
       ? trueBearingToMagnetic(nearest.bearing)
       : null
@@ -272,7 +293,7 @@ export function renderCitibike(container, { navigate }) {
           </div>
 
           <div class="citibike-racks-block">
-            <h3 class="text-h3 citibike-block-title citibike-racks-title">My racks</h3>
+            <h3 class="text-h3 citibike-block-title citibike-racks-title">Saved</h3>
 
             <ul class="item-list citibike-saved-list">
               ${loading && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state citibike-empty"><p>Loading stations…</p></div></li>` : ''}
@@ -413,45 +434,115 @@ export function renderCitibike(container, { navigate }) {
     scheduleCompassUpdate()
   }
 
-  function stopAutoRefresh() {
-    if (refreshTimer) {
-      clearInterval(refreshTimer)
-      refreshTimer = null
+  function nearMeNeedsLoad() {
+    if (!nearMeLoadedAt || !nearMeAnchor) return true
+    if (Date.now() - nearMeLoadedAt > NEAR_ME_STALE_MS) return true
+    if (userPos) {
+      const moved = distanceMeters(
+        userPos.lat, userPos.lon, nearMeAnchor.lat, nearMeAnchor.lon
+      )
+      if (moved > NEAR_ME_MOVE_M) return true
+    }
+    return false
+  }
+
+  function nearMeLoadHint() {
+    if (!nearMeLoadedAt) {
+      return 'Tap Load to find the nearest rack for Any bike, E-bike, and Parking.'
+    }
+    if (userPos && nearMeAnchor) {
+      const moved = distanceMeters(
+        userPos.lat, userPos.lon, nearMeAnchor.lat, nearMeAnchor.lon
+      )
+      if (moved > NEAR_ME_MOVE_M) {
+        return 'You\'ve moved to a new area. Tap Load to refresh nearby racks.'
+      }
+    }
+    return 'Results are over 30 seconds old. Tap Load to refresh.'
+  }
+
+  function recomputeNearestByMode() {
+    if (!userPos || stations.length === 0) {
+      nearestByMode = { bike: null, ebike: null, parking: null }
+      return
+    }
+    const { lat, lon } = userPos
+    nearestByMode = {
+      bike: findNearest(stations, lat, lon, 'bike'),
+      ebike: findNearest(stations, lat, lon, 'ebike'),
+      parking: findNearest(stations, lat, lon, 'parking'),
     }
   }
 
-  function startAutoRefresh() {
-    stopAutoRefresh()
-    refreshTimer = setInterval(() => {
-      if (document.hidden) return
-      loadStations({ silent: true })
-    }, LIVE_REFRESH_MS)
+  function stopStaleCheck() {
+    if (staleCheckTimer) {
+      clearInterval(staleCheckTimer)
+      staleCheckTimer = null
+    }
+  }
+
+  function startStaleCheck() {
+    stopStaleCheck()
+    staleCheckTimer = setInterval(() => {
+      if (document.hidden || !nearMeLoadedAt) return
+      if (nearMeNeedsLoad()) rerender({ preserveSearch: true })
+    }, 2000)
+  }
+
+  function stopPositionWatch() {
+    if (positionWatchId != null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(positionWatchId)
+      positionWatchId = null
+    }
+  }
+
+  function startPositionWatch() {
+    if (!navigator.geolocation || positionWatchId != null) return
+    positionWatchId = navigator.geolocation.watchPosition(
+      pos => {
+        userPos = { lat: pos.coords.latitude, lon: pos.coords.longitude }
+        if (nearMeLoadedAt && nearMeNeedsLoad()) {
+          rerender({ preserveSearch: true })
+        }
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 8000, timeout: 20000 }
+    )
   }
 
   compassCleanup = () => {
     stopCompassListener()
-    stopAutoRefresh()
+    stopStaleCheck()
+    stopPositionWatch()
     compassCleanup = null
   }
 
   function renderNearestCard(nearest, mode, geo, geoErr) {
     if (loading && stations.length === 0) {
-      return `<div class="citibike-nearest-card"><p class="citibike-nearest-empty">Loading live racks…</p></div>`
+      return `<div class="citibike-nearest-card"><p class="citibike-nearest-empty">Loading station data…</p></div>`
     }
-    if (geo === 'loading') {
-      return `<div class="citibike-nearest-card"><p class="citibike-nearest-empty">Finding your location…</p></div>`
+    if (nearMeLoading) {
+      return `<div class="citibike-nearest-card"><p class="citibike-nearest-empty">Finding nearby racks…</p></div>`
     }
     if (geo === 'denied' || geo === 'error') {
       return `<div class="citibike-nearest-card"><p class="citibike-nearest-empty">${escapeHtml(geoErr || 'Location unavailable.')}</p><button class="btn btn-secondary citibike-retry-geo" type="button">Try again</button></div>`
     }
+    if (nearMeNeedsLoad()) {
+      return `
+        <div class="citibike-nearest-card citibike-nearest-prompt">
+          <p class="citibike-nearest-empty">${escapeHtml(nearMeLoadHint())}</p>
+          <button class="btn btn-primary citibike-load-near" type="button">Load</button>
+        </div>
+      `
+    }
     if (!nearest) {
       const modeLabel = mode === 'ebike' ? 'e-bikes' : mode === 'parking' ? 'open docks' : 'bikes'
-      return `<div class="citibike-nearest-card"><p class="citibike-nearest-empty">No racks with ${modeLabel} nearby right now.</p></div>`
+      return `<div class="citibike-nearest-card"><p class="citibike-nearest-empty">No racks with ${modeLabel} nearby right now.</p><button class="btn btn-secondary citibike-load-near" type="button">Load again</button></div>`
     }
 
     const { station, dist } = nearest
-    const liveInline = lastFetchedAt
-      ? `<span class="citibike-live-inline">Updated ${formatFetchedAt(lastFetchedAt)}</span>`
+    const liveInline = nearMeLoadedAt
+      ? `<span class="citibike-live-inline">Loaded ${formatFetchedAt(nearMeLoadedAt)}</span>`
       : ''
 
     return `
@@ -459,7 +550,7 @@ export function renderCitibike(container, { navigate }) {
         <div class="citibike-row">
           <div class="citibike-row-main">
             <div class="citibike-nearest-top">
-              <span class="citibike-nearest-name">${escapeHtml(station.name)}</span>
+              <span class="item-title citibike-nearest-name">${escapeHtml(station.name)}</span>
               ${liveInline}
             </div>
             <div class="citibike-nearest-meta">
@@ -474,6 +565,13 @@ export function renderCitibike(container, { navigate }) {
                 </svg>
               </button>
               <span class="citibike-nearest-distance">${formatDistance(dist)}</span>
+              <button
+                type="button"
+                class="btn btn-secondary citibike-directions-btn"
+                data-directions-lat="${station.lat}"
+                data-directions-lon="${station.lon}"
+                data-directions-mode="${mode}"
+              >Directions</button>
             </div>
           </div>
           <div class="citibike-pills-wrap citibike-nearest-pills">${availabilityPillsRow(station)}</div>
@@ -506,8 +604,23 @@ export function renderCitibike(container, { navigate }) {
       refreshAll()
     })
 
+    container.querySelectorAll('.citibike-load-near').forEach(btn => {
+      btn.addEventListener('click', () => loadNearMe())
+    })
+
+    container.querySelectorAll('.citibike-directions-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const lat = Number(btn.dataset.directionsLat)
+        const lon = Number(btn.dataset.directionsLon)
+        const mode = btn.dataset.directionsMode
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return
+        const url = googleMapsDirectionsUrl(lat, lon, mode, userPos)
+        window.open(url, '_blank', 'noopener,noreferrer')
+      })
+    })
+
     container.querySelector('.citibike-retry-geo')?.addEventListener('click', () => {
-      locateUser()
+      loadNearMe()
     })
 
     container.querySelector('#citibike-compass-btn')?.addEventListener('click', () => {
@@ -662,14 +775,26 @@ export function renderCitibike(container, { navigate }) {
     rerender({ preserveSearch: silent })
   }
 
-  async function locateUser() {
+  async function loadNearMe() {
+    if (nearMeLoading) return
+    nearMeLoading = true
     geoStatus = 'loading'
     geoError = ''
-    rerender()
+    rerender({ preserveSearch: true })
     try {
+      stations = await fetchStations()
+      lastFetchedAt = Date.now()
+      loading = false
+      error = ''
+
       userPos = await getUserLocation()
       geoStatus = 'ready'
       geoError = ''
+
+      nearMeAnchor = { lat: userPos.lat, lon: userPos.lon }
+      recomputeNearestByMode()
+      nearMeLoadedAt = Date.now()
+
       await tryRestoreCompass()
       scheduleCompassUpdate()
     } catch (err) {
@@ -679,16 +804,20 @@ export function renderCitibike(container, { navigate }) {
         ? 'Location access is off. Enable it in Settings to find the nearest rack.'
         : 'Could not get your location. Try again when you have a GPS signal.'
       console.warn(err)
+    } finally {
+      nearMeLoading = false
+      rerender({ preserveSearch: true })
     }
-    rerender()
   }
 
   async function refreshAll() {
-    await Promise.all([loadStations(), locateUser()])
-    startAutoRefresh()
+    await loadNearMe()
   }
 
-  refreshAll()
+  loadStations().then(() => {
+    startStaleCheck()
+    startPositionWatch()
+  })
 }
 
 function escapeHtml(str) {
