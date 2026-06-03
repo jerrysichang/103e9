@@ -1,6 +1,7 @@
 const KEY = 'ps_citibike_v1'
 const COMPASS_PREF_KEY = 'ps_citibike_compass_on'
 const GBFS_BASE = 'https://gbfs.citibikenyc.com/gbfs/en'
+const LIVE_REFRESH_MS = 60_000
 /** NYC-area magnetic declination (°W). Compass APIs use magnetic north. */
 const MAGNETIC_DECLINATION_WEST_DEG = 12.5
 
@@ -148,20 +149,6 @@ function availabilityPillsRow(station) {
   `
 }
 
-function nearestAsideReadout(station, mode) {
-  if (station.isOffline) return 'Offline'
-  if (mode === 'ebike') {
-    const n = station.ebikes
-    return `${n} e-bike${n === 1 ? '' : 's'}`
-  }
-  if (mode === 'parking') {
-    const n = station.docks
-    return `${n} dock${n === 1 ? '' : 's'}`
-  }
-  const n = station.bikes
-  return `${n} bike${n === 1 ? '' : 's'}`
-}
-
 function getUserLocation() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -236,12 +223,17 @@ export function renderCitibike(container, { navigate }) {
   let orientationHandler = null
   let orientationEvent = null
   let arrowFrame = null
+  let refreshTimer = null
 
   function stationById(id) {
     return stations.find(s => s.id === id)
   }
 
-  function rerender() {
+  function rerender({ preserveSearch = false } = {}) {
+    const prevSearchEl = preserveSearch ? container.querySelector('#citibike-search') : null
+    const searchVal = prevSearchEl?.value ?? ''
+    const searchFocused = preserveSearch && document.activeElement === prevSearchEl
+
     const state = loadState()
     const saved = state.saved
       .map(entry => {
@@ -323,6 +315,13 @@ export function renderCitibike(container, { navigate }) {
     `
 
     bind(state)
+    if (preserveSearch) {
+      const search = container.querySelector('#citibike-search')
+      if (search) {
+        search.value = searchVal
+        if (searchFocused) search.focus({ preventScroll: true })
+      }
+    }
     scheduleCompassUpdate()
     if (compassActive) startCompassListener()
   }
@@ -414,8 +413,24 @@ export function renderCitibike(container, { navigate }) {
     scheduleCompassUpdate()
   }
 
+  function stopAutoRefresh() {
+    if (refreshTimer) {
+      clearInterval(refreshTimer)
+      refreshTimer = null
+    }
+  }
+
+  function startAutoRefresh() {
+    stopAutoRefresh()
+    refreshTimer = setInterval(() => {
+      if (document.hidden) return
+      loadStations({ silent: true })
+    }, LIVE_REFRESH_MS)
+  }
+
   compassCleanup = () => {
     stopCompassListener()
+    stopAutoRefresh()
     compassCleanup = null
   }
 
@@ -461,7 +476,7 @@ export function renderCitibike(container, { navigate }) {
               <span class="citibike-nearest-distance">${formatDistance(dist)}</span>
             </div>
           </div>
-          <div class="citibike-nearest-aside">${escapeHtml(nearestAsideReadout(station, mode))}</div>
+          <div class="citibike-pills-wrap citibike-nearest-pills">${availabilityPillsRow(station)}</div>
         </div>
       </div>
     `
@@ -543,6 +558,7 @@ export function renderCitibike(container, { navigate }) {
       search.value = ''
       results.classList.add('hidden')
       results.innerHTML = ''
+      search.blur()
     })
 
     container.querySelectorAll('[data-edit-station]').forEach(btn => {
@@ -626,20 +642,24 @@ export function renderCitibike(container, { navigate }) {
     rerender()
   }
 
-  async function loadStations() {
-    loading = true
-    error = ''
-    rerender()
+  async function loadStations({ silent = false } = {}) {
+    if (!silent) {
+      loading = true
+      error = ''
+      rerender()
+    }
     try {
       stations = await fetchStations()
       lastFetchedAt = Date.now()
-      loading = false
+      if (!silent) loading = false
     } catch (err) {
-      loading = false
-      error = 'Could not load live rack data. Check your connection and try again.'
+      if (!silent) {
+        loading = false
+        error = 'Could not load live rack data. Check your connection and try again.'
+      }
       console.error(err)
     }
-    rerender()
+    rerender({ preserveSearch: silent })
   }
 
   async function locateUser() {
@@ -665,6 +685,7 @@ export function renderCitibike(container, { navigate }) {
 
   async function refreshAll() {
     await Promise.all([loadStations(), locateUser()])
+    startAutoRefresh()
   }
 
   refreshAll()

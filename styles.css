@@ -265,8 +265,9 @@ h4 { font: var(--text-h4); }
   width: 100%;
 }
 
+/* FABs anchor to .view (app shell), not the visual viewport — stable when keyboard opens */
 .fab-btn {
-  position: fixed;
+  position: absolute;
   right: 20px;
   bottom: calc(18px + var(--safe-bottom));
   width: 56px;
@@ -277,16 +278,18 @@ h4 { font: var(--text-h4); }
   line-height: 1;
   z-index: 35;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
 }
 
 .menu-fab {
-  position: fixed;
+  position: absolute;
   left: 20px;
   bottom: calc(18px + var(--safe-bottom));
   width: 56px;
   height: 56px;
   z-index: 35;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
 }
 
 .view:has(.menu-fab) > .scroll {
@@ -330,6 +333,10 @@ h4 { font: var(--text-h4); }
   inset: 0;
   display: flex;
   flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
   background: var(--bg);
   transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
               opacity 0.32s ease;
@@ -889,14 +896,6 @@ textarea.input {
   body { background: #000000; }
 
   .tools-grid { grid-template-columns: repeat(3, 1fr); }
-
-  .menu-fab {
-    left: calc(50% - 240px + 20px);
-  }
-
-  .fab-btn {
-    right: calc(50% - 240px + 20px);
-  }
 }
 
 @media (min-width: 900px) {
@@ -2046,12 +2045,7 @@ textarea.coach-input {
   line-height: 1.3;
 }
 
-.citibike-nearest-aside {
-  font: 700 var(--font-size-body-md) / 1.2 var(--font);
-  color: var(--accent);
-  text-align: right;
-  white-space: nowrap;
-  flex-shrink: 0;
+.citibike-nearest-pills {
   align-self: center;
 }
 
