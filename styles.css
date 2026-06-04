@@ -1878,6 +1878,51 @@ textarea.coach-input {
 }
 
 /* ─── Citibike ───────────────────────────────────────────────────────────── */
+#view-citibike .citibike-scroll {
+  padding-bottom: calc(148px + var(--safe-bottom));
+}
+
+#view-citibike .menu-fab {
+  bottom: calc(56px + 18px + var(--safe-bottom));
+}
+
+.citibike-tab-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 34;
+  display: flex;
+  height: calc(56px + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.citibike-tab-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: 600 var(--font-size-body-sm) / 1.2 var(--font);
+  cursor: pointer;
+  font-family: var(--font);
+  padding: 0;
+}
+
+.citibike-tab-btn.citibike-tab-active {
+  color: var(--accent);
+}
+
+.citibike-tab-panel {
+  display: none;
+  padding-top: 8px;
+}
+
+.citibike-tab-panel-active {
+  display: block;
+}
+
 .citibike-block-title {
   padding: 12px 20px 8px;
   margin: 0;
@@ -1885,10 +1930,6 @@ textarea.coach-input {
 
 .citibike-racks-block {
   padding: 0 20px;
-}
-
-.citibike-racks-title {
-  padding: 20px 0 10px;
 }
 
 .citibike-saved-list.item-list {
@@ -1990,7 +2031,7 @@ textarea.coach-input {
 }
 
 .citibike-near-block {
-  padding: 0 20px 8px;
+  padding: 0 20px 16px;
 }
 
 .citibike-near-block .citibike-block-title {

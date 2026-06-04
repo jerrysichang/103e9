@@ -8,6 +8,7 @@ const MAGNETIC_DECLINATION_WEST_DEG = 12.5
 const DEFAULT_STATE = {
   saved: [],
   findMode: 'bike',
+  activeTab: 'nearby',
 }
 
 function loadState() {
@@ -20,6 +21,7 @@ function loadState() {
       return {
         saved: parsed.stationIds.map(stationId => ({ stationId, label: '' })),
         findMode: 'bike',
+        activeTab: 'nearby',
       }
     }
 
@@ -30,6 +32,7 @@ function loadState() {
           .map(s => ({ stationId: String(s.stationId), label: String(s.label || '') }))
         : [],
       findMode: ['bike', 'ebike', 'parking'].includes(parsed?.findMode) ? parsed.findMode : 'bike',
+      activeTab: parsed?.activeTab === 'saved' ? 'saved' : 'nearby',
     }
   } catch {
     return structuredClone(DEFAULT_STATE)
@@ -236,11 +239,11 @@ function headingFromOrientationEvent(e) {
   return null
 }
 
-function smoothHeading(prev, next) {
+function smoothAngle(prev, next, factor = 0.2, deadband = 2) {
   if (prev == null) return next
   let delta = ((next - prev + 540) % 360) - 180
-  if (Math.abs(delta) < 3) return prev
-  return (prev + delta * 0.12 + 360) % 360
+  if (Math.abs(delta) < deadband) return prev
+  return (prev + delta * factor + 360) % 360
 }
 
 function orientationEventName() {
@@ -278,7 +281,10 @@ export function renderCitibike(container, { navigate }) {
   let editingStationId = null
   let nearestMagneticBearing = null
   let deviceHeading = null
-  let compassHeadingIsTrueNorth = false
+  let displayArrowRotation = null
+  let cachedBearing = null
+  let cachedBearingForStationId = null
+  let cachedBearingAt = null
   let compassActive = false
   let compassSupported = typeof DeviceOrientationEvent !== 'undefined'
   let lastFetchedAt = null
@@ -296,11 +302,26 @@ export function renderCitibike(container, { navigate }) {
     return stations.find(s => s.id === id)
   }
 
+  function clearBearingCache() {
+    cachedBearing = null
+    cachedBearingForStationId = null
+    cachedBearingAt = null
+  }
+
+  /** Magnetic bearing; only recomputed when you move enough for GPS jitter not to flicker the arrow. */
   function bearingToStation(station) {
     if (!userPos || !station) return null
+    const sameStation = cachedBearingForStationId === station.id
+    const anchor = cachedBearingAt
+    if (sameStation && anchor && cachedBearing != null) {
+      const moved = distanceMeters(userPos.lat, userPos.lon, anchor.lat, anchor.lon)
+      if (moved < 10) return cachedBearing
+    }
     const trueDeg = bearingDeg(userPos.lat, userPos.lon, station.lat, station.lon)
-    if (compassHeadingIsTrueNorth) return trueDeg
-    return trueBearingToMagnetic(trueDeg)
+    cachedBearing = trueBearingToMagnetic(trueDeg)
+    cachedBearingForStationId = station.id
+    cachedBearingAt = { lat: userPos.lat, lon: userPos.lon }
+    return cachedBearing
   }
 
   function activeNearestStation() {
@@ -337,41 +358,54 @@ export function renderCitibike(container, { navigate }) {
           <div class="header-title">Citibike</div>
         </header>
 
-        <div class="scroll">
-          <div class="citibike-near-block">
-            <h3 class="text-h3 citibike-block-title">Nearest</h3>
-
-            <div class="citibike-mode-switch" role="tablist" aria-label="Find nearest">
-              <button type="button" class="citibike-mode-btn${state.findMode === 'bike' ? ' citibike-mode-active' : ''}" data-find-mode="bike" role="tab">Any bike</button>
-              <button type="button" class="citibike-mode-btn${state.findMode === 'ebike' ? ' citibike-mode-active' : ''}" data-find-mode="ebike" role="tab">E-bike</button>
-              <button type="button" class="citibike-mode-btn${state.findMode === 'parking' ? ' citibike-mode-active' : ''}" data-find-mode="parking" role="tab">Parking</button>
+        <div class="scroll citibike-scroll">
+          <div class="citibike-tab-panel${state.activeTab === 'nearby' ? ' citibike-tab-panel-active' : ''}" id="citibike-panel-nearby">
+            <div class="citibike-near-block">
+              <div class="citibike-mode-switch" role="tablist" aria-label="Find nearest">
+                <button type="button" class="citibike-mode-btn${state.findMode === 'bike' ? ' citibike-mode-active' : ''}" data-find-mode="bike" role="tab">Any bike</button>
+                <button type="button" class="citibike-mode-btn${state.findMode === 'ebike' ? ' citibike-mode-active' : ''}" data-find-mode="ebike" role="tab">E-bike</button>
+                <button type="button" class="citibike-mode-btn${state.findMode === 'parking' ? ' citibike-mode-active' : ''}" data-find-mode="parking" role="tab">Parking</button>
+              </div>
+              ${renderNearestCard(nearest, state.findMode, geoStatus, geoError)}
             </div>
-
-            ${renderNearestCard(nearest, state.findMode, geoStatus, geoError)}
           </div>
 
-          <div class="citibike-racks-block">
-            <h3 class="text-h3 citibike-block-title citibike-racks-title">Saved</h3>
-
-            <ul class="item-list citibike-saved-list">
-              ${loading && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state citibike-empty"><p>Loading stations…</p></div></li>` : ''}
-              ${!loading && error ? `<li style="list-style:none"><div class="empty-state citibike-empty"><p>${escapeHtml(error)}</p></div></li>` : ''}
-              ${!loading && !error && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state citibike-empty"><p>Add racks you check often — search below.</p></div></li>` : ''}
-              ${saved.map(entry => renderSaved(entry)).join('')}
-            </ul>
-
-            <div class="issues-add-wrap citibike-add-wrap">
-            <input
-              class="input"
-              id="citibike-search"
-              type="search"
-              placeholder="Search racks to add…"
-              autocomplete="off"
-            />
-            <div class="citibike-search-results hidden" id="citibike-search-results"></div>
+          <div class="citibike-tab-panel${state.activeTab === 'saved' ? ' citibike-tab-panel-active' : ''}" id="citibike-panel-saved">
+            <div class="citibike-racks-block">
+              <ul class="item-list citibike-saved-list">
+                ${loading && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state citibike-empty"><p>Loading stations…</p></div></li>` : ''}
+                ${!loading && error ? `<li style="list-style:none"><div class="empty-state citibike-empty"><p>${escapeHtml(error)}</p></div></li>` : ''}
+                ${!loading && !error && saved.length === 0 ? `<li style="list-style:none"><div class="empty-state citibike-empty"><p>Add racks you check often — search below.</p></div></li>` : ''}
+                ${saved.map(entry => renderSaved(entry)).join('')}
+              </ul>
+              <div class="issues-add-wrap citibike-add-wrap">
+                <input
+                  class="input"
+                  id="citibike-search"
+                  type="search"
+                  placeholder="Search racks to add…"
+                  autocomplete="off"
+                />
+                <div class="citibike-search-results hidden" id="citibike-search-results"></div>
+              </div>
             </div>
           </div>
         </div>
+
+        <nav class="citibike-tab-bar" aria-label="Citibike sections">
+          <button
+            type="button"
+            class="citibike-tab-btn${state.activeTab === 'nearby' ? ' citibike-tab-active' : ''}"
+            data-citibike-tab="nearby"
+            aria-selected="${state.activeTab === 'nearby' ? 'true' : 'false'}"
+          >Nearby</button>
+          <button
+            type="button"
+            class="citibike-tab-btn${state.activeTab === 'saved' ? ' citibike-tab-active' : ''}"
+            data-citibike-tab="saved"
+            aria-selected="${state.activeTab === 'saved' ? 'true' : 'false'}"
+          >Saved</button>
+        </nav>
 
         <div class="modal-backdrop${editingStationId ? '' : ' hidden'}" id="citibike-edit-modal">
           <div class="modal">
@@ -423,8 +457,7 @@ export function renderCitibike(container, { navigate }) {
     orientationHandler = e => {
       const heading = headingFromOrientationEvent(e)
       if (heading == null) return
-      compassHeadingIsTrueNorth = false
-      deviceHeading = smoothHeading(deviceHeading, heading)
+      deviceHeading = smoothAngle(deviceHeading, heading, 0.22, 2)
       scheduleCompassUpdate()
     }
     window.addEventListener(orientationEvent, orientationHandler, true)
@@ -452,12 +485,13 @@ export function renderCitibike(container, { navigate }) {
     const arrow = container.querySelector('#citibike-compass-arrow')
     syncNearestMagneticBearing()
     if (!arrow || nearestMagneticBearing == null) return
-    const rotation = arrowRotationDeg(
+    const target = arrowRotationDeg(
       nearestMagneticBearing,
       deviceHeading,
       compassActive
     )
-    arrow.style.transform = `rotate3d(0, 0, 1, ${rotation}deg)`
+    displayArrowRotation = smoothAngle(displayArrowRotation, target, 0.28, 3)
+    arrow.style.transform = `rotate3d(0, 0, 1, ${displayArrowRotation}deg)`
   }
 
   async function enableCompass(fromUserTap = false) {
@@ -471,7 +505,7 @@ export function renderCitibike(container, { navigate }) {
       compassActive = true
       sessionStorage.setItem(COMPASS_PREF_KEY, '1')
       deviceHeading = null
-      compassHeadingIsTrueNorth = false
+      displayArrowRotation = null
       startCompassListener()
       setCompassLive(true)
       scheduleCompassUpdate()
@@ -593,15 +627,6 @@ export function renderCitibike(container, { navigate }) {
     positionWatchId = navigator.geolocation.watchPosition(
       pos => {
         userPos = { lat: pos.coords.latitude, lon: pos.coords.longitude }
-        if (
-          compassActive
-          && typeof pos.coords.heading === 'number'
-          && !Number.isNaN(pos.coords.heading)
-          && pos.coords.heading >= 0
-        ) {
-          compassHeadingIsTrueNorth = true
-          deviceHeading = smoothHeading(deviceHeading, pos.coords.heading)
-        }
         if (nearMeLoadedAt && nearMeNeedsLoad()) {
           rerender({ preserveSearch: true })
           return
@@ -711,6 +736,19 @@ export function renderCitibike(container, { navigate }) {
 
   function bind(state) {
     container.querySelector('#btn-citibike-home')?.addEventListener('click', () => navigate('home'))
+
+    container.querySelectorAll('[data-citibike-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.citibikeTab
+        if (tab !== 'nearby' && tab !== 'saved') return
+        const next = loadState()
+        if (next.activeTab === tab) return
+        next.activeTab = tab
+        saveState(next)
+        rerender({ preserveSearch: tab === 'saved' })
+      })
+    })
+
     container.querySelectorAll('.citibike-load-near').forEach(btn => {
       btn.addEventListener('click', () => loadNearMe())
     })
@@ -911,8 +949,10 @@ export function renderCitibike(container, { navigate }) {
       geoError = ''
 
       nearMeAnchor = { lat: userPos.lat, lon: userPos.lon }
+      clearBearingCache()
       recomputeNearestByMode()
       nearMeLoadedAt = Date.now()
+      displayArrowRotation = null
 
       await tryRestoreCompass()
       scheduleCompassUpdate()
