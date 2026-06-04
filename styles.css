@@ -2227,8 +2227,8 @@ textarea.coach-input {
   height: 10px;
 }
 
-.citibike-nearest-stack .citibike-cap-block {
-  border-radius: 4px;
+.citibike-nearest-stack .citibike-cap-seg {
+  border-radius: 3px;
 }
 
 .citibike-nearest-pills-large .citibike-pill-row {
@@ -2295,32 +2295,39 @@ textarea.coach-input {
 .citibike-cap-segments {
   display: flex;
   width: 100%;
-  height: 6px;
-  gap: 4px;
+  height: 8px;
+  gap: 2px;
+  align-items: stretch;
 }
 
-.citibike-cap-block {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 100%;
-  border-radius: 3px;
+.citibike-cap-segments--empty,
+.citibike-cap-segments--offline {
+  min-height: 8px;
   background: var(--border-subtle);
-}
-
-.citibike-cap-block--on.citibike-cap-block-bike {
-  background: var(--citibike-bike);
-}
-
-.citibike-cap-block--on.citibike-cap-block-ebike {
-  background: var(--citibike-ebike);
-}
-
-.citibike-cap-block--on.citibike-cap-block-dock {
-  background: var(--citibike-dock-dim);
+  border-radius: 4px;
 }
 
 .citibike-cap-segments--offline {
   opacity: 0.35;
+}
+
+.citibike-cap-seg {
+  flex: 1 1 0;
+  min-width: 1px;
+  height: 100%;
+  border-radius: 2px;
+}
+
+.citibike-cap-seg-bike {
+  background: var(--citibike-bike);
+}
+
+.citibike-cap-seg-ebike {
+  background: var(--citibike-ebike);
+}
+
+.citibike-cap-seg-dock {
+  background: var(--citibike-dock-dim);
 }
 
 .citibike-aside-col .citibike-pills-wrap {

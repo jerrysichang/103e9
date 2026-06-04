@@ -312,16 +312,19 @@ function availabilityPillsRow(station) {
   `
 }
 
-function capBlock(kind, count) {
-  const on = count > 0 ? ' citibike-cap-block--on' : ''
-  return `<span class="citibike-cap-block citibike-cap-block-${kind}${on}"></span>`
+function capSegs(kind, count) {
+  return Array.from({ length: count }, () => `<span class="citibike-cap-seg citibike-cap-seg-${kind}"></span>`).join('')
 }
 
 function availabilityCapacityBar(station) {
   if (station.isOffline) {
-    return '<div class="citibike-cap-segments citibike-cap-segments--offline" aria-hidden="true"><span class="citibike-cap-block"></span><span class="citibike-cap-block"></span><span class="citibike-cap-block"></span></div>'
+    return '<div class="citibike-cap-segments citibike-cap-segments--offline" aria-hidden="true"></div>'
   }
-  return `<div class="citibike-cap-segments" aria-hidden="true">${capBlock('bike', station.classic)}${capBlock('ebike', station.ebikes)}${capBlock('dock', station.docks)}</div>`
+  const total = station.classic + station.ebikes + station.docks
+  if (total === 0) {
+    return '<div class="citibike-cap-segments citibike-cap-segments--empty" aria-hidden="true"></div>'
+  }
+  return `<div class="citibike-cap-segments" aria-hidden="true">${capSegs('bike', station.classic)}${capSegs('ebike', station.ebikes)}${capSegs('dock', station.docks)}</div>`
 }
 
 function nearMeSecondsAgo(loadedAt) {
