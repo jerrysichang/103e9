@@ -2330,6 +2330,27 @@ textarea.coach-input {
   background: var(--citibike-dock-dim);
 }
 
+.citibike-cap-segments--summary {
+  height: 6px;
+  gap: 3px;
+}
+
+.citibike-cap-segments--summary .citibike-cap-seg {
+  min-width: 3px;
+  border-radius: 2px;
+}
+
+.citibike-cap-seg--zero {
+  flex: 0 0 0 !important;
+  min-width: 0 !important;
+  width: 0;
+  overflow: hidden;
+}
+
+.citibike-aside-col .citibike-cap-segments {
+  width: 100%;
+}
+
 .citibike-aside-col .citibike-pills-wrap {
   align-self: center;
 }

@@ -146,7 +146,7 @@ function pill(kind, count) {
 function availabilityAside(station) {
   return `
     <div class="citibike-aside-col">
-      ${availabilityCapacityBar(station)}
+      ${availabilityCapacityBarSummary(station)}
       <div class="citibike-pills-wrap">${availabilityPillsRow(station)}</div>
     </div>
   `
@@ -155,7 +155,7 @@ function availabilityAside(station) {
 function availabilityNearbyStack(station) {
   return `
     <div class="citibike-nearest-availability">
-      ${availabilityCapacityBar(station)}
+      ${availabilityCapacityBarDetailed(station)}
       <div class="citibike-pills-wrap citibike-nearest-pills-large">${availabilityPillsRow(station)}</div>
     </div>
   `
@@ -316,7 +316,21 @@ function capSegs(kind, count) {
   return Array.from({ length: count }, () => `<span class="citibike-cap-seg citibike-cap-seg-${kind}"></span>`).join('')
 }
 
-function availabilityCapacityBar(station) {
+function availabilityCapacityBarSummary(station) {
+  if (station.isOffline) {
+    return '<div class="citibike-cap-segments citibike-cap-segments--summary citibike-cap-segments--offline" aria-hidden="true"></div>'
+  }
+  const { classic, ebikes, docks } = station
+  const total = classic + ebikes + docks
+  if (total === 0) {
+    return '<div class="citibike-cap-segments citibike-cap-segments--summary citibike-cap-segments--empty" aria-hidden="true"></div>'
+  }
+  const seg = (kind, n) =>
+    `<span class="citibike-cap-seg citibike-cap-seg-${kind}${n <= 0 ? ' citibike-cap-seg--zero' : ''}" style="flex:${n}"></span>`
+  return `<div class="citibike-cap-segments citibike-cap-segments--summary" aria-hidden="true">${seg('bike', classic)}${seg('ebike', ebikes)}${seg('dock', docks)}</div>`
+}
+
+function availabilityCapacityBarDetailed(station) {
   if (station.isOffline) {
     return '<div class="citibike-cap-segments citibike-cap-segments--offline" aria-hidden="true"></div>'
   }
