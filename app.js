@@ -14,7 +14,7 @@ import { renderCoachChat, renderCoachProfile } from './coach.js'
 import { renderDietTracker, renderDietGoals } from './diet.js'
 import { renderIssuesList } from './issues.js'
 import { renderChallenges } from './challenges.js'
-import { renderCitibike } from './citibike.js?v=6'
+import { renderCitibike } from './citibike.js?v=7'
 import { onRemoteUpdate, handleRemoteData } from './storage.js'
 import { hasPassphrase, getPassphrase, connect, disconnect } from './firebase-sync.js'
 

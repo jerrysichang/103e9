@@ -1,22 +1,24 @@
 /* ─── Design Tokens ─────────────────────────────────────────────────────── */
 :root {
-  --bg:              #000000;
-  --surface:         #141414;
-  --surface-raised:  #1c1c1c;
-  --border:          #4d4d4d;
-  --border-subtle:   #303030;
-  --text:            #ffffff;
-  --text-secondary:  #b0b0b0;
-  --text-muted:      #888888;
-  --accent:          #ffffff;
+  /* Warm soft-dark palette (reference: Deliver) */
+  --bg:              #221f1e;
+  --surface:         #2e2a28;
+  --surface-raised:  #383432;
+  --border:          #5a5552;
+  --border-subtle:   #4a4543;
+  --text:            #f5f3f0;
+  --text-secondary:  #a8a4a0;
+  --text-muted:      #8a8682;
+  --accent:          #f5f3f0;
+  --text-on-accent:  #221f1e;
   --achieved:        #22c55e;
   --achieved-dim:    #16a34a33;
   --citibike-bike:       #60a5fa;
   --citibike-bike-dim:   #3b82f628;
   --citibike-ebike:      #14b8a6;
   --citibike-ebike-dim:  #14b8a628;
-  --citibike-dock:       #d4d4d4;
-  --citibike-dock-dim:   #ffffff14;
+  --citibike-dock:       #c8c4c0;
+  --citibike-dock-dim:   #f5f3f014;
   --danger:          #ef4444;
   --danger-dim:      #ef444420;
   --radius:          14px;
@@ -269,7 +271,7 @@ h4 { font: var(--text-h4); }
 
 .btn-primary {
   background: var(--accent);
-  color: #000;
+  color: var(--text-on-accent);
   padding: 13px 22px;
   border-radius: 100px;
   font-weight: 600;
@@ -288,7 +290,7 @@ h4 { font: var(--text-h4); }
   font-size: 26px;
   line-height: 1;
   z-index: 35;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px rgba(34, 31, 30, 0.45);
   pointer-events: auto;
 }
 
@@ -299,7 +301,7 @@ h4 { font: var(--text-h4); }
   width: 56px;
   height: 56px;
   z-index: 35;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px rgba(34, 31, 30, 0.45);
   pointer-events: auto;
 }
 
@@ -420,7 +422,7 @@ h4 { font: var(--text-h4); }
   gap: 0;
   user-select: none;
   -webkit-user-select: none;
-  background: var(--surface);
+  background: transparent;
   border-radius: var(--radius-sm);
   overflow: hidden;
   border: 1px solid var(--border-subtle);
@@ -430,7 +432,7 @@ h4 { font: var(--text-h4); }
   display: flex;
   align-items: center;
   gap: 0;
-  background: var(--surface);
+  background: transparent;
   border: none;
   border-bottom: 1px solid var(--border-subtle);
   overflow: hidden;
@@ -559,7 +561,7 @@ h4 { font: var(--text-h4); }
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.7);
+  background: rgba(34, 31, 30, 0.72);
   z-index: 100;
   display: flex;
   align-items: flex-end;
@@ -905,7 +907,7 @@ textarea.input {
     border-right: 1px solid var(--border-subtle);
   }
 
-  body { background: #000000; }
+  body { background: #141210; }
 
   .tools-grid { grid-template-columns: repeat(3, 1fr); }
 }
@@ -977,7 +979,7 @@ textarea.input {
 
 .coach-message.user .coach-bubble {
   background: var(--accent);
-  color: #000;
+  color: var(--text-on-accent);
   border-bottom-right-radius: var(--radius-sm);
 }
 
@@ -1443,7 +1445,7 @@ textarea.coach-input {
 
 .diet-mode-btn.diet-mode-active {
   background: var(--accent);
-  color: #000;
+  color: var(--text-on-accent);
 }
 
 .diet-manual-name {
@@ -1834,9 +1836,9 @@ textarea.coach-input {
 }
 
 .issues-lines .item {
-  background: var(--surface);
-  border: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   border-radius: var(--radius-sm);
   margin-bottom: 8px;
 }
@@ -1864,9 +1866,9 @@ textarea.coach-input {
 }
 
 .gratitude-lines .item {
-  background: var(--surface);
-  border: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   border-radius: var(--radius-sm);
   margin-bottom: 8px;
 }
@@ -2112,7 +2114,7 @@ textarea.coach-input {
 
 .citibike-mode-btn.citibike-mode-active {
   background: var(--accent);
-  color: #000;
+  color: var(--text-on-accent);
 }
 
 .citibike-nearest-card {
@@ -2445,7 +2447,7 @@ textarea.coach-input {
 
 .citibike-pill-dock {
   color: var(--citibike-dock);
-  border-color: #ffffff28;
+  border-color: #f5f3f028;
   background: var(--citibike-dock-dim);
 }
 
