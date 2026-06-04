@@ -164,17 +164,21 @@ function availabilityNearbyStack(station) {
 const PULL_TRIGGER_OFFSET = 72
 const PULL_SNAP_OFFSET = 52
 const PULL_MAX_OFFSET = 128
-const PULL_RUBBER = 0.5
+const PULL_RUBBER_CONSTANT = 0.52
+const PULL_ICON_START_Y = -44
 
+/** iOS-style rubber band: more pull yields diminishing movement. */
 function dampPullOffset(raw) {
-  return Math.min(raw * PULL_RUBBER, PULL_MAX_OFFSET)
+  const d = Math.max(0, raw)
+  return (PULL_RUBBER_CONSTANT * d * PULL_MAX_OFFSET) / (d + PULL_RUBBER_CONSTANT * PULL_MAX_OFFSET)
 }
 
 function attachCitibikePullRefresh(scrollEl, onRefresh) {
   if (!scrollEl) return () => {}
 
   const body = scrollEl.querySelector('.citibike-pull-body')
-  const spinner = scrollEl.querySelector('.citibike-pull-spinner')
+  const head = scrollEl.querySelector('.citibike-pull-head')
+  const icon = scrollEl.querySelector('.citibike-pull-icon')
   if (!body) return () => {}
 
   let startY = 0
@@ -182,32 +186,48 @@ function attachCitibikePullRefresh(scrollEl, onRefresh) {
   let pullOffset = 0
   let refreshing = false
 
-  const setBodyOffset = (px, animate) => {
-    body.style.transition = animate ? '' : 'none'
-    body.style.transform = px > 0 ? `translate3d(0, ${px}px, 0)` : ''
-    if (spinner) {
-      const progress = Math.min(1, px / PULL_TRIGGER_OFFSET)
-      spinner.style.opacity = String(progress)
-      spinner.style.transform = `scale(${0.5 + progress * 0.5}) rotate(${progress * 220}deg)`
+  const setPullVisuals = (offset, animate) => {
+    const transition = animate ? '' : 'none'
+    body.style.transition = transition
+    body.style.transform = offset > 0 ? `translate3d(0, ${offset}px, 0)` : ''
+
+    if (head) {
+      head.style.transition = transition
+      head.style.height = offset > 0 ? `${offset}px` : '0'
     }
+
+    if (!icon || refreshing) return
+
+    const progress = Math.min(1, offset / PULL_TRIGGER_OFFSET)
+    const ready = offset >= PULL_TRIGGER_OFFSET
+    const iconY = Math.min(0, PULL_ICON_START_Y + offset * 0.9)
+    const fadeOpacity = offset <= 0 ? 0 : 0.1 + progress * 0.45
+
+    icon.style.opacity = String(ready ? 1 : fadeOpacity)
+    icon.style.transform = `translate3d(0, ${iconY}px, 0) rotate(${progress * 220}deg)`
+    scrollEl.classList.toggle('citibike-pull-ready', ready)
+  }
+
+  const clearIconInline = () => {
+    if (!icon) return
+    icon.style.opacity = ''
+    icon.style.transform = ''
   }
 
   const settleTo = async (px, { runRefresh = false } = {}) => {
     scrollEl.classList.remove('citibike-pull-dragging')
-    setBodyOffset(px, true)
+    scrollEl.classList.remove('citibike-pull-ready')
+    setPullVisuals(px, true)
     if (!runRefresh) return
-    if (spinner) {
-      spinner.style.opacity = ''
-      spinner.style.transform = ''
-    }
     refreshing = true
     scrollEl.classList.add('citibike-pull-refreshing')
+    clearIconInline()
     try {
       await onRefresh()
     } finally {
       refreshing = false
       scrollEl.classList.remove('citibike-pull-refreshing')
-      setBodyOffset(0, true)
+      setPullVisuals(0, true)
     }
   }
 
@@ -216,7 +236,8 @@ function attachCitibikePullRefresh(scrollEl, onRefresh) {
     pullOffset = 0
     if (refreshing) return
     scrollEl.classList.remove('citibike-pull-dragging')
-    setBodyOffset(0, animate)
+    scrollEl.classList.remove('citibike-pull-ready')
+    setPullVisuals(0, animate)
   }
 
   const onTouchStart = e => {
@@ -235,13 +256,13 @@ function attachCitibikePullRefresh(scrollEl, onRefresh) {
     const raw = e.touches[0].clientY - startY
     if (raw <= 0) {
       pullOffset = 0
-      setBodyOffset(0, false)
+      setPullVisuals(0, false)
       return
     }
     e.preventDefault()
     pullOffset = dampPullOffset(raw)
     scrollEl.classList.add('citibike-pull-dragging')
-    setBodyOffset(pullOffset, false)
+    setPullVisuals(pullOffset, false)
   }
 
   const onTouchEnd = async () => {
@@ -271,10 +292,12 @@ function attachCitibikePullRefresh(scrollEl, onRefresh) {
     scrollEl.removeEventListener('touchcancel', onTouchEnd)
     body.style.transform = ''
     body.style.transition = ''
-    if (spinner) {
-      spinner.style.opacity = ''
-      spinner.style.transform = ''
+    if (head) {
+      head.style.height = ''
+      head.style.transition = ''
     }
+    clearIconInline()
+    scrollEl.classList.remove('citibike-pull-ready')
   }
 }
 
@@ -289,22 +312,16 @@ function availabilityPillsRow(station) {
   `
 }
 
+function capBlock(kind, count) {
+  const on = count > 0 ? ' citibike-cap-block--on' : ''
+  return `<span class="citibike-cap-block citibike-cap-block-${kind}${on}"></span>`
+}
+
 function availabilityCapacityBar(station) {
   if (station.isOffline) {
-    return '<div class="citibike-cap-bar citibike-cap-bar--offline" aria-hidden="true"></div>'
+    return '<div class="citibike-cap-segments citibike-cap-segments--offline" aria-hidden="true"><span class="citibike-cap-block"></span><span class="citibike-cap-block"></span><span class="citibike-cap-block"></span></div>'
   }
-  const classic = station.classic
-  const ebikes = station.ebikes
-  const docks = station.docks
-  const total = classic + ebikes + docks
-  if (total === 0) {
-    return '<div class="citibike-cap-bar" aria-hidden="true"><span class="citibike-cap-seg citibike-cap-empty"></span></div>'
-  }
-  const segs = []
-  if (classic > 0) segs.push(`<span class="citibike-cap-seg citibike-cap-bike" style="flex:${classic}"></span>`)
-  if (ebikes > 0) segs.push(`<span class="citibike-cap-seg citibike-cap-ebike" style="flex:${ebikes}"></span>`)
-  if (docks > 0) segs.push(`<span class="citibike-cap-seg citibike-cap-dock" style="flex:${docks}"></span>`)
-  return `<div class="citibike-cap-bar" aria-hidden="true">${segs.join('')}</div>`
+  return `<div class="citibike-cap-segments" aria-hidden="true">${capBlock('bike', station.classic)}${capBlock('ebike', station.ebikes)}${capBlock('dock', station.docks)}</div>`
 }
 
 function nearMeSecondsAgo(loadedAt) {
@@ -490,7 +507,16 @@ export function renderCitibike(container, { navigate }) {
 
         <div class="scroll citibike-scroll">
           <div class="citibike-pull-head" aria-hidden="true">
-            <div class="citibike-pull-spinner"></div>
+            <svg class="citibike-pull-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"
+              />
+            </svg>
           </div>
           <div class="citibike-pull-body">
           <div class="citibike-tab-panel${state.activeTab === 'nearby' ? ' citibike-tab-panel-active' : ''}" id="citibike-panel-nearby">
@@ -854,7 +880,7 @@ export function renderCitibike(container, { navigate }) {
             </div>
             <button
               type="button"
-              class="btn btn-secondary citibike-directions-btn citibike-directions-btn-lg"
+              class="btn btn-cta btn-cta--wide citibike-directions-btn"
               data-directions-lat="${station.lat}"
               data-directions-lon="${station.lon}"
               data-directions-mode="${mode}"

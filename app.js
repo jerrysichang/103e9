@@ -9,12 +9,13 @@
  * When there is only one tool, the home screen is skipped.
  */
 
+import { ASSET_VERSION } from './asset-version.js'
 import { renderGratitudeList, renderGratitudeDetail } from './gratitude.js'
 import { renderCoachChat, renderCoachProfile } from './coach.js'
 import { renderDietTracker, renderDietGoals } from './diet.js'
 import { renderIssuesList } from './issues.js'
 import { renderChallenges } from './challenges.js'
-import { renderCitibike } from './citibike.js?v=7'
+import { renderCitibike } from `./citibike.js?v=${ASSET_VERSION}`
 import { onRemoteUpdate, handleRemoteData } from './storage.js'
 import { hasPassphrase, getPassphrase, connect, disconnect } from './firebase-sync.js'
 

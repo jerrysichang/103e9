@@ -92,7 +92,7 @@ export function renderGratitudeList(container, { navigate }) {
             />
             <div class="modal-actions">
               <button class="btn btn-secondary" id="btn-cancel">Cancel</button>
-              <button class="btn btn-primary"   id="btn-save">Add</button>
+              <button class="btn btn-cta" id="btn-save">Add</button>
             </div>
           </div>
         </div>

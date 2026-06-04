@@ -18,7 +18,7 @@
   --citibike-ebike:      #14b8a6;
   --citibike-ebike-dim:  #14b8a628;
   --citibike-dock:       #c8c4c0;
-  --citibike-dock-dim:   #f5f3f014;
+  --citibike-dock-dim:   #4a4744;
   --danger:          #ef4444;
   --danger-dim:      #ef444420;
   --radius:          14px;
@@ -269,6 +269,8 @@ h4 { font: var(--text-h4); }
 
 .btn-back svg { width: 18px; height: 18px; }
 
+/* Primary CTA — full-width pill (Gratitude Save/Add, Citibike Directions, modals) */
+.btn-cta,
 .btn-primary {
   background: var(--accent);
   color: var(--text-on-accent);
@@ -276,6 +278,12 @@ h4 { font: var(--text-h4); }
   border-radius: 100px;
   font-weight: 600;
   width: 100%;
+}
+
+.btn-cta--wide {
+  min-height: 48px;
+  padding: 13px 20px;
+  font-size: var(--font-size-body);
 }
 
 /* FABs anchor to .view (app shell), not the visual viewport — stable when keyboard opens */
@@ -1893,7 +1901,7 @@ textarea.coach-input {
 
 .citibike-pull-head {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   height: 0;
   overflow: visible;
@@ -1901,16 +1909,19 @@ textarea.coach-input {
   flex-shrink: 0;
 }
 
-.citibike-pull-spinner {
-  width: 22px;
-  height: 22px;
-  margin-top: -36px;
-  border: 2px solid var(--border);
-  border-top-color: var(--text-secondary);
-  border-radius: 50%;
+.citibike-pull-icon {
+  width: 26px;
+  height: 26px;
+  color: var(--text-muted);
   opacity: 0;
-  transform: scale(0.5);
+  transform: translate3d(0, -44px, 0);
   will-change: transform, opacity;
+  flex-shrink: 0;
+  margin-bottom: 6px;
+}
+
+.citibike-scroll.citibike-pull-ready .citibike-pull-icon {
+  color: var(--text);
 }
 
 .citibike-pull-body {
@@ -1918,14 +1929,15 @@ textarea.coach-input {
   transition: transform 0.32s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-.citibike-scroll.citibike-pull-dragging .citibike-pull-body {
+.citibike-scroll.citibike-pull-dragging .citibike-pull-body,
+.citibike-scroll.citibike-pull-dragging .citibike-pull-head {
   transition: none;
 }
 
-.citibike-scroll.citibike-pull-refreshing .citibike-pull-spinner {
+.citibike-scroll.citibike-pull-refreshing .citibike-pull-icon {
   opacity: 1;
-  transform: scale(1);
-  animation: citibike-pull-spin 0.65s linear infinite;
+  color: var(--text);
+  animation: citibike-pull-spin 0.7s linear infinite;
 }
 
 @keyframes citibike-pull-spin {
@@ -2211,9 +2223,12 @@ textarea.coach-input {
   gap: 12px;
 }
 
-.citibike-nearest-stack .citibike-cap-bar {
+.citibike-nearest-stack .citibike-cap-segments {
   height: 10px;
-  border-radius: 5px;
+}
+
+.citibike-nearest-stack .citibike-cap-block {
+  border-radius: 4px;
 }
 
 .citibike-nearest-pills-large .citibike-pill-row {
@@ -2268,14 +2283,6 @@ textarea.coach-input {
   color: var(--accent);
 }
 
-.citibike-directions-btn-lg {
-  width: 100%;
-  padding: 13px 20px;
-  font-size: var(--font-size-body);
-  font-weight: 600;
-  min-height: 48px;
-}
-
 .citibike-aside-col {
   display: flex;
   flex-direction: column;
@@ -2285,39 +2292,34 @@ textarea.coach-input {
   min-width: 96px;
 }
 
-.citibike-cap-bar {
+.citibike-cap-segments {
   display: flex;
   width: 100%;
   height: 6px;
+  gap: 4px;
+}
+
+.citibike-cap-block {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
   border-radius: 3px;
-  overflow: hidden;
   background: var(--border-subtle);
 }
 
-.citibike-cap-seg {
-  display: block;
-  height: 100%;
-  min-width: 2px;
-}
-
-.citibike-cap-bike {
+.citibike-cap-block--on.citibike-cap-block-bike {
   background: var(--citibike-bike);
 }
 
-.citibike-cap-ebike {
+.citibike-cap-block--on.citibike-cap-block-ebike {
   background: var(--citibike-ebike);
 }
 
-.citibike-cap-dock {
-  background: var(--citibike-dock);
+.citibike-cap-block--on.citibike-cap-block-dock {
+  background: var(--citibike-dock-dim);
 }
 
-.citibike-cap-empty {
-  flex: 1;
-  background: var(--border);
-}
-
-.citibike-cap-bar--offline {
+.citibike-cap-segments--offline {
   opacity: 0.35;
 }
 
@@ -2338,9 +2340,6 @@ textarea.coach-input {
 }
 
 .citibike-directions-btn {
-  padding: 6px 12px;
-  font-size: var(--font-size-body-sm);
-  width: auto;
   flex-shrink: 0;
 }
 
@@ -2447,7 +2446,7 @@ textarea.coach-input {
 
 .citibike-pill-dock {
   color: var(--citibike-dock);
-  border-color: #f5f3f028;
+  border-color: #5a565255;
   background: var(--citibike-dock-dim);
 }
 
