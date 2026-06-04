@@ -13,8 +13,8 @@
   --achieved-dim:    #16a34a33;
   --citibike-bike:       #60a5fa;
   --citibike-bike-dim:   #3b82f628;
-  --citibike-ebike:      #ea580c;
-  --citibike-ebike-dim:  #c2410c33;
+  --citibike-ebike:      #f97316;
+  --citibike-ebike-dim:  #f9731628;
   --citibike-dock:       #d4d4d4;
   --citibike-dock-dim:   #ffffff14;
   --danger:          #ef4444;
@@ -1954,7 +1954,7 @@ textarea.coach-input {
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font: 600 var(--font-size-body-sm) / 1.2 var(--font);
+  font: 600 var(--font-size-body-lg) / 1.2 var(--font);
   cursor: pointer;
   font-family: var(--font);
   padding: 0;
@@ -2143,7 +2143,9 @@ textarea.coach-input {
   min-width: 0;
   padding: 0;
   margin: 0;
-  line-height: 1.3;
+  font: var(--text-h3);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.25;
 }
 
 .citibike-nearest-status {
@@ -2165,19 +2167,6 @@ textarea.coach-input {
 
 .citibike-near-ago--idle {
   min-width: 0;
-}
-
-.citibike-near-refresh {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  font-size: var(--font-size-body-lg);
-  line-height: 1;
-  color: var(--text-secondary);
-}
-
-.citibike-near-refresh:disabled {
-  opacity: 0.35;
 }
 
 .citibike-nearest-card-body {
@@ -2450,7 +2439,7 @@ textarea.coach-input {
 
 .citibike-pill-ebike {
   color: var(--citibike-ebike);
-  border-color: #eab30855;
+  border-color: #fb923c55;
   background: var(--citibike-ebike-dim);
 }
 

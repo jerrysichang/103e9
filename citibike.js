@@ -313,9 +313,11 @@ function nearMeSecondsAgo(loadedAt) {
 }
 
 function formatNearMeAgo(seconds) {
+  if (seconds < 8) return 'just now'
+  if (seconds < 60) return `${seconds}s ago`
   const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m}:${String(s).padStart(2, '0')} ago`
+  if (m < 60) return `${m}m ago`
+  return `${Math.floor(m / 60)}h ago`
 }
 
 function googleMapsDirectionsUrl(destLat, destLon, mode, origin) {
@@ -695,14 +697,12 @@ export function renderCitibike(container, { navigate }) {
       return `
         <div class="citibike-nearest-status">
           <span id="citibike-near-ago" class="citibike-near-ago">${formatNearMeAgo(nearMeSecondsAgo(nearMeLoadedAt))}</span>
-          <button type="button" class="btn btn-icon citibike-near-refresh" aria-label="Refresh nearby">↻</button>
         </div>
       `
     }
     return `
       <div class="citibike-nearest-status">
         <span class="citibike-near-ago citibike-near-ago--idle" aria-hidden="true">${loading ? '…' : ''}</span>
-        <button type="button" class="btn btn-icon citibike-near-refresh"${loading ? ' disabled' : ''} aria-label="Refresh nearby">↻</button>
       </div>
     `
   }
@@ -909,12 +909,6 @@ export function renderCitibike(container, { navigate }) {
 
     container.querySelectorAll('.citibike-load-near').forEach(btn => {
       btn.addEventListener('click', () => loadNearMe())
-    })
-
-    container.querySelectorAll('.citibike-near-refresh').forEach(btn => {
-      btn.addEventListener('click', () => {
-        if (!btn.disabled) loadNearMe()
-      })
     })
 
     if (nearMeLoadedAt && !nearMeNeedsLoad() && !nearMeLoading) {
