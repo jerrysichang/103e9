@@ -161,69 +161,102 @@ function availabilityNearbyStack(station) {
   `
 }
 
-const PULL_REFRESH_THRESHOLD = 72
+const PULL_TRIGGER_OFFSET = 72
+const PULL_SNAP_OFFSET = 52
+const PULL_MAX_OFFSET = 128
+const PULL_RUBBER = 0.5
+
+function dampPullOffset(raw) {
+  return Math.min(raw * PULL_RUBBER, PULL_MAX_OFFSET)
+}
 
 function attachCitibikePullRefresh(scrollEl, onRefresh) {
   if (!scrollEl) return () => {}
 
-  const indicator = document.createElement('div')
-  indicator.className = 'citibike-pull-indicator'
-  indicator.innerHTML = '<span class="citibike-pull-indicator-text">Pull to refresh</span>'
-  scrollEl.prepend(indicator)
-  const label = indicator.querySelector('.citibike-pull-indicator-text')
+  const body = scrollEl.querySelector('.citibike-pull-body')
+  const spinner = scrollEl.querySelector('.citibike-pull-spinner')
+  if (!body) return () => {}
 
   let startY = 0
-  let pulling = false
-  let pullDistance = 0
+  let tracking = false
+  let pullOffset = 0
   let refreshing = false
 
-  const setLabel = text => {
-    if (label) label.textContent = text
-  }
-
-  const resetPull = () => {
-    pulling = false
-    pullDistance = 0
-    indicator.style.height = '0'
-    scrollEl.classList.remove('citibike-pull-active')
-    if (!refreshing) setLabel('Pull to refresh')
-  }
-
-  const onTouchStart = e => {
-    if (refreshing || scrollEl.scrollTop > 2) return
-    startY = e.touches[0].clientY
-    pulling = true
-  }
-
-  const onTouchMove = e => {
-    if (!pulling || refreshing || scrollEl.scrollTop > 2) return
-    pullDistance = Math.max(0, e.touches[0].clientY - startY)
-    if (pullDistance <= 0) return
-    e.preventDefault()
-    const h = Math.min(pullDistance, 96)
-    indicator.style.height = `${h}px`
-    scrollEl.classList.add('citibike-pull-active')
-    setLabel(pullDistance >= PULL_REFRESH_THRESHOLD ? 'Release to refresh' : 'Pull to refresh')
-  }
-
-  const onTouchEnd = async () => {
-    if (!pulling || refreshing) {
-      resetPull()
-      return
+  const setBodyOffset = (px, animate) => {
+    body.style.transition = animate ? '' : 'none'
+    body.style.transform = px > 0 ? `translate3d(0, ${px}px, 0)` : ''
+    if (spinner) {
+      const progress = Math.min(1, px / PULL_TRIGGER_OFFSET)
+      spinner.style.opacity = String(progress)
+      spinner.style.transform = `scale(${0.5 + progress * 0.5}) rotate(${progress * 220}deg)`
     }
-    const shouldRefresh = pullDistance >= PULL_REFRESH_THRESHOLD
-    resetPull()
-    if (!shouldRefresh) return
+  }
+
+  const settleTo = async (px, { runRefresh = false } = {}) => {
+    scrollEl.classList.remove('citibike-pull-dragging')
+    setBodyOffset(px, true)
+    if (!runRefresh) return
+    if (spinner) {
+      spinner.style.opacity = ''
+      spinner.style.transform = ''
+    }
     refreshing = true
     scrollEl.classList.add('citibike-pull-refreshing')
-    setLabel('Refreshing…')
     try {
       await onRefresh()
     } finally {
       refreshing = false
       scrollEl.classList.remove('citibike-pull-refreshing')
-      setLabel('Pull to refresh')
+      setBodyOffset(0, true)
     }
+  }
+
+  const resetPull = (animate = true) => {
+    tracking = false
+    pullOffset = 0
+    if (refreshing) return
+    scrollEl.classList.remove('citibike-pull-dragging')
+    setBodyOffset(0, animate)
+  }
+
+  const onTouchStart = e => {
+    if (refreshing || scrollEl.scrollTop > 0) return
+    startY = e.touches[0].clientY
+    tracking = true
+    pullOffset = 0
+  }
+
+  const onTouchMove = e => {
+    if (!tracking || refreshing) return
+    if (scrollEl.scrollTop > 0) {
+      resetPull(false)
+      return
+    }
+    const raw = e.touches[0].clientY - startY
+    if (raw <= 0) {
+      pullOffset = 0
+      setBodyOffset(0, false)
+      return
+    }
+    e.preventDefault()
+    pullOffset = dampPullOffset(raw)
+    scrollEl.classList.add('citibike-pull-dragging')
+    setBodyOffset(pullOffset, false)
+  }
+
+  const onTouchEnd = async () => {
+    if (!tracking || refreshing) {
+      resetPull()
+      return
+    }
+    tracking = false
+    const shouldRefresh = pullOffset >= PULL_TRIGGER_OFFSET
+    pullOffset = 0
+    if (!shouldRefresh) {
+      await settleTo(0)
+      return
+    }
+    await settleTo(PULL_SNAP_OFFSET, { runRefresh: true })
   }
 
   scrollEl.addEventListener('touchstart', onTouchStart, { passive: true })
@@ -236,7 +269,12 @@ function attachCitibikePullRefresh(scrollEl, onRefresh) {
     scrollEl.removeEventListener('touchmove', onTouchMove)
     scrollEl.removeEventListener('touchend', onTouchEnd)
     scrollEl.removeEventListener('touchcancel', onTouchEnd)
-    indicator.remove()
+    body.style.transform = ''
+    body.style.transition = ''
+    if (spinner) {
+      spinner.style.opacity = ''
+      spinner.style.transform = ''
+    }
   }
 }
 
@@ -449,6 +487,10 @@ export function renderCitibike(container, { navigate }) {
         </header>
 
         <div class="scroll citibike-scroll">
+          <div class="citibike-pull-head" aria-hidden="true">
+            <div class="citibike-pull-spinner"></div>
+          </div>
+          <div class="citibike-pull-body">
           <div class="citibike-tab-panel${state.activeTab === 'nearby' ? ' citibike-tab-panel-active' : ''}" id="citibike-panel-nearby">
             <div class="citibike-near-block">
               <div class="citibike-mode-switch" role="tablist" aria-label="Find nearest">
@@ -479,6 +521,7 @@ export function renderCitibike(container, { navigate }) {
                 <div class="citibike-search-results hidden" id="citibike-search-results"></div>
               </div>
             </div>
+          </div>
           </div>
         </div>
 
@@ -796,17 +839,19 @@ export function renderCitibike(container, { navigate }) {
         <div class="citibike-nearest-stack">
           ${availabilityNearbyStack(station)}
           <div class="citibike-nearest-stack-actions">
-            <button
-              type="button"
-              class="citibike-compass-btn citibike-compass-btn-lg${compassActive ? ' citibike-compass-live' : ''}"
-              id="citibike-compass-btn"
-              aria-label="${compassActive ? 'Live direction toward rack' : 'Tap to enable live direction'}"
-            >
-              <svg id="citibike-compass-arrow" class="citibike-compass-arrow" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 2.5 L19.5 21.5 L12 17.5 L4.5 21.5 Z" fill="currentColor"/>
-              </svg>
-            </button>
-            <span class="citibike-nearest-distance citibike-nearest-distance-lg">${formatDistance(dist)}</span>
+            <div class="citibike-nearest-compass-row">
+              <button
+                type="button"
+                class="citibike-compass-btn citibike-compass-btn-lg${compassActive ? ' citibike-compass-live' : ''}"
+                id="citibike-compass-btn"
+                aria-label="${compassActive ? 'Live direction toward rack' : 'Tap to enable live direction'}"
+              >
+                <svg id="citibike-compass-arrow" class="citibike-compass-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2.5 L19.5 21.5 L12 17.5 L4.5 21.5 Z" fill="currentColor"/>
+                </svg>
+              </button>
+              <span class="citibike-nearest-distance citibike-nearest-distance-lg">${formatDistance(dist)}</span>
+            </div>
             <button
               type="button"
               class="btn btn-secondary citibike-directions-btn citibike-directions-btn-lg"
@@ -815,7 +860,6 @@ export function renderCitibike(container, { navigate }) {
               data-directions-mode="${mode}"
             >Directions</button>
           </div>
-          ${compassActive ? '<p class="citibike-compass-hint">Lay phone flat, screen up — top edge toward the rack.</p>' : ''}
         </div>
       `,
       true

@@ -13,8 +13,8 @@
   --achieved-dim:    #16a34a33;
   --citibike-bike:       #60a5fa;
   --citibike-bike-dim:   #3b82f628;
-  --citibike-ebike:      #facc15;
-  --citibike-ebike-dim:  #eab30828;
+  --citibike-ebike:      #ea580c;
+  --citibike-ebike-dim:  #c2410c33;
   --citibike-dock:       #d4d4d4;
   --citibike-dock-dim:   #ffffff14;
   --danger:          #ef4444;
@@ -1883,28 +1883,47 @@ textarea.coach-input {
   overscroll-behavior-y: contain;
 }
 
-.citibike-pull-indicator {
+.citibike-pull-head {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   height: 0;
-  overflow: hidden;
-  transition: height 0.15s ease-out;
+  overflow: visible;
+  pointer-events: none;
   flex-shrink: 0;
 }
 
-.citibike-pull-indicator-text {
-  font-size: var(--font-size-caption);
-  color: var(--text-muted);
-  padding: 0 0 8px;
+.citibike-pull-spinner {
+  width: 22px;
+  height: 22px;
+  margin-top: -36px;
+  border: 2px solid var(--border);
+  border-top-color: var(--text-secondary);
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(0.5);
+  will-change: transform, opacity;
 }
 
-.citibike-scroll.citibike-pull-refreshing .citibike-pull-indicator-text {
-  color: var(--text-secondary);
+.citibike-pull-body {
+  will-change: transform;
+  transition: transform 0.32s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-.citibike-scroll.citibike-pull-active {
-  overscroll-behavior-y: none;
+.citibike-scroll.citibike-pull-dragging .citibike-pull-body {
+  transition: none;
+}
+
+.citibike-scroll.citibike-pull-refreshing .citibike-pull-spinner {
+  opacity: 1;
+  transform: scale(1);
+  animation: citibike-pull-spin 0.65s linear infinite;
+}
+
+@keyframes citibike-pull-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 #view-citibike .menu-fab {
@@ -2201,13 +2220,14 @@ textarea.coach-input {
 }
 
 .citibike-nearest-pills-large .citibike-pill-row {
-  justify-content: center;
-  gap: 10px;
+  width: 100%;
+  gap: 8px;
 }
 
 .citibike-nearest-pills-large .citibike-pill {
-  min-width: 52px;
-  padding: 10px 12px 8px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 10px 8px 8px;
   gap: 6px;
   border-radius: var(--radius);
 }
@@ -2224,10 +2244,16 @@ textarea.coach-input {
 
 .citibike-nearest-stack-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.citibike-nearest-compass-row {
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 16px;
 }
 
 .citibike-compass-btn-lg {
@@ -2241,12 +2267,13 @@ textarea.coach-input {
 }
 
 .citibike-nearest-distance-lg {
-  font: 700 var(--font-size-h3) / 1.2 var(--font);
+  font: 800 var(--font-size-h2) / 1.05 var(--font);
   color: var(--accent);
 }
 
 .citibike-directions-btn-lg {
-  padding: 12px 20px;
+  width: 100%;
+  padding: 13px 20px;
   font-size: var(--font-size-body);
   font-weight: 600;
   min-height: 48px;
@@ -2306,14 +2333,6 @@ textarea.coach-input {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.citibike-compass-hint {
-  margin: 0;
-  text-align: center;
-  font-size: var(--font-size-body-sm);
-  color: var(--text-muted);
-  line-height: 1.4;
 }
 
 .citibike-nearest-distance {
