@@ -152,6 +152,94 @@ function availabilityAside(station) {
   `
 }
 
+function availabilityNearbyStack(station) {
+  return `
+    <div class="citibike-nearest-availability">
+      ${availabilityCapacityBar(station)}
+      <div class="citibike-pills-wrap citibike-nearest-pills-large">${availabilityPillsRow(station)}</div>
+    </div>
+  `
+}
+
+const PULL_REFRESH_THRESHOLD = 72
+
+function attachCitibikePullRefresh(scrollEl, onRefresh) {
+  if (!scrollEl) return () => {}
+
+  const indicator = document.createElement('div')
+  indicator.className = 'citibike-pull-indicator'
+  indicator.innerHTML = '<span class="citibike-pull-indicator-text">Pull to refresh</span>'
+  scrollEl.prepend(indicator)
+  const label = indicator.querySelector('.citibike-pull-indicator-text')
+
+  let startY = 0
+  let pulling = false
+  let pullDistance = 0
+  let refreshing = false
+
+  const setLabel = text => {
+    if (label) label.textContent = text
+  }
+
+  const resetPull = () => {
+    pulling = false
+    pullDistance = 0
+    indicator.style.height = '0'
+    scrollEl.classList.remove('citibike-pull-active')
+    if (!refreshing) setLabel('Pull to refresh')
+  }
+
+  const onTouchStart = e => {
+    if (refreshing || scrollEl.scrollTop > 2) return
+    startY = e.touches[0].clientY
+    pulling = true
+  }
+
+  const onTouchMove = e => {
+    if (!pulling || refreshing || scrollEl.scrollTop > 2) return
+    pullDistance = Math.max(0, e.touches[0].clientY - startY)
+    if (pullDistance <= 0) return
+    e.preventDefault()
+    const h = Math.min(pullDistance, 96)
+    indicator.style.height = `${h}px`
+    scrollEl.classList.add('citibike-pull-active')
+    setLabel(pullDistance >= PULL_REFRESH_THRESHOLD ? 'Release to refresh' : 'Pull to refresh')
+  }
+
+  const onTouchEnd = async () => {
+    if (!pulling || refreshing) {
+      resetPull()
+      return
+    }
+    const shouldRefresh = pullDistance >= PULL_REFRESH_THRESHOLD
+    resetPull()
+    if (!shouldRefresh) return
+    refreshing = true
+    scrollEl.classList.add('citibike-pull-refreshing')
+    setLabel('Refreshing…')
+    try {
+      await onRefresh()
+    } finally {
+      refreshing = false
+      scrollEl.classList.remove('citibike-pull-refreshing')
+      setLabel('Pull to refresh')
+    }
+  }
+
+  scrollEl.addEventListener('touchstart', onTouchStart, { passive: true })
+  scrollEl.addEventListener('touchmove', onTouchMove, { passive: false })
+  scrollEl.addEventListener('touchend', onTouchEnd)
+  scrollEl.addEventListener('touchcancel', onTouchEnd)
+
+  return () => {
+    scrollEl.removeEventListener('touchstart', onTouchStart)
+    scrollEl.removeEventListener('touchmove', onTouchMove)
+    scrollEl.removeEventListener('touchend', onTouchEnd)
+    scrollEl.removeEventListener('touchcancel', onTouchEnd)
+    indicator.remove()
+  }
+}
+
 function availabilityPillsRow(station) {
   if (station.isOffline) return '<span class="citibike-offline">Offline</span>'
   return `
@@ -297,6 +385,8 @@ export function renderCitibike(container, { navigate }) {
   let nearMeLoading = false
   let positionWatchId = null
   let nearMeAgoTimer = null
+  let pullCleanup = null
+  let positionWatchStarted = false
 
   function stationById(id) {
     return stations.find(s => s.id === id)
@@ -640,10 +730,28 @@ export function renderCitibike(container, { navigate }) {
     )
   }
 
+  async function refreshTabData(tab) {
+    if (tab === 'saved') {
+      await loadStations()
+      return
+    }
+    await loadNearMe()
+  }
+
+  function ensurePositionWatch() {
+    if (!positionWatchStarted) {
+      positionWatchStarted = true
+      startPositionWatch()
+    }
+  }
+
   compassCleanup = () => {
     stopCompassListener()
     stopPositionWatch()
     stopNearMeAgo()
+    pullCleanup?.()
+    pullCleanup = null
+    positionWatchStarted = false
     compassCleanup = null
   }
 
@@ -685,31 +793,29 @@ export function renderCitibike(container, { navigate }) {
     return wrapNearestCard(
       nearestHeaderHtml(station.name, { showAgo: true }),
       `
-        <div class="citibike-row citibike-nearest-content">
-          <div class="citibike-row-main">
-            <div class="citibike-nearest-meta">
-              <button
-                type="button"
-                class="citibike-compass-btn${compassActive ? ' citibike-compass-live' : ''}"
-                id="citibike-compass-btn"
-                aria-label="${compassActive ? 'Live direction toward rack' : 'Tap to enable live direction'}"
-              >
-                <svg id="citibike-compass-arrow" class="citibike-compass-arrow" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 2.5 L19.5 21.5 L12 17.5 L4.5 21.5 Z" fill="currentColor"/>
-                </svg>
-              </button>
-              <span class="citibike-nearest-distance">${formatDistance(dist)}</span>
-              <button
-                type="button"
-                class="btn btn-secondary citibike-directions-btn"
-                data-directions-lat="${station.lat}"
-                data-directions-lon="${station.lon}"
-                data-directions-mode="${mode}"
-              >Directions</button>
-            </div>
-            ${compassActive ? '<p class="citibike-compass-hint">Lay phone flat, screen up — top edge toward the rack.</p>' : ''}
+        <div class="citibike-nearest-stack">
+          ${availabilityNearbyStack(station)}
+          <div class="citibike-nearest-stack-actions">
+            <button
+              type="button"
+              class="citibike-compass-btn citibike-compass-btn-lg${compassActive ? ' citibike-compass-live' : ''}"
+              id="citibike-compass-btn"
+              aria-label="${compassActive ? 'Live direction toward rack' : 'Tap to enable live direction'}"
+            >
+              <svg id="citibike-compass-arrow" class="citibike-compass-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2.5 L19.5 21.5 L12 17.5 L4.5 21.5 Z" fill="currentColor"/>
+              </svg>
+            </button>
+            <span class="citibike-nearest-distance citibike-nearest-distance-lg">${formatDistance(dist)}</span>
+            <button
+              type="button"
+              class="btn btn-secondary citibike-directions-btn citibike-directions-btn-lg"
+              data-directions-lat="${station.lat}"
+              data-directions-lon="${station.lon}"
+              data-directions-mode="${mode}"
+            >Directions</button>
           </div>
-          ${availabilityAside(station)}
+          ${compassActive ? '<p class="citibike-compass-hint">Lay phone flat, screen up — top edge toward the rack.</p>' : ''}
         </div>
       `,
       true
@@ -735,6 +841,13 @@ export function renderCitibike(container, { navigate }) {
   }
 
   function bind(state) {
+    pullCleanup?.()
+    const scrollEl = container.querySelector('.citibike-scroll')
+    pullCleanup = attachCitibikePullRefresh(scrollEl, () => {
+      const tab = loadState().activeTab
+      return refreshTabData(tab === 'saved' ? 'saved' : 'nearby')
+    })
+
     container.querySelector('#btn-citibike-home')?.addEventListener('click', () => navigate('home'))
 
     container.querySelectorAll('[data-citibike-tab]').forEach(btn => {
@@ -746,6 +859,7 @@ export function renderCitibike(container, { navigate }) {
         next.activeTab = tab
         saveState(next)
         rerender({ preserveSearch: tab === 'saved' })
+        refreshTabData(tab)
       })
     })
 
@@ -969,9 +1083,8 @@ export function renderCitibike(container, { navigate }) {
     }
   }
 
-  loadStations().then(() => {
-    startPositionWatch()
-  })
+  const initialTab = loadState().activeTab === 'saved' ? 'saved' : 'nearby'
+  refreshTabData(initialTab).finally(ensurePositionWatch)
 }
 
 function escapeHtml(str) {

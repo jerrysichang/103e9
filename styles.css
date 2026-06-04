@@ -1880,6 +1880,31 @@ textarea.coach-input {
 /* ─── Citibike ───────────────────────────────────────────────────────────── */
 #view-citibike .citibike-scroll {
   padding-bottom: calc(148px + var(--safe-bottom));
+  overscroll-behavior-y: contain;
+}
+
+.citibike-pull-indicator {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 0;
+  overflow: hidden;
+  transition: height 0.15s ease-out;
+  flex-shrink: 0;
+}
+
+.citibike-pull-indicator-text {
+  font-size: var(--font-size-caption);
+  color: var(--text-muted);
+  padding: 0 0 8px;
+}
+
+.citibike-scroll.citibike-pull-refreshing .citibike-pull-indicator-text {
+  color: var(--text-secondary);
+}
+
+.citibike-scroll.citibike-pull-active {
+  overscroll-behavior-y: none;
 }
 
 #view-citibike .menu-fab {
@@ -2069,11 +2094,11 @@ textarea.coach-input {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px 12px;
+  padding: 14px 16px;
 }
 
 .citibike-nearest-card--stable {
-  min-height: 132px;
+  min-height: 280px;
   display: flex;
   flex-direction: column;
 }
@@ -2082,9 +2107,10 @@ textarea.coach-input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  min-height: 36px;
+  gap: 12px;
+  min-height: 40px;
   flex-shrink: 0;
+  margin-bottom: 4px;
 }
 
 .citibike-nearest-name {
@@ -2140,7 +2166,7 @@ textarea.coach-input {
 .citibike-nearest-card-body--filled {
   justify-content: flex-start;
   min-height: 0;
-  padding-top: 2px;
+  padding-top: 8px;
 }
 
 .citibike-nearest-body-msg {
@@ -2149,20 +2175,81 @@ textarea.coach-input {
 }
 
 .citibike-nearest-body-action {
-  margin-top: 12px;
+  margin-top: 14px;
   width: 100%;
   flex-shrink: 0;
+  padding: 13px 22px;
+  font-size: var(--font-size-body);
 }
 
-.citibike-nearest-content {
-  align-items: center;
-  justify-content: space-between;
+.citibike-nearest-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+}
+
+.citibike-nearest-availability {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.citibike-nearest-stack .citibike-cap-bar {
+  height: 10px;
+  border-radius: 5px;
+}
+
+.citibike-nearest-pills-large .citibike-pill-row {
+  justify-content: center;
   gap: 10px;
-  min-height: 0;
 }
 
-.citibike-nearest-content.citibike-row {
-  margin: 0;
+.citibike-nearest-pills-large .citibike-pill {
+  min-width: 52px;
+  padding: 10px 12px 8px;
+  gap: 6px;
+  border-radius: var(--radius);
+}
+
+.citibike-nearest-pills-large .citibike-icon-svg {
+  width: 22px;
+  height: 22px;
+}
+
+.citibike-nearest-pills-large .citibike-pill-count {
+  font-size: var(--font-size-h4);
+  font-weight: 700;
+}
+
+.citibike-nearest-stack-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.citibike-compass-btn-lg {
+  width: 56px;
+  height: 56px;
+}
+
+.citibike-compass-btn-lg .citibike-compass-arrow {
+  width: 28px;
+  height: 28px;
+}
+
+.citibike-nearest-distance-lg {
+  font: 700 var(--font-size-h3) / 1.2 var(--font);
+  color: var(--accent);
+}
+
+.citibike-directions-btn-lg {
+  padding: 12px 20px;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  min-height: 48px;
 }
 
 .citibike-aside-col {
@@ -2222,11 +2309,11 @@ textarea.coach-input {
 }
 
 .citibike-compass-hint {
-  flex: 1 1 100%;
-  margin: 4px 0 0;
-  font-size: var(--font-size-micro);
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-size-body-sm);
   color: var(--text-muted);
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .citibike-nearest-distance {
