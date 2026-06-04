@@ -13,8 +13,8 @@
   --achieved-dim:    #16a34a33;
   --citibike-bike:       #60a5fa;
   --citibike-bike-dim:   #3b82f628;
-  --citibike-ebike:      #f97316;
-  --citibike-ebike-dim:  #f9731628;
+  --citibike-ebike:      #14b8a6;
+  --citibike-ebike-dim:  #14b8a628;
   --citibike-dock:       #d4d4d4;
   --citibike-dock-dim:   #ffffff14;
   --danger:          #ef4444;
@@ -2439,7 +2439,7 @@ textarea.coach-input {
 
 .citibike-pill-ebike {
   color: var(--citibike-ebike);
-  border-color: #fb923c55;
+  border-color: #2dd4bf55;
   background: var(--citibike-ebike-dim);
 }
 
