@@ -262,6 +262,23 @@ function renderHome(container) {
   })
 }
 
+// ─── Viewport height (iOS home-screen / PWA) ─────────────────────────────
+// 100dvh can exceed the visible area when launched from the home screen,
+// leaving a dead strip under bottom chrome and clipping scroll content.
+
+function bindAppViewportHeight() {
+  const update = () => {
+    const h = window.visualViewport?.height ?? window.innerHeight
+    document.documentElement.style.setProperty('--app-vh', `${Math.round(h)}px`)
+  }
+  update()
+  window.addEventListener('resize', update, { passive: true })
+  window.visualViewport?.addEventListener('resize', update, { passive: true })
+  window.visualViewport?.addEventListener('scroll', update, { passive: true })
+}
+
+bindAppViewportHeight()
+
 // ─── Boot ─────────────────────────────────────────────────────────────────
 
 async function boot() {

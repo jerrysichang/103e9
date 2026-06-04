@@ -71,9 +71,14 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  height: -webkit-fill-available;
+}
+
 html, body {
   height: 100%;
-  height: 100dvh;
+  height: var(--app-vh, 100dvh);
+  min-height: -webkit-fill-available;
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
@@ -84,7 +89,7 @@ html, body {
 
 #root {
   height: 100%;
-  height: 100dvh;
+  height: var(--app-vh, 100dvh);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -147,7 +152,7 @@ h4 { font: var(--text-h4); }
   display: flex;
   flex-direction: column;
   height: 100%;
-  height: 100dvh;
+  height: var(--app-vh, 100dvh);
   min-height: 0;
   overflow: hidden;
   position: relative;
@@ -339,8 +344,9 @@ h4 { font: var(--text-h4); }
   inset: 0;
   display: flex;
   flex-direction: column;
-  height: 100dvh;
-  max-height: 100dvh;
+  height: 100%;
+  height: var(--app-vh, 100dvh);
+  max-height: var(--app-vh, 100dvh);
   min-height: 0;
   overflow: hidden;
   background: var(--bg);
@@ -894,7 +900,7 @@ textarea.input {
     max-width: 480px;
     margin: 0 auto;
     height: 100vh;
-    height: 100dvh;
+    height: var(--app-vh, 100dvh);
     border-left: 1px solid var(--border-subtle);
     border-right: 1px solid var(--border-subtle);
   }
@@ -1806,7 +1812,7 @@ textarea.coach-input {
 }
 
 #view-issues > .scroll {
-  padding-bottom: 92px !important;
+  padding-bottom: calc(92px + var(--safe-bottom)) !important;
 }
 
 .prompt-answer-drawer {
