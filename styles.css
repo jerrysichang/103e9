@@ -1921,7 +1921,7 @@ textarea.coach-input {
   pointer-events: none;
 }
 
-#view-citibike.citibike-view--nearby .citibike-pull-head,
+#view-citibike.citibike-view--nearby .citibike-scroll > .citibike-pull-head,
 #view-citibike.citibike-view--nearby .citibike-tab-panel:not(.citibike-tab-panel-active) {
   display: none;
 }
@@ -1939,6 +1939,20 @@ textarea.coach-input {
   margin: 0;
   gap: 0;
   pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#view-citibike.citibike-view--nearby .citibike-map-block .citibike-map-pull-head {
+  flex-shrink: 0;
+  z-index: 40;
+}
+
+#view-citibike.citibike-view--nearby .citibike-map-pull-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
 }
 
 #view-citibike.citibike-view--nearby .citibike-map-wrap {
@@ -1962,10 +1976,18 @@ textarea.coach-input {
 
 #view-citibike.citibike-view--nearby .citibike-map-mode-dock .citibike-mode-switch {
   margin-bottom: 0;
+  padding: 6px;
+  gap: 6px;
   background: rgba(34, 31, 30, 0.92);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 4px 20px rgba(34, 31, 30, 0.45);
+}
+
+#view-citibike.citibike-view--nearby .citibike-map-mode-dock .citibike-mode-btn {
+  padding: 14px 10px;
+  min-height: 48px;
+  font-size: var(--font-size-body);
 }
 
 #view-citibike.citibike-view--nearby .citibike-map-north {
@@ -2019,7 +2041,7 @@ textarea.coach-input {
   margin-bottom: 6px;
 }
 
-.citibike-scroll.citibike-pull-ready .citibike-pull-icon {
+.citibike-pull-host.citibike-pull-ready .citibike-pull-icon {
   color: var(--text);
 }
 
@@ -2028,12 +2050,12 @@ textarea.coach-input {
   transition: transform 0.32s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-.citibike-scroll.citibike-pull-dragging .citibike-pull-body,
-.citibike-scroll.citibike-pull-dragging .citibike-pull-head {
+.citibike-pull-host.citibike-pull-dragging .citibike-pull-body,
+.citibike-pull-host.citibike-pull-dragging .citibike-pull-head {
   transition: none;
 }
 
-.citibike-scroll.citibike-pull-refreshing .citibike-pull-icon {
+.citibike-pull-host.citibike-pull-refreshing .citibike-pull-icon {
   opacity: 1;
   color: var(--text);
   animation: citibike-pull-spin 0.7s linear infinite;

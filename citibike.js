@@ -250,6 +250,22 @@ const MAP_MIN_ZOOM = 13
 const MAP_MAX_ZOOM = 17
 /** Extra tile canvas beyond viewport so rotation never exposes empty edges. */
 const MAP_ROTATION_COVERAGE = 1.95
+const FIND_MODES = ['bike', 'ebike', 'parking']
+const MODE_SWIPE_MIN_PX = 56
+const MODE_SWIPE_MAX_VERTICAL_PX = 48
+
+const CITIBIKE_PULL_ICON_SVG = `
+  <svg class="citibike-pull-icon" viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"
+    />
+  </svg>
+`
 
 function resolveMapZoom(L, mapInstance, userPos, nearest3) {
   if (!nearest3?.length || !mapInstance || !userPos) return MAP_DEFAULT_ZOOM
@@ -298,18 +314,20 @@ function dampPullOffset(raw) {
   return (PULL_RUBBER_CONSTANT * d * PULL_MAX_OFFSET) / (d + PULL_RUBBER_CONSTANT * PULL_MAX_OFFSET)
 }
 
-function attachCitibikePullRefresh(scrollEl, onRefresh) {
-  if (!scrollEl) return () => {}
+function attachCitibikePullRefresh(rootEl, onRefresh, { fixed = false } = {}) {
+  if (!rootEl) return () => {}
 
-  const body = scrollEl.querySelector('.citibike-pull-body')
-  const head = scrollEl.querySelector('.citibike-pull-head')
-  const icon = scrollEl.querySelector('.citibike-pull-icon')
+  const body = rootEl.querySelector('.citibike-pull-body')
+  const head = rootEl.querySelector('.citibike-pull-head')
+  const icon = rootEl.querySelector('.citibike-pull-icon')
   if (!body) return () => {}
 
   let startY = 0
   let tracking = false
   let pullOffset = 0
   let refreshing = false
+
+  const canPull = () => fixed || rootEl.scrollTop <= 0
 
   const setPullVisuals = (offset, animate) => {
     const transition = animate ? '' : 'none'
@@ -330,7 +348,7 @@ function attachCitibikePullRefresh(scrollEl, onRefresh) {
 
     icon.style.opacity = String(ready ? 1 : fadeOpacity)
     icon.style.transform = `translate3d(0, ${iconY}px, 0) rotate(${progress * 220}deg)`
-    scrollEl.classList.toggle('citibike-pull-ready', ready)
+    rootEl.classList.toggle('citibike-pull-ready', ready)
   }
 
   const clearIconInline = () => {
@@ -340,18 +358,18 @@ function attachCitibikePullRefresh(scrollEl, onRefresh) {
   }
 
   const settleTo = async (px, { runRefresh = false } = {}) => {
-    scrollEl.classList.remove('citibike-pull-dragging')
-    scrollEl.classList.remove('citibike-pull-ready')
+    rootEl.classList.remove('citibike-pull-dragging')
+    rootEl.classList.remove('citibike-pull-ready')
     setPullVisuals(px, true)
     if (!runRefresh) return
     refreshing = true
-    scrollEl.classList.add('citibike-pull-refreshing')
+    rootEl.classList.add('citibike-pull-refreshing')
     clearIconInline()
     try {
       await onRefresh()
     } finally {
       refreshing = false
-      scrollEl.classList.remove('citibike-pull-refreshing')
+      rootEl.classList.remove('citibike-pull-refreshing')
       setPullVisuals(0, true)
     }
   }
@@ -360,13 +378,13 @@ function attachCitibikePullRefresh(scrollEl, onRefresh) {
     tracking = false
     pullOffset = 0
     if (refreshing) return
-    scrollEl.classList.remove('citibike-pull-dragging')
-    scrollEl.classList.remove('citibike-pull-ready')
+    rootEl.classList.remove('citibike-pull-dragging')
+    rootEl.classList.remove('citibike-pull-ready')
     setPullVisuals(0, animate)
   }
 
   const onTouchStart = e => {
-    if (refreshing || scrollEl.scrollTop > 0) return
+    if (refreshing || !canPull()) return
     startY = e.touches[0].clientY
     tracking = true
     pullOffset = 0
@@ -374,7 +392,7 @@ function attachCitibikePullRefresh(scrollEl, onRefresh) {
 
   const onTouchMove = e => {
     if (!tracking || refreshing) return
-    if (scrollEl.scrollTop > 0) {
+    if (!canPull()) {
       resetPull(false)
       return
     }
@@ -386,7 +404,7 @@ function attachCitibikePullRefresh(scrollEl, onRefresh) {
     }
     e.preventDefault()
     pullOffset = dampPullOffset(raw)
-    scrollEl.classList.add('citibike-pull-dragging')
+    rootEl.classList.add('citibike-pull-dragging')
     setPullVisuals(pullOffset, false)
   }
 
@@ -405,16 +423,16 @@ function attachCitibikePullRefresh(scrollEl, onRefresh) {
     await settleTo(PULL_SNAP_OFFSET, { runRefresh: true })
   }
 
-  scrollEl.addEventListener('touchstart', onTouchStart, { passive: true })
-  scrollEl.addEventListener('touchmove', onTouchMove, { passive: false })
-  scrollEl.addEventListener('touchend', onTouchEnd)
-  scrollEl.addEventListener('touchcancel', onTouchEnd)
+  rootEl.addEventListener('touchstart', onTouchStart, { passive: true })
+  rootEl.addEventListener('touchmove', onTouchMove, { passive: false })
+  rootEl.addEventListener('touchend', onTouchEnd)
+  rootEl.addEventListener('touchcancel', onTouchEnd)
 
   return () => {
-    scrollEl.removeEventListener('touchstart', onTouchStart)
-    scrollEl.removeEventListener('touchmove', onTouchMove)
-    scrollEl.removeEventListener('touchend', onTouchEnd)
-    scrollEl.removeEventListener('touchcancel', onTouchEnd)
+    rootEl.removeEventListener('touchstart', onTouchStart)
+    rootEl.removeEventListener('touchmove', onTouchMove)
+    rootEl.removeEventListener('touchend', onTouchEnd)
+    rootEl.removeEventListener('touchcancel', onTouchEnd)
     body.style.transform = ''
     body.style.transition = ''
     if (head) {
@@ -422,7 +440,46 @@ function attachCitibikePullRefresh(scrollEl, onRefresh) {
       head.style.transition = ''
     }
     clearIconInline()
-    scrollEl.classList.remove('citibike-pull-ready')
+    rootEl.classList.remove('citibike-pull-ready')
+    rootEl.classList.remove('citibike-pull-dragging')
+    rootEl.classList.remove('citibike-pull-refreshing')
+  }
+}
+
+function attachNearbyModeSwipe(rootEl, onStep) {
+  if (!rootEl) return () => {}
+
+  let startX = 0
+  let startY = 0
+  let tracking = false
+
+  const onTouchStart = e => {
+    if (e.touches.length !== 1) return
+    startX = e.touches[0].clientX
+    startY = e.touches[0].clientY
+    tracking = true
+  }
+
+  const onTouchEnd = e => {
+    if (!tracking) return
+    tracking = false
+    const touch = e.changedTouches[0]
+    const dx = touch.clientX - startX
+    const dy = touch.clientY - startY
+    if (Math.abs(dx) < MODE_SWIPE_MIN_PX) return
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > MODE_SWIPE_MAX_VERTICAL_PX) return
+    if (dx < 0) onStep(-1)
+    else onStep(1)
+  }
+
+  rootEl.addEventListener('touchstart', onTouchStart, { passive: true })
+  rootEl.addEventListener('touchend', onTouchEnd, { passive: true })
+  rootEl.addEventListener('touchcancel', onTouchEnd, { passive: true })
+
+  return () => {
+    rootEl.removeEventListener('touchstart', onTouchStart)
+    rootEl.removeEventListener('touchend', onTouchEnd)
+    rootEl.removeEventListener('touchcancel', onTouchEnd)
   }
 }
 
@@ -594,8 +651,11 @@ export function renderCitibike(container, { navigate }) {
   let positionWatchId = null
   let nearMeAgoTimer = null
   let pullCleanup = null
+  let mapPullCleanup = null
+  let modeSwipeCleanup = null
   let positionWatchStarted = false
   let mapInstance = null
+  let mapNearestPins = []
   let mapMarkers = []
   let mapUserMarker = null
   let mapDrawerStation = null
@@ -934,6 +994,109 @@ export function renderCitibike(container, { navigate }) {
     rerender({ preserveSearch: true })
   }
 
+  function syncModeSwitchUi(mode) {
+    container.querySelectorAll('[data-find-mode]').forEach(btn => {
+      btn.classList.toggle('citibike-mode-active', btn.dataset.findMode === mode)
+    })
+  }
+
+  function nearbyModeLabel(mode) {
+    if (mode === 'ebike') return 'e-bikes'
+    if (mode === 'parking') return 'open docks'
+    return 'bikes'
+  }
+
+  function updateNearbyMapOverlay(mode) {
+    const wrap = container.querySelector('.citibike-map-wrap')
+    if (!wrap || !userPos) return
+
+    const items = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
+    const overlay = wrap.querySelector('.citibike-map-overlay')
+    if (!items.length && stations.length > 0) {
+      const html = `<p class="citibike-map-status">No racks with ${nearbyModeLabel(mode)} nearby right now.</p>`
+      if (overlay) overlay.innerHTML = html
+      else wrap.insertAdjacentHTML('beforeend', `<div class="citibike-map-overlay">${html}</div>`)
+      return
+    }
+    overlay?.remove()
+  }
+
+  function scheduleMapZoomForPins(L, nearest3) {
+    mapNearestPins = nearest3
+    const apply = () => {
+      if (!mapInstance || !userPos) return
+      mapInstance.invalidateSize()
+      mapViewZoom = resolveMapZoom(L, mapInstance, userPos, nearest3)
+      updateMapHeadingView()
+    }
+    requestAnimationFrame(() => {
+      apply()
+      setTimeout(apply, 120)
+    })
+  }
+
+  function clearNearbyRackMarkers() {
+    mapMarkers.filter(marker => marker !== mapUserMarker).forEach(marker => marker.remove())
+    mapMarkers = mapUserMarker ? [mapUserMarker] : []
+  }
+
+  async function refreshNearbyMapPins(mode) {
+    if (!mapInstance || !userPos) return
+    const L = await loadLeaflet()
+    clearNearbyRackMarkers()
+
+    const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
+    const markerColor = MAP_MARKER_COLOR[mode] ?? '#5a5552'
+
+    nearest3.forEach(({ station, dist }) => {
+      const marker = L.circleMarker([station.lat, station.lon], {
+        radius: 8,
+        color: '#221f1e',
+        fillColor: markerColor,
+        fillOpacity: 1,
+        weight: 2,
+      }).addTo(mapInstance)
+      marker.on('click', () => {
+        ensureMapOrientation(true)
+        openMapDrawer(station, dist)
+      })
+      mapMarkers.push(marker)
+    })
+
+    buildMapPinLabels(nearest3)
+    updateNearbyMapOverlay(mode)
+    scheduleMapZoomForPins(L, nearest3)
+  }
+
+  function setFindMode(mode) {
+    if (!FIND_MODES.includes(mode)) return
+    const state = loadState()
+    if (state.findMode === mode) return
+    state.findMode = mode
+    saveState(state)
+    syncModeSwitchUi(mode)
+
+    if (state.activeTab === 'nearby') {
+      if (mapInstance && userPos) {
+        refreshNearbyMapPins(mode).catch(console.warn)
+      } else {
+        rerender({ preserveSearch: true })
+      }
+      return
+    }
+
+    rerender({ preserveSearch: state.activeTab === 'saved' })
+  }
+
+  function stepFindMode(direction) {
+    const state = loadState()
+    const idx = FIND_MODES.indexOf(state.findMode)
+    if (idx < 0) return
+    const nextIdx = idx + direction
+    if (nextIdx < 0 || nextIdx >= FIND_MODES.length) return
+    setFindMode(FIND_MODES[nextIdx])
+  }
+
   function renderNearbyMapPanel(state) {
     let overlay = ''
     if (loading && stations.length === 0) {
@@ -961,22 +1124,27 @@ export function renderCitibike(container, { navigate }) {
     const orientPrompt = userPos && !overlay && needsMotionPermissionPrompt()
 
     return `
-      <div class="citibike-map-block">
-        <div class="citibike-map-wrap">
-          <div id="citibike-map" class="citibike-map" role="img" aria-label="Map of nearest Citibike racks"></div>
-          <div id="citibike-map-labels" class="citibike-map-labels"></div>
-          <div class="citibike-map-north" aria-hidden="true">
-            <div class="citibike-map-north-compass">
-              <span class="citibike-map-north-needle">N</span>
+      <div class="citibike-map-block citibike-pull-host">
+        <div class="citibike-pull-head citibike-map-pull-head" aria-hidden="true">
+          ${CITIBIKE_PULL_ICON_SVG}
+        </div>
+        <div class="citibike-pull-body citibike-map-pull-body">
+          <div class="citibike-map-wrap">
+            <div id="citibike-map" class="citibike-map" role="img" aria-label="Map of nearest Citibike racks"></div>
+            <div id="citibike-map-labels" class="citibike-map-labels"></div>
+            <div class="citibike-map-north" aria-hidden="true">
+              <div class="citibike-map-north-compass">
+                <span class="citibike-map-north-needle">N</span>
+              </div>
             </div>
+            ${orientPrompt ? `
+              <div class="citibike-map-orient-prompt">
+                <p class="citibike-map-status">Allow motion access so the map follows the direction you're facing.</p>
+                <button type="button" class="btn btn-cta citibike-map-orient-btn">Enable live map</button>
+              </div>
+            ` : ''}
+            ${overlay ? `<div class="citibike-map-overlay">${overlay}</div>` : ''}
           </div>
-          ${orientPrompt ? `
-            <div class="citibike-map-orient-prompt">
-              <p class="citibike-map-status">Allow motion access so the map follows the direction you're facing.</p>
-              <button type="button" class="btn btn-cta citibike-map-orient-btn">Enable live map</button>
-            </div>
-          ` : ''}
-          ${overlay ? `<div class="citibike-map-overlay">${overlay}</div>` : ''}
         </div>
       </div>
     `
@@ -1048,17 +1216,7 @@ export function renderCitibike(container, { navigate }) {
     mapOrientationTapHandler = () => ensureMapOrientation(true)
     el.addEventListener('click', mapOrientationTapHandler)
 
-    requestAnimationFrame(() => {
-      if (!mapInstance) return
-      mapInstance.invalidateSize()
-      mapViewZoom = resolveMapZoom(L, mapInstance, userPos, nearest3)
-      updateMapHeadingView()
-      setTimeout(() => {
-        mapInstance?.invalidateSize()
-        mapViewZoom = resolveMapZoom(L, mapInstance, userPos, nearest3)
-        updateMapHeadingView()
-      }, 120)
-    })
+    scheduleMapZoomForPins(L, nearest3)
   }
 
   function rerender({ preserveSearch = false } = {}) {
@@ -1091,18 +1249,9 @@ export function renderCitibike(container, { navigate }) {
           <div class="header-title">Citibike</div>
         </header>
 
-        <div class="scroll citibike-scroll">
+        <div class="scroll citibike-scroll citibike-pull-host">
           <div class="citibike-pull-head" aria-hidden="true">
-            <svg class="citibike-pull-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"
-              />
-            </svg>
+            ${CITIBIKE_PULL_ICON_SVG}
           </div>
           <div class="citibike-pull-body">
           <div class="citibike-tab-panel${state.activeTab === 'nearest' ? ' citibike-tab-panel-active' : ''}" id="citibike-panel-nearest">
@@ -1441,6 +1590,10 @@ export function renderCitibike(container, { navigate }) {
     destroyNearbyMap()
     pullCleanup?.()
     pullCleanup = null
+    mapPullCleanup?.()
+    mapPullCleanup = null
+    modeSwipeCleanup?.()
+    modeSwipeCleanup = null
     positionWatchStarted = false
     compassCleanup = null
   }
@@ -1506,11 +1659,24 @@ export function renderCitibike(container, { navigate }) {
 
   function bind(state) {
     pullCleanup?.()
-    const scrollEl = container.querySelector('.citibike-scroll')
-    pullCleanup = attachCitibikePullRefresh(scrollEl, () => {
-      const tab = loadState().activeTab
-      return refreshTabData(tab)
-    })
+    mapPullCleanup?.()
+    modeSwipeCleanup?.()
+
+    if (state.activeTab === 'nearby') {
+      const mapBlock = container.querySelector('.citibike-map-block')
+      mapPullCleanup = attachCitibikePullRefresh(mapBlock, () => refreshTabData('nearby'), { fixed: true })
+      const nearbyView = container.querySelector('#view-citibike')
+      modeSwipeCleanup = attachNearbyModeSwipe(nearbyView, direction => {
+        if (mapDrawerStation) return
+        stepFindMode(direction)
+      })
+    } else {
+      const scrollEl = container.querySelector('.citibike-scroll')
+      pullCleanup = attachCitibikePullRefresh(scrollEl, () => {
+        const tab = loadState().activeTab
+        return refreshTabData(tab)
+      })
+    }
 
     container.querySelector('#btn-citibike-home')?.addEventListener('click', () => navigate('home'))
 
@@ -1586,12 +1752,7 @@ export function renderCitibike(container, { navigate }) {
     })
 
     container.querySelectorAll('[data-find-mode]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const next = loadState()
-        next.findMode = btn.dataset.findMode
-        saveState(next)
-        rerender({ preserveSearch: next.activeTab === 'saved' })
-      })
+      btn.addEventListener('click', () => setFindMode(btn.dataset.findMode))
     })
 
     if (state.activeTab === 'nearby' && userPos && !nearMeLoading) {
