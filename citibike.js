@@ -126,7 +126,7 @@ function formatWalkMinutes(meters) {
 }
 
 function formatDistanceWithWalk(meters) {
-  return `${formatDistance(meters)} <span class="citibike-walk-time">(• ${formatWalkMinutes(meters)} min walk)</span>`
+  return `${formatDistance(meters)} <span class="citibike-walk-time">• ${formatWalkMinutes(meters)} min walk</span>`
 }
 
 function stationMatchesMode(station, mode) {
@@ -452,18 +452,67 @@ function attachCitibikePullRefresh(rootEl, onRefresh, { fixed = false } = {}) {
   }
 }
 
-function attachNearbyModeSwipe(rootEl, onStep) {
+function modeSwitchSegmentWidth(switchEl) {
+  const buttons = switchEl?.querySelectorAll('.citibike-mode-btn')
+  if (!buttons || buttons.length < 2) return switchEl?.offsetWidth ? switchEl.offsetWidth / 3 : 120
+  return buttons[1].offsetLeft - buttons[0].offsetLeft
+}
+
+function applyModeIndicatorAtIndex(switchEl, virtualIdx, { animate = false } = {}) {
+  const buttons = [...switchEl.querySelectorAll('.citibike-mode-btn')]
+  const indicator = switchEl.querySelector('.citibike-mode-indicator')
+  if (!indicator || !buttons.length) return
+
+  const clamped = Math.max(0, Math.min(buttons.length - 1, virtualIdx))
+  const lo = Math.floor(clamped)
+  const hi = Math.min(buttons.length - 1, Math.ceil(clamped))
+  const t = hi === lo ? 0 : clamped - lo
+  const loBtn = buttons[lo]
+  const hiBtn = buttons[hi]
+  const activeRound = Math.round(clamped)
+
+  indicator.style.transition = animate ? '' : 'none'
+  indicator.style.width = `${loBtn.offsetWidth + (hiBtn.offsetWidth - loBtn.offsetWidth) * t}px`
+  indicator.style.transform = `translateX(${loBtn.offsetLeft + (hiBtn.offsetLeft - loBtn.offsetLeft) * t}px)`
+  buttons.forEach((btn, i) => {
+    btn.classList.toggle('citibike-mode-active', i === activeRound)
+  })
+}
+
+function attachNearbyModeDrag(rootEl, { getModeIndex, getModeSwitch, onCommitIndex, canDrag = () => true }) {
   if (!rootEl) return () => {}
 
   let startX = 0
   let startY = 0
+  let startIdx = 0
   let tracking = false
+  let dragging = false
 
   const onTouchStart = e => {
-    if (e.touches.length !== 1) return
+    if (e.touches.length !== 1 || !canDrag()) return
     startX = e.touches[0].clientX
     startY = e.touches[0].clientY
+    startIdx = getModeIndex()
     tracking = true
+    dragging = false
+  }
+
+  const onTouchMove = e => {
+    if (!tracking) return
+    const dx = e.touches[0].clientX - startX
+    const dy = e.touches[0].clientY - startY
+    if (!dragging) {
+      if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy)) return
+      dragging = true
+      const switchEl = getModeSwitch()
+      switchEl?.classList.add('citibike-mode-dragging')
+    }
+    e.preventDefault()
+    const switchEl = getModeSwitch()
+    if (!switchEl) return
+    const seg = modeSwitchSegmentWidth(switchEl)
+    // Swipe right moves the selector left (lower index).
+    applyModeIndicatorAtIndex(switchEl, startIdx - dx / seg)
   }
 
   const onTouchEnd = e => {
@@ -472,20 +521,38 @@ function attachNearbyModeSwipe(rootEl, onStep) {
     const touch = e.changedTouches[0]
     const dx = touch.clientX - startX
     const dy = touch.clientY - startY
-    if (Math.abs(dx) < MODE_SWIPE_MIN_PX) return
-    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > MODE_SWIPE_MAX_VERTICAL_PX) return
-    if (dx < 0) onStep(-1)
-    else onStep(1)
+    const switchEl = getModeSwitch()
+
+    if (dragging && switchEl) {
+      const seg = modeSwitchSegmentWidth(switchEl)
+      const virtualIdx = Math.max(0, Math.min(FIND_MODES.length - 1, startIdx - dx / seg))
+      const targetIdx = Math.round(virtualIdx)
+      switchEl.classList.remove('citibike-mode-dragging')
+      applyModeIndicatorAtIndex(switchEl, targetIdx, { animate: true })
+      if (targetIdx !== startIdx) onCommitIndex(targetIdx)
+      else onCommitIndex(startIdx)
+    } else if (
+      Math.abs(dx) >= MODE_SWIPE_MIN_PX
+      && (Math.abs(dy) <= Math.abs(dx) || Math.abs(dy) <= MODE_SWIPE_MAX_VERTICAL_PX)
+    ) {
+      const targetIdx = Math.max(0, Math.min(FIND_MODES.length - 1, startIdx + (dx > 0 ? -1 : 1)))
+      if (targetIdx !== startIdx) onCommitIndex(targetIdx)
+    }
+
+    dragging = false
   }
 
   rootEl.addEventListener('touchstart', onTouchStart, { passive: true })
-  rootEl.addEventListener('touchend', onTouchEnd, { passive: true })
-  rootEl.addEventListener('touchcancel', onTouchEnd, { passive: true })
+  rootEl.addEventListener('touchmove', onTouchMove, { passive: false })
+  rootEl.addEventListener('touchend', onTouchEnd)
+  rootEl.addEventListener('touchcancel', onTouchEnd)
 
   return () => {
     rootEl.removeEventListener('touchstart', onTouchStart)
+    rootEl.removeEventListener('touchmove', onTouchMove)
     rootEl.removeEventListener('touchend', onTouchEnd)
     rootEl.removeEventListener('touchcancel', onTouchEnd)
+    getModeSwitch()?.classList.remove('citibike-mode-dragging')
   }
 }
 
@@ -1002,12 +1069,18 @@ export function renderCitibike(container, { navigate }) {
 
   function syncModeIndicator() {
     container.querySelectorAll('.citibike-mode-switch').forEach(switchEl => {
-      const indicator = switchEl.querySelector('.citibike-mode-indicator')
-      const active = switchEl.querySelector('.citibike-mode-btn.citibike-mode-active')
-      if (!indicator || !active) return
-      indicator.style.width = `${active.offsetWidth}px`
-      indicator.style.transform = `translateX(${active.offsetLeft}px)`
+      const idx = FIND_MODES.indexOf(
+        switchEl.querySelector('.citibike-mode-btn.citibike-mode-active')?.dataset.findMode
+          ?? loadState().findMode
+      )
+      if (idx >= 0) applyModeIndicatorAtIndex(switchEl, idx, { animate: true })
     })
+  }
+
+  function adjustMapZoom(delta) {
+    if (!mapInstance || !userPos) return
+    mapViewZoom = Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, mapViewZoom + delta))
+    updateMapHeadingView()
   }
 
   function syncModeSwitchUi(mode) {
@@ -1104,13 +1177,14 @@ export function renderCitibike(container, { navigate }) {
     rerender({ preserveSearch: state.activeTab === 'saved' })
   }
 
-  function stepFindMode(direction) {
-    const state = loadState()
-    const idx = FIND_MODES.indexOf(state.findMode)
-    if (idx < 0) return
-    const nextIdx = idx + direction
-    if (nextIdx < 0 || nextIdx >= FIND_MODES.length) return
-    setFindMode(FIND_MODES[nextIdx])
+  function commitFindModeIndex(idx) {
+    const mode = FIND_MODES[idx]
+    if (!mode) return
+    if (loadState().findMode === mode) {
+      syncModeSwitchUi(mode)
+      return
+    }
+    setFindMode(mode)
   }
 
   function renderNearbyMapPanel(state) {
@@ -1163,6 +1237,10 @@ export function renderCitibike(container, { navigate }) {
             </div>
           ` : ''}
           ${overlay ? `<div class="citibike-map-overlay">${overlay}</div>` : ''}
+          <div class="citibike-map-zoom-controls" aria-label="Map zoom">
+            <button type="button" class="citibike-map-zoom-btn" data-map-zoom="in" aria-label="Zoom in">+</button>
+            <button type="button" class="citibike-map-zoom-btn" data-map-zoom="out" aria-label="Zoom out">−</button>
+          </div>
         </div>
       </div>
     `
@@ -1665,9 +1743,11 @@ export function renderCitibike(container, { navigate }) {
 
     if (state.activeTab === 'nearby') {
       const nearbyView = container.querySelector('#view-citibike')
-      modeSwipeCleanup = attachNearbyModeSwipe(nearbyView, direction => {
-        if (mapDrawerStation) return
-        stepFindMode(direction)
+      modeSwipeCleanup = attachNearbyModeDrag(nearbyView, {
+        canDrag: () => !mapDrawerStation,
+        getModeIndex: () => FIND_MODES.indexOf(loadState().findMode),
+        getModeSwitch: () => container.querySelector('.citibike-map-mode-dock .citibike-mode-switch'),
+        onCommitIndex: idx => commitFindModeIndex(idx),
       })
     } else {
       const scrollEl = container.querySelector('.citibike-scroll')
@@ -1752,6 +1832,12 @@ export function renderCitibike(container, { navigate }) {
 
     container.querySelectorAll('[data-find-mode]').forEach(btn => {
       btn.addEventListener('click', () => setFindMode(btn.dataset.findMode))
+    })
+
+    container.querySelectorAll('[data-map-zoom]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        adjustMapZoom(btn.dataset.mapZoom === 'in' ? 1 : -1)
+      })
     })
 
     if (state.activeTab === 'nearby' && userPos && !nearMeLoading) {

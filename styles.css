@@ -1983,6 +1983,35 @@ textarea.coach-input {
   right: 16px;
 }
 
+.citibike-map-zoom-controls {
+  position: absolute;
+  right: 16px;
+  bottom: calc(56px + var(--safe-bottom) + 78px);
+  z-index: 34;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.citibike-map-zoom-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(34, 31, 30, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text);
+  font: 700 22px / 1 var(--font);
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(34, 31, 30, 0.4);
+}
+
+.citibike-map-zoom-btn:active {
+  background: rgba(34, 31, 30, 0.98);
+}
+
 .citibike-map-orient-prompt {
   position: absolute;
   inset: 0;
@@ -2350,7 +2379,24 @@ textarea.coach-input {
 }
 
 .citibike-map-pin-label-wrap .citibike-pill {
+  min-width: 42px;
+  padding: 7px 9px 6px;
   box-shadow: 0 2px 10px rgba(34, 31, 30, 0.55);
+}
+
+.citibike-map-pin-label-wrap .citibike-icon-svg {
+  width: 18px;
+  height: 18px;
+}
+
+.citibike-map-pin-label-wrap .citibike-pill-count {
+  font-size: 17px;
+}
+
+.citibike-map-pin-label-wrap .citibike-pill-dock {
+  color: var(--citibike-dock);
+  border-color: #5a565255;
+  background: #5a565228;
 }
 
 .citibike-map-user-icon {
@@ -2399,11 +2445,13 @@ textarea.coach-input {
 }
 
 .citibike-map-drawer-modal .citibike-nearest-distance-drawer {
-  font: 800 var(--font-size-h1-detail) / 1.1 var(--font);
+  font: 800 var(--font-size-h2) / 1.05 var(--font);
+  color: var(--accent);
 }
 
 .citibike-map-drawer-modal .citibike-walk-time {
-  font: 600 var(--font-size-body) / 1.2 var(--font);
+  font: inherit;
+  font-weight: 600;
   color: var(--text-secondary);
 }
 
@@ -2434,6 +2482,10 @@ textarea.coach-input {
   pointer-events: none;
   transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1), width 0.28s cubic-bezier(0.33, 1, 0.68, 1);
   will-change: transform, width;
+}
+
+.citibike-mode-switch.citibike-mode-dragging .citibike-mode-indicator {
+  transition: none;
 }
 
 .citibike-mode-btn {
