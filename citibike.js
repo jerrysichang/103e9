@@ -10,7 +10,7 @@ const TAB_SCHEMA = 2
 const DEFAULT_STATE = {
   saved: [],
   findMode: 'bike',
-  activeTab: 'nearest',
+  activeTab: 'nearby',
 }
 
 function loadState() {
@@ -23,13 +23,14 @@ function loadState() {
       return {
         saved: parsed.stationIds.map(stationId => ({ stationId, label: '' })),
         findMode: 'bike',
-        activeTab: 'nearest',
+        activeTab: 'nearby',
       }
     }
 
-    let activeTab = 'nearest'
+    let activeTab = 'nearby'
     if (parsed?.tabSchema >= TAB_SCHEMA) {
-      if (['nearest', 'nearby', 'saved'].includes(parsed.activeTab)) activeTab = parsed.activeTab
+      if (parsed.activeTab === 'nearest') activeTab = 'nearby'
+      else if (['nearby', 'saved'].includes(parsed.activeTab)) activeTab = parsed.activeTab
     } else if (parsed?.activeTab === 'saved') {
       activeTab = 'saved'
     }
@@ -206,33 +207,21 @@ function availabilityAside(station) {
   `
 }
 
-function mapPillNumber(kind, count) {
-  const empty = count <= 0
-  return `<span class="citibike-pill citibike-pill-${kind} citibike-map-pill${empty ? ' citibike-pill-empty' : ''}"><span class="citibike-pill-count">${count}</span></span>`
-}
-
 const MAP_PIN_LABEL_OFFSET_Y = 22
+const MAP_RACK_MARKER_FILL = '#f5f3f0'
 
 function mapPillsForMode(station, mode) {
   if (station.isOffline) return '<span class="citibike-offline">Offline</span>'
   if (mode === 'parking') {
-    return `<div class="citibike-pill-row citibike-map-pill-row">${mapPillNumber('dock', station.docks)}</div>`
+    return `<div class="citibike-pill-row citibike-map-pill-row">${pill('dock', station.docks)}</div>`
   }
   if (mode === 'ebike') {
-    return `<div class="citibike-pill-row citibike-map-pill-row">${mapPillNumber('ebike', station.ebikes)}</div>`
+    return `<div class="citibike-pill-row citibike-map-pill-row">${pill('ebike', station.ebikes)}</div>`
   }
   return `
     <div class="citibike-pill-row citibike-map-pill-row">
-      ${mapPillNumber('bike', station.classic)}
-      ${mapPillNumber('ebike', station.ebikes)}
-    </div>
-  `
-}
-
-function mapMarkerLabelHtml(station, mode) {
-  return `
-    <div class="citibike-map-pin-label">
-      <div class="citibike-pills-wrap">${mapPillsForMode(station, mode)}</div>
+      ${pill('bike', station.classic)}
+      ${pill('ebike', station.ebikes)}
     </div>
   `
 }
@@ -245,12 +234,6 @@ function userMapArrowIconHtml(rotation = 0) {
       </svg>
     </div>
   `
-}
-
-const MAP_MARKER_COLOR = {
-  bike: '#2563eb',
-  ebike: '#0d9488',
-  parking: '#6b6763',
 }
 
 function needsMotionPermissionPrompt() {
@@ -282,13 +265,21 @@ const CITIBIKE_PULL_ICON_SVG = `
 `
 
 function resolveMapZoom(L, mapInstance, userPos, nearest3) {
-  if (!nearest3?.length || !mapInstance || !userPos) return MAP_DEFAULT_ZOOM
+  if (!nearest3?.length || !mapInstance || !userPos) return MAP_DEFAULT_ZOOM - 1
 
   const bounds = L.latLngBounds([userPos.lat, userPos.lon], [userPos.lat, userPos.lon])
   nearest3.forEach(({ station }) => bounds.extend([station.lat, station.lon]))
 
   mapInstance.invalidateSize()
-  const pad = L.point(80, 80)
+
+  const pinCount = nearest3.length
+  const distances = nearest3.map(n => n.dist)
+  const maxDist = Math.max(...distances)
+  const minDist = Math.min(...distances)
+  const spread = maxDist - minDist
+  const padX = 92 + (pinCount < 3 ? 28 : 0)
+  const padY = 116 + (pinCount < 3 ? 36 : 0)
+  const pad = L.point(padX, padY)
   let zoom = mapInstance.getBoundsZoom(bounds, false, pad)
 
   // Center stays on the user, not the bounds centroid — ease out for offset racks.
@@ -299,9 +290,10 @@ function resolveMapZoom(L, mapInstance, userPos, nearest3) {
     (userPos.lat - center.lat) * latScale,
     (userPos.lon - center.lng) * lonScale
   )
-  const maxDist = Math.max(...nearest3.map(n => n.dist))
   if (offsetM > maxDist * 0.2) zoom -= 1
-
+  if (maxDist < 280) zoom -= 1
+  if (spread < 140 && pinCount > 1) zoom -= 1
+  if (pinCount < 3) zoom -= 1
   zoom -= 1
 
   return Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, zoom))
@@ -880,7 +872,7 @@ export function renderCitibike(container, { navigate }) {
       btn.type = 'button'
       btn.className = 'citibike-map-pin-label-wrap'
       btn.setAttribute('aria-label', station.name)
-      btn.innerHTML = mapMarkerLabelHtml(station, mode)
+      btn.innerHTML = mapPillsForMode(station, mode)
       btn.addEventListener('click', () => {
         ensureMapOrientation(true)
         openMapDrawer(station, dist)
@@ -1071,13 +1063,12 @@ export function renderCitibike(container, { navigate }) {
     clearNearbyRackMarkers()
 
     const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
-    const markerColor = MAP_MARKER_COLOR[mode] ?? '#5a5552'
 
     nearest3.forEach(({ station, dist }) => {
       const marker = L.circleMarker([station.lat, station.lon], {
         radius: 8,
         color: '#221f1e',
-        fillColor: markerColor,
+        fillColor: MAP_RACK_MARKER_FILL,
         fillOpacity: 1,
         weight: 2,
       }).addTo(mapInstance)
@@ -1204,7 +1195,6 @@ export function renderCitibike(container, { navigate }) {
     }).addTo(mapInstance)
 
     const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
-    const markerColor = MAP_MARKER_COLOR[mode] ?? '#5a5552'
 
     const userIcon = L.divIcon({
       className: 'citibike-map-user-icon',
@@ -1225,7 +1215,7 @@ export function renderCitibike(container, { navigate }) {
       const marker = L.circleMarker([station.lat, station.lon], {
         radius: 8,
         color: '#221f1e',
-        fillColor: markerColor,
+        fillColor: MAP_RACK_MARKER_FILL,
         fillOpacity: 1,
         weight: 2,
       }).addTo(mapInstance)
@@ -1281,13 +1271,6 @@ export function renderCitibike(container, { navigate }) {
             ${CITIBIKE_PULL_ICON_SVG}
           </div>
           <div class="citibike-pull-body">
-          <div class="citibike-tab-panel${state.activeTab === 'nearest' ? ' citibike-tab-panel-active' : ''}" id="citibike-panel-nearest">
-            <div class="citibike-near-block">
-              ${renderModeSwitch(state)}
-              ${renderNearestCard(nearest, state.findMode, geoStatus, geoError)}
-            </div>
-          </div>
-
           <div class="citibike-tab-panel${state.activeTab === 'nearby' ? ' citibike-tab-panel-active' : ''}" id="citibike-panel-nearby">
             ${renderNearbyMapPanel(state)}
           </div>
@@ -1322,12 +1305,6 @@ export function renderCitibike(container, { navigate }) {
         ` : ''}
 
         <nav class="citibike-tab-bar" aria-label="Citibike sections">
-          <button
-            type="button"
-            class="citibike-tab-btn${state.activeTab === 'nearest' ? ' citibike-tab-active' : ''}"
-            data-citibike-tab="nearest"
-            aria-selected="${state.activeTab === 'nearest' ? 'true' : 'false'}"
-          >Nearest</button>
           <button
             type="button"
             class="citibike-tab-btn${state.activeTab === 'nearby' ? ' citibike-tab-active' : ''}"
@@ -1718,7 +1695,7 @@ export function renderCitibike(container, { navigate }) {
     container.querySelectorAll('[data-citibike-tab]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const tab = btn.dataset.citibikeTab
-        if (!['nearest', 'nearby', 'saved'].includes(tab)) return
+        if (!['nearby', 'saved'].includes(tab)) return
         const next = loadState()
         if (next.activeTab === tab) return
         if (tab === 'nearby') await ensureMapOrientation(true)

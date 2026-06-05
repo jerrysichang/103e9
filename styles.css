@@ -2306,7 +2306,7 @@ textarea.coach-input {
 }
 
 #view-citibike .leaflet-tile-pane {
-  filter: brightness(1.78) contrast(0.9);
+  filter: brightness(2.08) contrast(0.88);
 }
 
 #view-citibike .leaflet-control-attribution {
@@ -2334,10 +2334,7 @@ textarea.coach-input {
   top: 0;
   transform: translate(-50%, calc(-100% - 22px));
   border: none;
-  background: rgba(34, 31, 30, 0.92);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(34, 31, 30, 0.45);
+  background: transparent;
   padding: 0;
   color: var(--text);
   pointer-events: auto;
@@ -2346,34 +2343,14 @@ textarea.coach-input {
   text-align: left;
 }
 
-.citibike-map-pin-label {
+.citibike-map-pin-label-wrap .citibike-map-pill-row {
   display: flex;
-  flex-direction: column;
-  padding: 6px 8px;
-  width: fit-content;
-  min-width: 0;
-  align-items: center;
-}
-
-.citibike-map-pin-label .citibike-pills-wrap {
-  align-self: center;
-}
-
-.citibike-map-pin-label .citibike-map-pill-row {
   gap: 4px;
   justify-content: center;
 }
 
-.citibike-map-pin-label .citibike-map-pill {
-  min-width: 32px;
-  padding: 4px 6px;
-  border-radius: 6px;
-}
-
-.citibike-map-pin-label .citibike-map-pill .citibike-pill-count {
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1;
+.citibike-map-pin-label-wrap .citibike-pill {
+  box-shadow: 0 2px 10px rgba(34, 31, 30, 0.55);
 }
 
 .citibike-map-user-icon {
