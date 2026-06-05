@@ -239,10 +239,10 @@ function userMapArrowIconHtml(rotation = 0) {
   `
 }
 
-const MAP_RANK_COLORS = {
-  bike: ['#60a5fa', '#3b82f6', '#2563eb'],
-  ebike: ['#14b8a6', '#0d9488', '#0f766e'],
-  parking: ['#8a8682', '#6b6763', '#4a4744'],
+const MAP_MARKER_COLOR = {
+  bike: '#3b82f6',
+  ebike: '#0d9488',
+  parking: '#6b6763',
 }
 
 function availabilityNearbyStack(station) {
@@ -491,6 +491,9 @@ function headingFromOrientationEvent(e) {
   if (e.absolute === true && typeof e.alpha === 'number' && !Number.isNaN(e.alpha)) {
     return (360 - e.alpha) % 360
   }
+  if (typeof e.alpha === 'number' && !Number.isNaN(e.alpha)) {
+    return (360 - e.alpha) % 360
+  }
   return null
 }
 
@@ -559,6 +562,8 @@ export function renderCitibike(container, { navigate }) {
   let mapUserMarker = null
   let mapDrawerStation = null
   let mapPinClickHandler = null
+  let mapArrowRotation = null
+  let mapHeadingFrame = null
 
   function stationById(id) {
     return stations.find(s => s.id === id)
@@ -596,7 +601,41 @@ export function renderCitibike(container, { navigate }) {
     nearestMagneticBearing = station ? bearingToStation(station) : null
   }
 
+  function stopMapHeadingLoop() {
+    if (mapHeadingFrame) {
+      cancelAnimationFrame(mapHeadingFrame)
+      mapHeadingFrame = null
+    }
+  }
+
+  function startMapHeadingLoop() {
+    stopMapHeadingLoop()
+    const tick = () => {
+      if (loadState().activeTab === 'nearby' && mapUserMarker) {
+        updateUserMapArrowRotation()
+        mapHeadingFrame = requestAnimationFrame(tick)
+      } else {
+        mapHeadingFrame = null
+      }
+    }
+    mapHeadingFrame = requestAnimationFrame(tick)
+  }
+
+  async function ensureMapOrientation(fromUserGesture = false) {
+    if (!compassSupported) return
+    if (!orientationHandler) startCompassListener()
+    startMapHeadingLoop()
+    if (deviceHeading != null) return
+    if (sessionStorage.getItem(COMPASS_PREF_KEY) === '1') return
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      if (!fromUserGesture) return
+      const granted = await requestCompassPermission()
+      if (granted) sessionStorage.setItem(COMPASS_PREF_KEY, '1')
+    }
+  }
+
   function destroyNearbyMap() {
+    stopMapHeadingLoop()
     mapMarkers = []
     mapUserMarker = null
     if (mapInstance) {
@@ -607,9 +646,13 @@ export function renderCitibike(container, { navigate }) {
 
   function updateUserMapArrowRotation() {
     if (!mapUserMarker) return
-    const deg = deviceHeading ?? 0
+    if (deviceHeading != null) {
+      mapArrowRotation = smoothAngle(mapArrowRotation, deviceHeading, 0.4, 0.5)
+    } else if (mapArrowRotation == null) {
+      mapArrowRotation = 0
+    }
     const inner = mapUserMarker.getElement()?.querySelector('.citibike-map-user-arrow')
-    if (inner) inner.style.transform = `rotate(${deg}deg)`
+    if (inner) inner.style.transform = `rotate(${mapArrowRotation}deg)`
   }
 
   function renderRackDetailStack(station, dist, mode, { includeCompass = true } = {}) {
@@ -714,6 +757,12 @@ export function renderCitibike(container, { navigate }) {
     mapInstance = L.map(el, {
       zoomControl: false,
       attributionControl: true,
+      dragging: false,
+      touchZoom: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      keyboard: false,
     })
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -723,7 +772,7 @@ export function renderCitibike(container, { navigate }) {
     }).addTo(mapInstance)
 
     const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
-    const rankColors = MAP_RANK_COLORS[mode] ?? MAP_RANK_COLORS.bike
+    const markerColor = MAP_MARKER_COLOR[mode] ?? '#5a5552'
 
     const userIcon = L.divIcon({
       className: 'citibike-map-user-icon',
@@ -737,10 +786,7 @@ export function renderCitibike(container, { navigate }) {
     }).addTo(mapInstance)
     mapMarkers.push(mapUserMarker)
 
-    if (!orientationHandler && compassSupported) {
-      startCompassListener()
-      tryRestoreCompass()
-    }
+    ensureMapOrientation()
     updateUserMapArrowRotation()
 
     const bounds = L.latLngBounds([userPos.lat, userPos.lon], [userPos.lat, userPos.lon])
@@ -751,7 +797,7 @@ export function renderCitibike(container, { navigate }) {
       const marker = L.circleMarker([station.lat, station.lon], {
         radius: 8,
         color: '#221f1e',
-        fillColor: rankColors[i] ?? '#5a5552',
+        fillColor: markerColor,
         fillOpacity: 1,
         weight: 2,
       }).addTo(mapInstance)
@@ -763,7 +809,10 @@ export function renderCitibike(container, { navigate }) {
         opacity: 1,
         interactive: true,
       })
-      marker.on('click', () => openMapDrawer(station, dist))
+      marker.on('click', () => {
+        ensureMapOrientation(true)
+        openMapDrawer(station, dist)
+      })
       mapMarkers.push(marker)
     })
 
@@ -771,6 +820,7 @@ export function renderCitibike(container, { navigate }) {
       el.removeEventListener('click', mapPinClickHandler)
     }
     mapPinClickHandler = e => {
+      ensureMapOrientation(true)
       const pin = e.target.closest('[data-map-pin]')
       if (!pin) return
       const station = stationById(pin.dataset.stationId)
@@ -1109,6 +1159,10 @@ export function renderCitibike(container, { navigate }) {
     positionWatchId = navigator.geolocation.watchPosition(
       pos => {
         userPos = { lat: pos.coords.latitude, lon: pos.coords.longitude }
+        const geoHeading = pos.coords.heading
+        if (typeof geoHeading === 'number' && !Number.isNaN(geoHeading) && geoHeading >= 0) {
+          deviceHeading = smoothAngle(deviceHeading, geoHeading, 0.4, 0.5)
+        }
         if (nearMeLoadedAt && nearMeNeedsLoad()) {
           rerender({ preserveSearch: true })
           return
@@ -1149,6 +1203,7 @@ export function renderCitibike(container, { navigate }) {
   }
 
   compassCleanup = () => {
+    stopMapHeadingLoop()
     stopCompassListener()
     stopPositionWatch()
     stopNearMeAgo()
@@ -1257,7 +1312,10 @@ export function renderCitibike(container, { navigate }) {
     })
 
     container.querySelectorAll('.citibike-map-load').forEach(btn => {
-      btn.addEventListener('click', () => loadNearMe().then(() => initNearbyMap(loadState().findMode)))
+      btn.addEventListener('click', () => {
+        ensureMapOrientation(true)
+        loadNearMe().then(() => initNearbyMap(loadState().findMode))
+      })
     })
 
     container.querySelectorAll('.citibike-load-near').forEach(btn => {

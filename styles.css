@@ -2153,6 +2153,10 @@ textarea.coach-input {
   font-family: var(--font);
 }
 
+#view-citibike .leaflet-tile-pane {
+  filter: brightness(1.32) contrast(0.96);
+}
+
 #view-citibike .leaflet-control-attribution {
   background: rgba(34, 31, 30, 0.85) !important;
   color: var(--text-muted) !important;
