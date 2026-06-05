@@ -196,6 +196,27 @@ function availabilityAside(station) {
   `
 }
 
+function mapMarkerTooltipHtml(station, rank, dist) {
+  return `
+    <div class="citibike-map-tooltip-inner">
+      <div class="citibike-map-tooltip-head">
+        <span class="citibike-map-tooltip-rank">${rank}</span>
+        <div class="citibike-map-tooltip-meta">
+          <span class="citibike-map-tooltip-title">${escapeHtml(station.name)}</span>
+          <span class="citibike-map-tooltip-dist">${formatDistance(dist)}</span>
+        </div>
+      </div>
+      ${availabilityAside(station)}
+    </div>
+  `
+}
+
+const MAP_RANK_COLORS = {
+  bike: ['#60a5fa', '#3b82f6', '#2563eb'],
+  ebike: ['#14b8a6', '#0d9488', '#0f766e'],
+  parking: ['#8a8682', '#6b6763', '#4a4744'],
+}
+
 function availabilityNearbyStack(station) {
   return `
     <div class="citibike-nearest-availability">
@@ -563,9 +584,12 @@ export function renderCitibike(container, { navigate }) {
       <ol class="citibike-map-rack-list">
         ${items.map((item, i) => `
           <li class="citibike-map-rack-item">
-            <span class="citibike-map-rank">${i + 1}</span>
-            <span class="citibike-map-rack-name">${escapeHtml(item.station.name)}</span>
-            <span class="citibike-map-rack-dist">${formatDistance(item.dist)}</span>
+            <div class="citibike-map-rack-row">
+              <span class="citibike-map-rank">${i + 1}</span>
+              <span class="citibike-map-rack-name">${escapeHtml(item.station.name)}</span>
+              <span class="citibike-map-rack-dist">${formatDistance(item.dist)}</span>
+            </div>
+            ${availabilityAside(item.station)}
           </li>
         `).join('')}
       </ol>
@@ -622,7 +646,7 @@ export function renderCitibike(container, { navigate }) {
     }).addTo(mapInstance)
 
     const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
-    const rankColors = ['#60a5fa', '#14b8a6', '#8a8682']
+    const rankColors = MAP_RANK_COLORS[mode] ?? MAP_RANK_COLORS.bike
 
     const userMarker = L.circleMarker([userPos.lat, userPos.lon], {
       radius: 9,
@@ -646,10 +670,15 @@ export function renderCitibike(container, { navigate }) {
         fillOpacity: 1,
         weight: 2,
       }).addTo(mapInstance)
-      marker.bindTooltip(
-        `<strong>${i + 1}. ${escapeHtml(station.name)}</strong><br>${formatDistance(dist)}`,
-        { direction: 'top', offset: [0, -8] }
-      )
+      marker.bindTooltip(mapMarkerTooltipHtml(station, i + 1, dist), {
+        className: 'citibike-map-tooltip',
+        direction: 'top',
+        offset: [0, -10],
+        opacity: 1,
+        interactive: true,
+        sticky: true,
+      })
+      marker.on('click', () => marker.openTooltip())
       mapMarkers.push(marker)
     })
 
