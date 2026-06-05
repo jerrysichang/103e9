@@ -5,10 +5,12 @@ const NEAR_ME_MOVE_M = 120
 /** NYC-area magnetic declination (degrees west of true north). iOS webkitCompassHeading is magnetic. */
 const MAGNETIC_DECLINATION_WEST_DEG = 12.5
 
+const TAB_SCHEMA = 2
+
 const DEFAULT_STATE = {
   saved: [],
   findMode: 'bike',
-  activeTab: 'nearby',
+  activeTab: 'nearest',
 }
 
 function loadState() {
@@ -21,8 +23,15 @@ function loadState() {
       return {
         saved: parsed.stationIds.map(stationId => ({ stationId, label: '' })),
         findMode: 'bike',
-        activeTab: 'nearby',
+        activeTab: 'nearest',
       }
+    }
+
+    let activeTab = 'nearest'
+    if (parsed?.tabSchema >= TAB_SCHEMA) {
+      if (['nearest', 'nearby', 'saved'].includes(parsed.activeTab)) activeTab = parsed.activeTab
+    } else if (parsed?.activeTab === 'saved') {
+      activeTab = 'saved'
     }
 
     return {
@@ -32,7 +41,7 @@ function loadState() {
           .map(s => ({ stationId: String(s.stationId), label: String(s.label || '') }))
         : [],
       findMode: ['bike', 'ebike', 'parking'].includes(parsed?.findMode) ? parsed.findMode : 'bike',
-      activeTab: parsed?.activeTab === 'saved' ? 'saved' : 'nearby',
+      activeTab,
     }
   } catch {
     return structuredClone(DEFAULT_STATE)
@@ -40,7 +49,7 @@ function loadState() {
 }
 
 function saveState(state) {
-  localStorage.setItem(KEY, JSON.stringify(state))
+  localStorage.setItem(KEY, JSON.stringify({ ...state, tabSchema: TAB_SCHEMA }))
 }
 
 async function fetchStations() {
@@ -119,17 +128,52 @@ function stationMatchesMode(station, mode) {
 }
 
 function findNearest(stations, lat, lon, mode) {
-  let nearest = null
-  let nearestDist = Infinity
+  const list = findNearestN(stations, lat, lon, mode, 1)
+  return list[0] ?? null
+}
+
+function findNearestN(stations, lat, lon, mode, n = 3) {
+  const matches = []
   for (const station of stations) {
     if (!stationMatchesMode(station, mode)) continue
-    const dist = distanceMeters(lat, lon, station.lat, station.lon)
-    if (dist < nearestDist) {
-      nearestDist = dist
-      nearest = { station, dist }
-    }
+    matches.push({ station, dist: distanceMeters(lat, lon, station.lat, station.lon) })
   }
-  return nearest
+  matches.sort((a, b) => a.dist - b.dist)
+  return matches.slice(0, n)
+}
+
+let leafletPromise = null
+
+function loadLeaflet() {
+  if (!leafletPromise) {
+    leafletPromise = Promise.all([
+      new Promise((resolve, reject) => {
+        if (document.querySelector('link[data-leaflet-css]')) {
+          resolve()
+          return
+        }
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'
+        link.dataset.leafletCss = '1'
+        link.onload = () => resolve()
+        link.onerror = () => reject(new Error('Could not load map styles'))
+        document.head.appendChild(link)
+      }),
+      import('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/+esm'),
+    ]).then(([, mod]) => mod.default || mod)
+  }
+  return leafletPromise
+}
+
+function renderModeSwitch(state, label = 'Find nearest') {
+  return `
+    <div class="citibike-mode-switch" role="tablist" aria-label="${label}">
+      <button type="button" class="citibike-mode-btn${state.findMode === 'bike' ? ' citibike-mode-active' : ''}" data-find-mode="bike" role="tab">Any bike</button>
+      <button type="button" class="citibike-mode-btn${state.findMode === 'ebike' ? ' citibike-mode-active' : ''}" data-find-mode="ebike" role="tab">E-bike</button>
+      <button type="button" class="citibike-mode-btn${state.findMode === 'parking' ? ' citibike-mode-active' : ''}" data-find-mode="parking" role="tab">Parking</button>
+    </div>
+  `
 }
 
 const ICON_SVG = {
@@ -461,6 +505,8 @@ export function renderCitibike(container, { navigate }) {
   let nearMeAgoTimer = null
   let pullCleanup = null
   let positionWatchStarted = false
+  let mapInstance = null
+  let mapMarkers = []
 
   function stationById(id) {
     return stations.find(s => s.id === id)
@@ -498,7 +544,124 @@ export function renderCitibike(container, { navigate }) {
     nearestMagneticBearing = station ? bearingToStation(station) : null
   }
 
+  function destroyNearbyMap() {
+    mapMarkers = []
+    if (mapInstance) {
+      mapInstance.remove()
+      mapInstance = null
+    }
+  }
+
+  function renderMapRackList(mode) {
+    if (!userPos || stations.length === 0) return ''
+    const items = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
+    if (!items.length) {
+      const modeLabel = mode === 'ebike' ? 'e-bikes' : mode === 'parking' ? 'open docks' : 'bikes'
+      return `<p class="citibike-map-empty">No racks with ${modeLabel} nearby right now.</p>`
+    }
+    return `
+      <ol class="citibike-map-rack-list">
+        ${items.map((item, i) => `
+          <li class="citibike-map-rack-item">
+            <span class="citibike-map-rank">${i + 1}</span>
+            <span class="citibike-map-rack-name">${escapeHtml(item.station.name)}</span>
+            <span class="citibike-map-rack-dist">${formatDistance(item.dist)}</span>
+          </li>
+        `).join('')}
+      </ol>
+    `
+  }
+
+  function renderNearbyMapPanel(state) {
+    let overlay = ''
+    if (loading && stations.length === 0) {
+      overlay = '<p class="citibike-map-status">Loading stations…</p>'
+    } else if (nearMeLoading || geoStatus === 'loading') {
+      overlay = '<p class="citibike-map-status">Finding your location…</p>'
+    } else if (geoStatus === 'denied' || geoStatus === 'error') {
+      overlay = `
+        <p class="citibike-map-status">${escapeHtml(geoError || 'Location unavailable.')}</p>
+        <button type="button" class="btn btn-cta citibike-map-load">Try again</button>
+      `
+    } else if (!userPos) {
+      overlay = `
+        <p class="citibike-map-status">Show the 3 nearest racks on the map.</p>
+        <button type="button" class="btn btn-cta citibike-map-load">Load map</button>
+      `
+    }
+
+    return `
+      <div class="citibike-map-block">
+        ${renderModeSwitch(state, 'Map filter')}
+        <div class="citibike-map-wrap">
+          <div id="citibike-map" class="citibike-map" role="img" aria-label="Map of nearest Citibike racks"></div>
+          ${overlay ? `<div class="citibike-map-overlay">${overlay}</div>` : ''}
+        </div>
+        ${userPos && !overlay ? renderMapRackList(state.findMode) : ''}
+      </div>
+    `
+  }
+
+  async function initNearbyMap(mode) {
+    if (loadState().activeTab !== 'nearby') return
+    const el = container.querySelector('#citibike-map')
+    if (!el || !userPos) return
+
+    const L = await loadLeaflet()
+    destroyNearbyMap()
+
+    mapInstance = L.map(el, {
+      zoomControl: false,
+      attributionControl: true,
+    })
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(mapInstance)
+
+    const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
+    const rankColors = ['#60a5fa', '#14b8a6', '#8a8682']
+
+    const userMarker = L.circleMarker([userPos.lat, userPos.lon], {
+      radius: 9,
+      color: '#f5f3f0',
+      fillColor: '#f5f3f0',
+      fillOpacity: 1,
+      weight: 2,
+    }).addTo(mapInstance)
+    userMarker.bindTooltip('You', { direction: 'top', offset: [0, -8] })
+    mapMarkers.push(userMarker)
+
+    const bounds = L.latLngBounds([userPos.lat, userPos.lon], [userPos.lat, userPos.lon])
+
+    nearest3.forEach((item, i) => {
+      const { station, dist } = item
+      bounds.extend([station.lat, station.lon])
+      const marker = L.circleMarker([station.lat, station.lon], {
+        radius: 10,
+        color: '#221f1e',
+        fillColor: rankColors[i] ?? '#5a5552',
+        fillOpacity: 1,
+        weight: 2,
+      }).addTo(mapInstance)
+      marker.bindTooltip(
+        `<strong>${i + 1}. ${escapeHtml(station.name)}</strong><br>${formatDistance(dist)}`,
+        { direction: 'top', offset: [0, -8] }
+      )
+      mapMarkers.push(marker)
+    })
+
+    mapInstance.fitBounds(bounds, { padding: [48, 48], maxZoom: 16 })
+    requestAnimationFrame(() => {
+      mapInstance?.invalidateSize()
+      setTimeout(() => mapInstance?.invalidateSize(), 120)
+    })
+  }
+
   function rerender({ preserveSearch = false } = {}) {
+    destroyNearbyMap()
     const prevSearchEl = preserveSearch ? container.querySelector('#citibike-search') : null
     const searchVal = prevSearchEl?.value ?? ''
     const searchFocused = preserveSearch && document.activeElement === prevSearchEl
@@ -536,15 +699,15 @@ export function renderCitibike(container, { navigate }) {
             </svg>
           </div>
           <div class="citibike-pull-body">
-          <div class="citibike-tab-panel${state.activeTab === 'nearby' ? ' citibike-tab-panel-active' : ''}" id="citibike-panel-nearby">
+          <div class="citibike-tab-panel${state.activeTab === 'nearest' ? ' citibike-tab-panel-active' : ''}" id="citibike-panel-nearest">
             <div class="citibike-near-block">
-              <div class="citibike-mode-switch" role="tablist" aria-label="Find nearest">
-                <button type="button" class="citibike-mode-btn${state.findMode === 'bike' ? ' citibike-mode-active' : ''}" data-find-mode="bike" role="tab">Any bike</button>
-                <button type="button" class="citibike-mode-btn${state.findMode === 'ebike' ? ' citibike-mode-active' : ''}" data-find-mode="ebike" role="tab">E-bike</button>
-                <button type="button" class="citibike-mode-btn${state.findMode === 'parking' ? ' citibike-mode-active' : ''}" data-find-mode="parking" role="tab">Parking</button>
-              </div>
+              ${renderModeSwitch(state)}
               ${renderNearestCard(nearest, state.findMode, geoStatus, geoError)}
             </div>
+          </div>
+
+          <div class="citibike-tab-panel${state.activeTab === 'nearby' ? ' citibike-tab-panel-active' : ''}" id="citibike-panel-nearby">
+            ${renderNearbyMapPanel(state)}
           </div>
 
           <div class="citibike-tab-panel${state.activeTab === 'saved' ? ' citibike-tab-panel-active' : ''}" id="citibike-panel-saved">
@@ -571,6 +734,12 @@ export function renderCitibike(container, { navigate }) {
         </div>
 
         <nav class="citibike-tab-bar" aria-label="Citibike sections">
+          <button
+            type="button"
+            class="citibike-tab-btn${state.activeTab === 'nearest' ? ' citibike-tab-active' : ''}"
+            data-citibike-tab="nearest"
+            aria-selected="${state.activeTab === 'nearest' ? 'true' : 'false'}"
+          >Nearest</button>
           <button
             type="button"
             class="citibike-tab-btn${state.activeTab === 'nearby' ? ' citibike-tab-active' : ''}"
@@ -807,6 +976,9 @@ export function renderCitibike(container, { navigate }) {
           rerender({ preserveSearch: true })
           return
         }
+        if (loadState().activeTab === 'nearby' && userPos) {
+          initNearbyMap(loadState().findMode).catch(console.warn)
+        }
         if (compassActive || activeNearestStation()) {
           scheduleCompassUpdate()
         }
@@ -822,6 +994,9 @@ export function renderCitibike(container, { navigate }) {
       return
     }
     await loadNearMe()
+    if (tab === 'nearby') {
+      await initNearbyMap(loadState().findMode)
+    }
   }
 
   function ensurePositionWatch() {
@@ -835,6 +1010,7 @@ export function renderCitibike(container, { navigate }) {
     stopCompassListener()
     stopPositionWatch()
     stopNearMeAgo()
+    destroyNearbyMap()
     pullCleanup?.()
     pullCleanup = null
     positionWatchStarted = false
@@ -932,7 +1108,7 @@ export function renderCitibike(container, { navigate }) {
     const scrollEl = container.querySelector('.citibike-scroll')
     pullCleanup = attachCitibikePullRefresh(scrollEl, () => {
       const tab = loadState().activeTab
-      return refreshTabData(tab === 'saved' ? 'saved' : 'nearby')
+      return refreshTabData(tab)
     })
 
     container.querySelector('#btn-citibike-home')?.addEventListener('click', () => navigate('home'))
@@ -940,7 +1116,7 @@ export function renderCitibike(container, { navigate }) {
     container.querySelectorAll('[data-citibike-tab]').forEach(btn => {
       btn.addEventListener('click', () => {
         const tab = btn.dataset.citibikeTab
-        if (tab !== 'nearby' && tab !== 'saved') return
+        if (!['nearest', 'nearby', 'saved'].includes(tab)) return
         const next = loadState()
         if (next.activeTab === tab) return
         next.activeTab = tab
@@ -948,6 +1124,10 @@ export function renderCitibike(container, { navigate }) {
         rerender({ preserveSearch: tab === 'saved' })
         refreshTabData(tab)
       })
+    })
+
+    container.querySelectorAll('.citibike-map-load').forEach(btn => {
+      btn.addEventListener('click', () => loadNearMe().then(() => initNearbyMap(loadState().findMode)))
     })
 
     container.querySelectorAll('.citibike-load-near').forEach(btn => {
@@ -984,9 +1164,13 @@ export function renderCitibike(container, { navigate }) {
         const next = loadState()
         next.findMode = btn.dataset.findMode
         saveState(next)
-        rerender()
+        rerender({ preserveSearch: next.activeTab === 'saved' })
       })
     })
+
+    if (state.activeTab === 'nearby' && userPos && !nearMeLoading) {
+      initNearbyMap(state.findMode).catch(console.warn)
+    }
 
     const search = container.querySelector('#citibike-search')
     const results = container.querySelector('#citibike-search-results')
@@ -1164,7 +1348,7 @@ export function renderCitibike(container, { navigate }) {
     }
   }
 
-  const initialTab = loadState().activeTab === 'saved' ? 'saved' : 'nearby'
+  const initialTab = loadState().activeTab
   refreshTabData(initialTab).finally(ensurePositionWatch)
 }
 
