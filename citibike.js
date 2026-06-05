@@ -196,11 +196,45 @@ function availabilityAside(station) {
   `
 }
 
-function mapMarkerLabelHtml(station) {
+function mapPillNumber(kind, count) {
+  const empty = count <= 0
+  return `<span class="citibike-pill citibike-pill-${kind} citibike-map-pill${empty ? ' citibike-pill-empty' : ''}"><span class="citibike-pill-count">${count}</span></span>`
+}
+
+function mapPillsNumbersRow(station) {
+  if (station.isOffline) return '<span class="citibike-offline">Offline</span>'
   return `
-    <div class="citibike-map-pin-label">
+    <div class="citibike-pill-row citibike-map-pill-row">
+      ${mapPillNumber('bike', station.classic)}
+      ${mapPillNumber('ebike', station.ebikes)}
+      ${mapPillNumber('dock', station.docks)}
+    </div>
+  `
+}
+
+function mapMarkerLabelHtml(station, dist) {
+  return `
+    <div
+      class="citibike-map-pin-label"
+      data-map-pin="1"
+      data-station-id="${station.id}"
+      data-map-dist="${dist}"
+      role="button"
+      tabindex="0"
+      aria-label="${escapeHtml(station.name)}"
+    >
       ${availabilityCapacityBarSummary(station)}
-      <div class="citibike-pills-wrap">${availabilityPillsRow(station)}</div>
+      <div class="citibike-pills-wrap">${mapPillsNumbersRow(station)}</div>
+    </div>
+  `
+}
+
+function userMapArrowIconHtml(rotation = 0) {
+  return `
+    <div class="citibike-map-user-arrow" style="transform: rotate(${rotation}deg)">
+      <svg class="citibike-map-user-arrow-svg" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3 L19 19 L12 15 L5 19 Z" fill="#f5f3f0" stroke="#221f1e" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
     </div>
   `
 }
@@ -522,6 +556,9 @@ export function renderCitibike(container, { navigate }) {
   let positionWatchStarted = false
   let mapInstance = null
   let mapMarkers = []
+  let mapUserMarker = null
+  let mapDrawerStation = null
+  let mapPinClickHandler = null
 
   function stationById(id) {
     return stations.find(s => s.id === id)
@@ -561,10 +598,74 @@ export function renderCitibike(container, { navigate }) {
 
   function destroyNearbyMap() {
     mapMarkers = []
+    mapUserMarker = null
     if (mapInstance) {
       mapInstance.remove()
       mapInstance = null
     }
+  }
+
+  function updateUserMapArrowRotation() {
+    if (!mapUserMarker) return
+    const deg = deviceHeading ?? 0
+    const inner = mapUserMarker.getElement()?.querySelector('.citibike-map-user-arrow')
+    if (inner) inner.style.transform = `rotate(${deg}deg)`
+  }
+
+  function renderRackDetailStack(station, dist, mode, { includeCompass = true } = {}) {
+    return `
+      <div class="citibike-nearest-stack">
+        ${availabilityNearbyStack(station)}
+        <div class="citibike-nearest-stack-actions">
+          <div class="citibike-nearest-compass-row">
+            ${includeCompass ? `
+              <button
+                type="button"
+                class="citibike-compass-btn citibike-compass-btn-lg${compassActive ? ' citibike-compass-live' : ''}"
+                id="citibike-compass-btn"
+                aria-label="${compassActive ? 'Live direction toward rack' : 'Tap to enable live direction'}"
+              >
+                <svg id="citibike-compass-arrow" class="citibike-compass-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2.5 L19.5 21.5 L12 17.5 L4.5 21.5 Z" fill="currentColor"/>
+                </svg>
+              </button>
+            ` : ''}
+            <span class="citibike-nearest-distance citibike-nearest-distance-lg">${formatDistance(dist)}</span>
+          </div>
+          <button
+            type="button"
+            class="btn btn-cta btn-cta--wide citibike-directions-btn"
+            data-directions-lat="${station.lat}"
+            data-directions-lon="${station.lon}"
+            data-directions-mode="${mode}"
+          >Directions</button>
+        </div>
+      </div>
+    `
+  }
+
+  function renderMapDrawerContent({ station, dist }, mode) {
+    const isSaved = loadState().saved.some(s => s.stationId === station.id)
+    return `
+      <div class="citibike-map-drawer-title">${escapeHtml(station.name)}</div>
+      ${renderRackDetailStack(station, dist, mode, { includeCompass: false })}
+      <button
+        type="button"
+        class="btn btn-secondary citibike-map-drawer-save"
+        data-save-station="${station.id}"
+        ${isSaved ? 'disabled' : ''}
+      >${isSaved ? 'Already saved' : 'Add to saved'}</button>
+    `
+  }
+
+  function openMapDrawer(station, dist) {
+    mapDrawerStation = { station, dist }
+    rerender({ preserveSearch: true })
+  }
+
+  function closeMapDrawer() {
+    mapDrawerStation = null
+    rerender({ preserveSearch: true })
   }
 
   function renderNearbyMapPanel(state) {
@@ -624,20 +725,28 @@ export function renderCitibike(container, { navigate }) {
     const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
     const rankColors = MAP_RANK_COLORS[mode] ?? MAP_RANK_COLORS.bike
 
-    const userMarker = L.circleMarker([userPos.lat, userPos.lon], {
-      radius: 9,
-      color: '#f5f3f0',
-      fillColor: '#f5f3f0',
-      fillOpacity: 1,
-      weight: 2,
+    const userIcon = L.divIcon({
+      className: 'citibike-map-user-icon',
+      html: userMapArrowIconHtml(deviceHeading ?? 0),
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+    })
+    mapUserMarker = L.marker([userPos.lat, userPos.lon], {
+      icon: userIcon,
+      zIndexOffset: 1000,
     }).addTo(mapInstance)
-    userMarker.bindTooltip('You', { direction: 'top', offset: [0, -8] })
-    mapMarkers.push(userMarker)
+    mapMarkers.push(mapUserMarker)
+
+    if (!orientationHandler && compassSupported) {
+      startCompassListener()
+      tryRestoreCompass()
+    }
+    updateUserMapArrowRotation()
 
     const bounds = L.latLngBounds([userPos.lat, userPos.lon], [userPos.lat, userPos.lon])
 
     nearest3.forEach((item, i) => {
-      const { station } = item
+      const { station, dist } = item
       bounds.extend([station.lat, station.lon])
       const marker = L.circleMarker([station.lat, station.lon], {
         radius: 8,
@@ -646,16 +755,29 @@ export function renderCitibike(container, { navigate }) {
         fillOpacity: 1,
         weight: 2,
       }).addTo(mapInstance)
-      marker.bindTooltip(mapMarkerLabelHtml(station), {
+      marker.bindTooltip(mapMarkerLabelHtml(station, dist), {
         permanent: true,
         direction: 'top',
         offset: [0, -14],
         className: 'citibike-map-pin-tooltip',
         opacity: 1,
-        interactive: false,
+        interactive: true,
       })
+      marker.on('click', () => openMapDrawer(station, dist))
       mapMarkers.push(marker)
     })
+
+    if (mapPinClickHandler) {
+      el.removeEventListener('click', mapPinClickHandler)
+    }
+    mapPinClickHandler = e => {
+      const pin = e.target.closest('[data-map-pin]')
+      if (!pin) return
+      const station = stationById(pin.dataset.stationId)
+      const dist = Number(pin.dataset.mapDist)
+      if (station && Number.isFinite(dist)) openMapDrawer(station, dist)
+    }
+    el.addEventListener('click', mapPinClickHandler)
 
     mapInstance.fitBounds(bounds, { padding: [48, 48], maxZoom: 16 })
     requestAnimationFrame(() => {
@@ -686,6 +808,11 @@ export function renderCitibike(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-citibike">
         <header class="header">
+          <div class="header-left">
+            <button class="btn btn-icon menu-grid-btn header-menu-btn" id="btn-citibike-home" aria-label="Menu">
+              <span class="menu-grid-icon" aria-hidden="true"></span>
+            </button>
+          </div>
           <div class="header-title">Citibike</div>
         </header>
 
@@ -758,6 +885,13 @@ export function renderCitibike(container, { navigate }) {
           >Saved</button>
         </nav>
 
+        <div class="modal-backdrop${mapDrawerStation ? '' : ' hidden'}" id="citibike-map-drawer">
+          <div class="modal citibike-map-drawer-modal">
+            <div class="modal-handle"></div>
+            ${mapDrawerStation ? renderMapDrawerContent(mapDrawerStation, state.findMode) : ''}
+          </div>
+        </div>
+
         <div class="modal-backdrop${editingStationId ? '' : ' hidden'}" id="citibike-edit-modal">
           <div class="modal">
             <div class="modal-handle"></div>
@@ -772,9 +906,6 @@ export function renderCitibike(container, { navigate }) {
           </div>
         </div>
 
-        <button class="btn btn-icon menu-grid-btn menu-fab" id="btn-citibike-home" aria-label="Menu">
-          <span class="menu-grid-icon" aria-hidden="true"></span>
-        </button>
       </div>
     `
 
@@ -835,14 +966,16 @@ export function renderCitibike(container, { navigate }) {
   function updateCompassArrow() {
     const arrow = container.querySelector('#citibike-compass-arrow')
     syncNearestMagneticBearing()
-    if (!arrow || nearestMagneticBearing == null) return
-    const target = arrowRotationDeg(
-      nearestMagneticBearing,
-      deviceHeading,
-      compassActive
-    )
-    displayArrowRotation = smoothAngle(displayArrowRotation, target, 0.28, 3)
-    arrow.style.transform = `rotate3d(0, 0, 1, ${displayArrowRotation}deg)`
+    if (arrow && nearestMagneticBearing != null) {
+      const target = arrowRotationDeg(
+        nearestMagneticBearing,
+        deviceHeading,
+        compassActive
+      )
+      displayArrowRotation = smoothAngle(displayArrowRotation, target, 0.28, 3)
+      arrow.style.transform = `rotate3d(0, 0, 1, ${displayArrowRotation}deg)`
+    }
+    updateUserMapArrowRotation()
   }
 
   async function enableCompass(fromUserTap = false) {
@@ -981,9 +1114,14 @@ export function renderCitibike(container, { navigate }) {
           return
         }
         if (loadState().activeTab === 'nearby' && userPos) {
-          initNearbyMap(loadState().findMode).catch(console.warn)
+          if (mapUserMarker && mapInstance) {
+            mapUserMarker.setLatLng([userPos.lat, userPos.lon])
+            updateUserMapArrowRotation()
+          } else {
+            initNearbyMap(loadState().findMode).catch(console.warn)
+          }
         }
-        if (compassActive || activeNearestStation()) {
+        if (compassActive || activeNearestStation() || mapUserMarker) {
           scheduleCompassUpdate()
         }
       },
@@ -1058,33 +1196,7 @@ export function renderCitibike(container, { navigate }) {
 
     return wrapNearestCard(
       nearestHeaderHtml(station.name, { showAgo: true }),
-      `
-        <div class="citibike-nearest-stack">
-          ${availabilityNearbyStack(station)}
-          <div class="citibike-nearest-stack-actions">
-            <div class="citibike-nearest-compass-row">
-              <button
-                type="button"
-                class="citibike-compass-btn citibike-compass-btn-lg${compassActive ? ' citibike-compass-live' : ''}"
-                id="citibike-compass-btn"
-                aria-label="${compassActive ? 'Live direction toward rack' : 'Tap to enable live direction'}"
-              >
-                <svg id="citibike-compass-arrow" class="citibike-compass-arrow" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 2.5 L19.5 21.5 L12 17.5 L4.5 21.5 Z" fill="currentColor"/>
-                </svg>
-              </button>
-              <span class="citibike-nearest-distance citibike-nearest-distance-lg">${formatDistance(dist)}</span>
-            </div>
-            <button
-              type="button"
-              class="btn btn-cta btn-cta--wide citibike-directions-btn"
-              data-directions-lat="${station.lat}"
-              data-directions-lon="${station.lon}"
-              data-directions-mode="${mode}"
-            >Directions</button>
-          </div>
-        </div>
-      `,
+      renderRackDetailStack(station, dist, mode, { includeCompass: true }),
       true
     )
   }
@@ -1117,6 +1229,19 @@ export function renderCitibike(container, { navigate }) {
 
     container.querySelector('#btn-citibike-home')?.addEventListener('click', () => navigate('home'))
 
+    const mapDrawer = container.querySelector('#citibike-map-drawer')
+    mapDrawer?.addEventListener('click', e => {
+      if (e.target === mapDrawer) closeMapDrawer()
+    })
+    container.querySelectorAll('[data-save-station]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return
+        addSaved(btn.dataset.saveStation)
+        mapDrawerStation = null
+        rerender({ preserveSearch: true })
+      })
+    })
+
     container.querySelectorAll('[data-citibike-tab]').forEach(btn => {
       btn.addEventListener('click', () => {
         const tab = btn.dataset.citibikeTab
@@ -1124,6 +1249,7 @@ export function renderCitibike(container, { navigate }) {
         const next = loadState()
         if (next.activeTab === tab) return
         next.activeTab = tab
+        if (tab !== 'nearby') mapDrawerStation = null
         saveState(next)
         rerender({ preserveSearch: tab === 'saved' })
         refreshTabData(tab)

@@ -439,6 +439,11 @@ export function renderDietTracker(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-diet">
         <header class="header">
+          <div class="header-left">
+            <button class="btn btn-icon menu-grid-btn header-menu-btn" id="btn-diet-back" aria-label="Menu">
+              <span class="menu-grid-icon" aria-hidden="true"></span>
+            </button>
+          </div>
           <div class="header-title">Fuel</div>
           <div class="header-right">
             <button class="btn btn-icon" id="btn-diet-goals" aria-label="Edit goals">${ICONS.target}</button>
@@ -524,7 +529,6 @@ export function renderDietTracker(container, { navigate }) {
             </div>
           </div>
         </div>
-        <button class="btn btn-icon menu-grid-btn menu-fab" id="btn-diet-back" aria-label="Menu"><span class="menu-grid-icon" aria-hidden="true"></span></button>
       </div>
     `
 
