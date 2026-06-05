@@ -246,7 +246,7 @@ function needsMotionPermissionPrompt() {
 }
 
 const MAP_DEFAULT_ZOOM = 16
-const MAP_MIN_ZOOM = 14
+const MAP_MIN_ZOOM = 13
 const MAP_MAX_ZOOM = 17
 /** Extra tile canvas beyond viewport so rotation never exposes empty edges. */
 const MAP_ROTATION_COVERAGE = 1.95
@@ -258,10 +258,10 @@ function resolveMapZoom(L, mapInstance, userPos, nearest3) {
   nearest3.forEach(({ station }) => bounds.extend([station.lat, station.lon]))
 
   mapInstance.invalidateSize()
-  const pad = L.point(56, 56)
+  const pad = L.point(80, 80)
   let zoom = mapInstance.getBoundsZoom(bounds, false, pad)
 
-  // Center stays on the user, not the bounds centroid — ease out one step for offset racks.
+  // Center stays on the user, not the bounds centroid — ease out for offset racks.
   const center = bounds.getCenter()
   const latScale = 111320
   const lonScale = 111320 * Math.cos(userPos.lat * Math.PI / 180)
@@ -271,6 +271,8 @@ function resolveMapZoom(L, mapInstance, userPos, nearest3) {
   )
   const maxDist = Math.max(...nearest3.map(n => n.dist))
   if (offsetM > maxDist * 0.2) zoom -= 1
+
+  zoom -= 1
 
   return Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, zoom))
 }
