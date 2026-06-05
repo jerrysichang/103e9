@@ -240,6 +240,8 @@ const MAP_MARKER_COLOR = {
 }
 
 const MAP_FIXED_ZOOM = 16
+/** Overscan so rotated map corners never expose empty crop edges (√2 at 45°). */
+const MAP_ROTATION_COVERAGE = Math.SQRT2 + 0.12
 
 function availabilityNearbyStack(station) {
   return `
@@ -644,24 +646,64 @@ export function renderCitibike(container, { navigate }) {
     return mapArrowRotation ?? deviceHeading ?? 0
   }
 
+  function leafletContainerToWrapPoint(containerPt) {
+    const mapEl = mapInstance?.getContainer()
+    const wrap = mapEl?.parentElement
+    if (!mapEl || !wrap) return containerPt
+    const mapRect = mapEl.getBoundingClientRect()
+    const wrapRect = wrap.getBoundingClientRect()
+    return {
+      x: containerPt.x + (mapRect.left - wrapRect.left),
+      y: containerPt.y + (mapRect.top - wrapRect.top),
+    }
+  }
+
   function geoToScreenPoint(lat, lon) {
     if (!mapInstance || !userPos) return null
+    let containerPt
     if (deviceHeading == null) {
-      const pt = mapInstance.latLngToContainerPoint([lat, lon])
-      return { x: pt.x, y: pt.y }
+      containerPt = mapInstance.latLngToContainerPoint([lat, lon])
+    } else {
+      const layerPt = mapInstance.latLngToLayerPoint([lat, lon])
+      const pivot = mapInstance.latLngToLayerPoint([userPos.lat, userPos.lon])
+      const bearing = mapBearingDeg()
+      const rad = (-bearing * Math.PI) / 180
+      const dx = layerPt.x - pivot.x
+      const dy = layerPt.y - pivot.y
+      const cos = Math.cos(rad)
+      const sin = Math.sin(rad)
+      const rdx = dx * cos - dy * sin
+      const rdy = dx * sin + dy * cos
+      const center = mapInstance.getSize().divideBy(2)
+      containerPt = { x: center.x + rdx, y: center.y + rdy }
     }
-    const layerPt = mapInstance.latLngToLayerPoint([lat, lon])
-    const pivot = mapInstance.latLngToLayerPoint([userPos.lat, userPos.lon])
-    const bearing = mapBearingDeg()
-    const rad = (-bearing * Math.PI) / 180
-    const dx = layerPt.x - pivot.x
-    const dy = layerPt.y - pivot.y
-    const cos = Math.cos(rad)
-    const sin = Math.sin(rad)
-    const rdx = dx * cos - dy * sin
-    const rdy = dx * sin + dy * cos
-    const center = mapInstance.getSize().divideBy(2)
-    return { x: center.x + rdx, y: center.y + rdy }
+    return leafletContainerToWrapPoint(containerPt)
+  }
+
+  function applyMapOverscan(el) {
+    const scale = MAP_ROTATION_COVERAGE
+    el.style.width = `${scale * 100}%`
+    el.style.height = `${scale * 100}%`
+    el.style.position = 'absolute'
+    el.style.left = '50%'
+    el.style.top = '50%'
+    el.style.margin = '0'
+    el.style.border = 'none'
+    el.style.borderRadius = '0'
+    el.style.transform = 'translate(-50%, -50%)'
+  }
+
+  function clearMapOverscan(el) {
+    if (!el) return
+    el.style.width = ''
+    el.style.height = ''
+    el.style.position = ''
+    el.style.left = ''
+    el.style.top = ''
+    el.style.margin = ''
+    el.style.border = ''
+    el.style.borderRadius = ''
+    el.style.transform = ''
   }
 
   function positionMapPinLabels() {
@@ -742,9 +784,12 @@ export function renderCitibike(container, { navigate }) {
     mapPinLabels = []
     container.querySelector('#citibike-map-labels')?.replaceChildren()
     const mapEl = container.querySelector('#citibike-map')
-    if (mapEl && mapOrientationTapHandler) {
-      mapEl.removeEventListener('click', mapOrientationTapHandler)
-      mapOrientationTapHandler = null
+    if (mapEl) {
+      clearMapOverscan(mapEl)
+      if (mapOrientationTapHandler) {
+        mapEl.removeEventListener('click', mapOrientationTapHandler)
+        mapOrientationTapHandler = null
+      }
     }
     mapMarkers = []
     mapUserMarker = null
@@ -874,7 +919,9 @@ export function renderCitibike(container, { navigate }) {
 
     return `
       <div class="citibike-map-block">
-        ${renderModeSwitch(state, 'Map filter')}
+        <div class="citibike-map-mode-float">
+          ${renderModeSwitch(state, 'Map filter')}
+        </div>
         <div class="citibike-map-wrap">
           <div id="citibike-map" class="citibike-map" role="img" aria-label="Map of nearest Citibike racks"></div>
           <div id="citibike-map-labels" class="citibike-map-labels"></div>
@@ -896,6 +943,7 @@ export function renderCitibike(container, { navigate }) {
 
     const L = await loadLeaflet()
     destroyNearbyMap()
+    applyMapOverscan(el)
 
     mapInstance = L.map(el, {
       zoomControl: false,
@@ -982,7 +1030,7 @@ export function renderCitibike(container, { navigate }) {
       : null
 
     container.innerHTML = `
-      <div class="view" id="view-citibike">
+      <div class="view${state.activeTab === 'nearby' ? ' citibike-view--nearby' : ''}" id="view-citibike">
         <header class="header">
           <div class="header-left">
             <button class="btn btn-icon menu-grid-btn header-menu-btn" id="btn-citibike-home" aria-label="Menu">

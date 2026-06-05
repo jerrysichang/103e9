@@ -269,12 +269,24 @@ function renderHome(container) {
 function bindAppViewportHeight() {
   const update = () => {
     const vv = window.visualViewport
-    const h = vv?.height ?? window.innerHeight
-    document.documentElement.style.setProperty('--app-vh', `${Math.round(h)}px`)
+    const inner = window.innerHeight
+    let height = inner
+    let top = 0
+
+    if (vv) {
+      top = Math.max(0, Math.round(vv.offsetTop))
+      // visualViewport.height tracks the visible area; innerHeight can stay
+      // taller when iOS chrome shifts, which leaves an intermittent dead strip.
+      height = Math.round(Math.min(inner, vv.height + vv.offsetTop))
+    }
+
+    document.documentElement.style.setProperty('--app-vh', `${height}px`)
+    document.documentElement.style.setProperty('--app-vv-top', `${top}px`)
   }
   update()
   window.addEventListener('resize', update, { passive: true })
   window.addEventListener('orientationchange', () => setTimeout(update, 150), { passive: true })
+  window.addEventListener('pageshow', update, { passive: true })
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) update()
   })
