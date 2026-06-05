@@ -218,12 +218,10 @@ function mapPillsForMode(station, mode) {
   if (mode === 'ebike') {
     return `<div class="citibike-pill-row citibike-map-pill-row">${pill('ebike', station.ebikes)}</div>`
   }
-  return `
-    <div class="citibike-pill-row citibike-map-pill-row">
-      ${pill('bike', station.classic)}
-      ${station.ebikes > 0 ? pill('ebike', station.ebikes) : ''}
-    </div>
-  `
+  const pills = []
+  if (station.classic > 0) pills.push(pill('bike', station.classic))
+  if (station.ebikes > 0) pills.push(pill('ebike', station.ebikes))
+  return `<div class="citibike-pill-row citibike-map-pill-row">${pills.join('')}</div>`
 }
 
 function userMapArrowIconHtml(rotation = 0) {
@@ -245,6 +243,12 @@ function needsMotionPermissionPrompt() {
 const MAP_DEFAULT_ZOOM = 16
 const MAP_MIN_ZOOM = 13
 const MAP_MAX_ZOOM = 17
+const MAP_ZOOM_STEP = 0.5
+const MAP_ZOOM_ANIM_DURATION = 0.32
+
+function snapMapZoom(zoom) {
+  return Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, Math.round(zoom * 2) / 2))
+}
 /** Extra tile canvas beyond viewport so rotation never exposes empty edges. */
 const MAP_ROTATION_COVERAGE = 1.95
 const FIND_MODES = ['bike', 'ebike', 'parking']
@@ -264,8 +268,9 @@ const CITIBIKE_PULL_ICON_SVG = `
   </svg>
 `
 
+/** Fit zoom from user position + the visible rack set (recalculated per filter). */
 function resolveMapZoom(L, mapInstance, userPos, nearest3) {
-  if (!nearest3?.length || !mapInstance || !userPos) return MAP_DEFAULT_ZOOM - 1
+  if (!nearest3?.length || !mapInstance || !userPos) return snapMapZoom(MAP_DEFAULT_ZOOM)
 
   const bounds = L.latLngBounds([userPos.lat, userPos.lon], [userPos.lat, userPos.lon])
   nearest3.forEach(({ station }) => bounds.extend([station.lat, station.lon]))
@@ -275,14 +280,15 @@ function resolveMapZoom(L, mapInstance, userPos, nearest3) {
   const pinCount = nearest3.length
   const distances = nearest3.map(n => n.dist)
   const maxDist = Math.max(...distances)
-  const minDist = Math.min(...distances)
-  const spread = maxDist - minDist
-  const padX = 72 + (pinCount < 3 ? 12 : 0)
-  const padY = 88 + (pinCount < 3 ? 16 : 0)
-  const pad = L.point(padX, padY)
-  let zoom = mapInstance.getBoundsZoom(bounds, false, pad)
+  const spread = maxDist - Math.min(...distances)
 
-  // Center stays on the user, not the bounds centroid — ease out for offset racks.
+  // Pad grows with how far the furthest rack is so closer sets zoom in, wider sets zoom out.
+  const distPad = Math.min(130, Math.round(40 + maxDist * 0.2))
+  const padX = 68 + distPad + (pinCount < 3 ? 14 : 0)
+  const padY = 92 + Math.round(distPad * 1.15) + (pinCount < 3 ? 18 : 0)
+  let zoom = mapInstance.getBoundsZoom(bounds, false, L.point(padX, padY))
+
+  // Map stays user-centered, not bounds-centered — ease out when racks sit on one side.
   const center = bounds.getCenter()
   const latScale = 111320
   const lonScale = 111320 * Math.cos(userPos.lat * Math.PI / 180)
@@ -290,11 +296,13 @@ function resolveMapZoom(L, mapInstance, userPos, nearest3) {
     (userPos.lat - center.lat) * latScale,
     (userPos.lon - center.lng) * lonScale
   )
-  if (offsetM > maxDist * 0.25) zoom -= 1
-  if (maxDist < 180 && pinCount === 1) zoom -= 1
-  if (spread < 90 && pinCount > 1) zoom -= 1
+  const asymmetry = maxDist > 0 ? offsetM / maxDist : 0
+  if (asymmetry > 0.1) zoom -= 0.5
+  if (spread < 100 && pinCount > 1) zoom -= 0.5
+  if (maxDist > 320) zoom -= 0.5
+  if (maxDist > 520) zoom -= 0.5
 
-  return Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, zoom))
+  return snapMapZoom(zoom)
 }
 
 function availabilityNearbyStack(station) {
@@ -970,10 +978,14 @@ export function renderCitibike(container, { navigate }) {
     }
   }
 
-  function updateMapHeadingView() {
+  function updateMapHeadingView({ animate = false } = {}) {
     if (!mapInstance || !userPos) return
 
-    mapInstance.setView([userPos.lat, userPos.lon], mapViewZoom, { animate: false })
+    const viewOpts = animate
+      ? { animate: true, duration: MAP_ZOOM_ANIM_DURATION, easeLinearity: 0.22 }
+      : { animate: false }
+
+    mapInstance.setView([userPos.lat, userPos.lon], mapViewZoom, viewOpts)
 
     const headingUp = deviceHeading != null
     const bearing = headingUp ? mapBearingDeg() : 0
@@ -983,7 +995,9 @@ export function renderCitibike(container, { navigate }) {
       applyMapPaneRotation()
     } else {
       clearMapPaneRotation()
-      mapInstance.setView([userPos.lat, userPos.lon], mapViewZoom, { animate: false })
+      if (!animate) {
+        mapInstance.setView([userPos.lat, userPos.lon], mapViewZoom, viewOpts)
+      }
     }
     positionMapPinLabels()
 
@@ -1075,10 +1089,10 @@ export function renderCitibike(container, { navigate }) {
     })
   }
 
-  function adjustMapZoom(delta) {
+  function adjustMapZoom(direction) {
     if (!mapInstance || !userPos) return
-    mapViewZoom = Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, mapViewZoom + delta))
-    updateMapHeadingView()
+    mapViewZoom = snapMapZoom(mapViewZoom + direction * MAP_ZOOM_STEP)
+    updateMapHeadingView({ animate: true })
   }
 
   function syncModeSwitchUi(mode) {
@@ -1262,6 +1276,8 @@ export function renderCitibike(container, { navigate }) {
       doubleClickZoom: false,
       boxZoom: false,
       keyboard: false,
+      zoomSnap: MAP_ZOOM_STEP,
+      zoomDelta: MAP_ZOOM_STEP,
     })
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
