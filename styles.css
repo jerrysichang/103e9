@@ -1957,7 +1957,7 @@ textarea.coach-input {
   position: absolute;
   left: 16px;
   right: 16px;
-  bottom: calc(56px + var(--safe-bottom) + 10px);
+  bottom: calc(56px + var(--safe-bottom) + 22px);
   z-index: 35;
   pointer-events: auto;
 }
@@ -1986,11 +1986,11 @@ textarea.coach-input {
 .citibike-map-zoom-controls {
   position: absolute;
   right: 16px;
-  bottom: calc(56px + var(--safe-bottom) + 78px);
+  bottom: calc(56px + var(--safe-bottom) + 100px);
   z-index: 34;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   pointer-events: auto;
 }
 
@@ -2393,10 +2393,22 @@ textarea.coach-input {
   font-size: 17px;
 }
 
+.citibike-map-pin-label-wrap .citibike-pill-bike {
+  color: #93c5fd;
+  border-color: #3b82f6;
+  background: #1e3a6e;
+}
+
+.citibike-map-pin-label-wrap .citibike-pill-ebike {
+  color: #5eead4;
+  border-color: #14b8a6;
+  background: #134e4a;
+}
+
 .citibike-map-pin-label-wrap .citibike-pill-dock {
   color: var(--citibike-dock);
-  border-color: #5a565255;
-  background: #5a565228;
+  border-color: #8a8682;
+  background: #4a4744;
 }
 
 .citibike-map-user-icon {
@@ -2455,6 +2467,11 @@ textarea.coach-input {
   color: var(--text-secondary);
 }
 
+.citibike-map-drawer-modal .citibike-nearest-compass-row {
+  padding: 16px 0;
+  margin: 8px 0 12px;
+}
+
 .citibike-near-block .citibike-block-title {
   padding-left: 0;
   padding-right: 0;
@@ -2476,8 +2493,10 @@ textarea.coach-input {
   top: 4px;
   left: 0;
   height: calc(100% - 8px);
-  background: var(--accent);
+  background: rgba(245, 243, 240, 0.1);
+  border: 1px solid rgba(245, 243, 240, 0.72);
   border-radius: calc(var(--radius-sm) - 2px);
+  box-sizing: border-box;
   z-index: 0;
   pointer-events: none;
   transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1), width 0.28s cubic-bezier(0.33, 1, 0.68, 1);
@@ -2503,7 +2522,7 @@ textarea.coach-input {
 }
 
 .citibike-mode-btn.citibike-mode-active {
-  color: var(--text-on-accent);
+  color: var(--text);
 }
 
 #view-citibike.citibike-view--nearby .citibike-map-mode-dock .citibike-mode-indicator {

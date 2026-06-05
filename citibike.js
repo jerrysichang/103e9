@@ -221,7 +221,7 @@ function mapPillsForMode(station, mode) {
   return `
     <div class="citibike-pill-row citibike-map-pill-row">
       ${pill('bike', station.classic)}
-      ${pill('ebike', station.ebikes)}
+      ${station.ebikes > 0 ? pill('ebike', station.ebikes) : ''}
     </div>
   `
 }
@@ -277,8 +277,8 @@ function resolveMapZoom(L, mapInstance, userPos, nearest3) {
   const maxDist = Math.max(...distances)
   const minDist = Math.min(...distances)
   const spread = maxDist - minDist
-  const padX = 92 + (pinCount < 3 ? 28 : 0)
-  const padY = 116 + (pinCount < 3 ? 36 : 0)
+  const padX = 72 + (pinCount < 3 ? 12 : 0)
+  const padY = 88 + (pinCount < 3 ? 16 : 0)
   const pad = L.point(padX, padY)
   let zoom = mapInstance.getBoundsZoom(bounds, false, pad)
 
@@ -290,11 +290,9 @@ function resolveMapZoom(L, mapInstance, userPos, nearest3) {
     (userPos.lat - center.lat) * latScale,
     (userPos.lon - center.lng) * lonScale
   )
-  if (offsetM > maxDist * 0.2) zoom -= 1
-  if (maxDist < 280) zoom -= 1
-  if (spread < 140 && pinCount > 1) zoom -= 1
-  if (pinCount < 3) zoom -= 1
-  zoom -= 1
+  if (offsetM > maxDist * 0.25) zoom -= 1
+  if (maxDist < 180 && pinCount === 1) zoom -= 1
+  if (spread < 90 && pinCount > 1) zoom -= 1
 
   return Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, zoom))
 }
