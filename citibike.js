@@ -119,6 +119,15 @@ function formatDistance(meters) {
   return `${(meters * 0.000621371).toFixed(meters < 805 ? 2 : 1)} mi`
 }
 
+/** ~5 km/h walking pace. */
+function formatWalkMinutes(meters) {
+  return Math.max(1, Math.round(meters / 83))
+}
+
+function formatDistanceWithWalk(meters) {
+  return `${formatDistance(meters)} <span class="citibike-walk-time">(• ${formatWalkMinutes(meters)} min walk)</span>`
+}
+
 function stationMatchesMode(station, mode) {
   if (station.isOffline) return false
   if (mode === 'bike') return station.bikes > 0
@@ -169,6 +178,7 @@ function loadLeaflet() {
 function renderModeSwitch(state, label = 'Find nearest') {
   return `
     <div class="citibike-mode-switch" role="tablist" aria-label="${label}">
+      <span class="citibike-mode-indicator" aria-hidden="true"></span>
       <button type="button" class="citibike-mode-btn${state.findMode === 'bike' ? ' citibike-mode-active' : ''}" data-find-mode="bike" role="tab">Any bike</button>
       <button type="button" class="citibike-mode-btn${state.findMode === 'ebike' ? ' citibike-mode-active' : ''}" data-find-mode="ebike" role="tab">E-bike</button>
       <button type="button" class="citibike-mode-btn${state.findMode === 'parking' ? ' citibike-mode-active' : ''}" data-find-mode="parking" role="tab">Parking</button>
@@ -201,24 +211,28 @@ function mapPillNumber(kind, count) {
   return `<span class="citibike-pill citibike-pill-${kind} citibike-map-pill${empty ? ' citibike-pill-empty' : ''}"><span class="citibike-pill-count">${count}</span></span>`
 }
 
-function mapPillsNumbersRow(station) {
+const MAP_PIN_LABEL_OFFSET_Y = 22
+
+function mapPillsForMode(station, mode) {
   if (station.isOffline) return '<span class="citibike-offline">Offline</span>'
+  if (mode === 'parking') {
+    return `<div class="citibike-pill-row citibike-map-pill-row">${mapPillNumber('dock', station.docks)}</div>`
+  }
+  if (mode === 'ebike') {
+    return `<div class="citibike-pill-row citibike-map-pill-row">${mapPillNumber('ebike', station.ebikes)}</div>`
+  }
   return `
     <div class="citibike-pill-row citibike-map-pill-row">
       ${mapPillNumber('bike', station.classic)}
       ${mapPillNumber('ebike', station.ebikes)}
-      ${mapPillNumber('dock', station.docks)}
     </div>
   `
 }
 
-const MAP_PIN_LABEL_OFFSET_Y = 22
-
-function mapMarkerLabelHtml(station) {
+function mapMarkerLabelHtml(station, mode) {
   return `
     <div class="citibike-map-pin-label">
-      ${availabilityCapacityBarSummary(station)}
-      <div class="citibike-pills-wrap">${mapPillsNumbersRow(station)}</div>
+      <div class="citibike-pills-wrap">${mapPillsForMode(station, mode)}</div>
     </div>
   `
 }
@@ -651,7 +665,6 @@ export function renderCitibike(container, { navigate }) {
   let positionWatchId = null
   let nearMeAgoTimer = null
   let pullCleanup = null
-  let mapPullCleanup = null
   let modeSwipeCleanup = null
   let positionWatchStarted = false
   let mapInstance = null
@@ -857,7 +870,7 @@ export function renderCitibike(container, { navigate }) {
     mapInstance.on('move zoom viewreset moveend zoomend', mapViewSyncHandler)
   }
 
-  function buildMapPinLabels(nearest3) {
+  function buildMapPinLabels(nearest3, mode) {
     const labelsRoot = container.querySelector('#citibike-map-labels')
     if (!labelsRoot) return
 
@@ -867,7 +880,7 @@ export function renderCitibike(container, { navigate }) {
       btn.type = 'button'
       btn.className = 'citibike-map-pin-label-wrap'
       btn.setAttribute('aria-label', station.name)
-      btn.innerHTML = mapMarkerLabelHtml(station)
+      btn.innerHTML = mapMarkerLabelHtml(station, mode)
       btn.addEventListener('click', () => {
         ensureMapOrientation(true)
         openMapDrawer(station, dist)
@@ -917,9 +930,9 @@ export function renderCitibike(container, { navigate }) {
     }
     positionMapPinLabels()
 
-    const northNeedle = container.querySelector('.citibike-map-north-needle')
-    if (northNeedle) {
-      northNeedle.style.transform = headingUp ? `rotate(${-bearing}deg)` : ''
+    const northDial = container.querySelector('.citibike-map-north-dial')
+    if (northDial) {
+      northDial.style.transform = headingUp ? `rotate(${-bearing}deg)` : ''
     }
 
     const inner = mapUserMarker?.getElement()?.querySelector('.citibike-map-user-arrow')
@@ -938,7 +951,8 @@ export function renderCitibike(container, { navigate }) {
     updateMapHeadingView()
   }
 
-  function renderRackDetailStack(station, dist, mode, { includeCompass = true } = {}) {
+  function renderRackDetailStack(station, dist, mode, { includeCompass = true, includeWalkTime = false } = {}) {
+    const distanceHtml = includeWalkTime ? formatDistanceWithWalk(dist) : formatDistance(dist)
     return `
       <div class="citibike-nearest-stack">
         ${availabilityNearbyStack(station)}
@@ -956,7 +970,7 @@ export function renderCitibike(container, { navigate }) {
                 </svg>
               </button>
             ` : ''}
-            <span class="citibike-nearest-distance citibike-nearest-distance-lg">${formatDistance(dist)}</span>
+            <span class="citibike-nearest-distance citibike-nearest-distance-lg${includeWalkTime ? ' citibike-nearest-distance-drawer' : ''}">${distanceHtml}</span>
           </div>
           <button
             type="button"
@@ -974,7 +988,7 @@ export function renderCitibike(container, { navigate }) {
     const isSaved = loadState().saved.some(s => s.stationId === station.id)
     return `
       <div class="citibike-map-drawer-title">${escapeHtml(station.name)}</div>
-      ${renderRackDetailStack(station, dist, mode, { includeCompass: false })}
+      ${renderRackDetailStack(station, dist, mode, { includeCompass: false, includeWalkTime: true })}
       <button
         type="button"
         class="btn btn-secondary citibike-map-drawer-save"
@@ -994,10 +1008,21 @@ export function renderCitibike(container, { navigate }) {
     rerender({ preserveSearch: true })
   }
 
+  function syncModeIndicator() {
+    container.querySelectorAll('.citibike-mode-switch').forEach(switchEl => {
+      const indicator = switchEl.querySelector('.citibike-mode-indicator')
+      const active = switchEl.querySelector('.citibike-mode-btn.citibike-mode-active')
+      if (!indicator || !active) return
+      indicator.style.width = `${active.offsetWidth}px`
+      indicator.style.transform = `translateX(${active.offsetLeft}px)`
+    })
+  }
+
   function syncModeSwitchUi(mode) {
     container.querySelectorAll('[data-find-mode]').forEach(btn => {
       btn.classList.toggle('citibike-mode-active', btn.dataset.findMode === mode)
     })
+    requestAnimationFrame(syncModeIndicator)
   }
 
   function nearbyModeLabel(mode) {
@@ -1063,7 +1088,7 @@ export function renderCitibike(container, { navigate }) {
       mapMarkers.push(marker)
     })
 
-    buildMapPinLabels(nearest3)
+    buildMapPinLabels(nearest3, mode)
     updateNearbyMapOverlay(mode)
     scheduleMapZoomForPins(L, nearest3)
   }
@@ -1124,27 +1149,29 @@ export function renderCitibike(container, { navigate }) {
     const orientPrompt = userPos && !overlay && needsMotionPermissionPrompt()
 
     return `
-      <div class="citibike-map-block citibike-pull-host">
-        <div class="citibike-pull-head citibike-map-pull-head" aria-hidden="true">
-          ${CITIBIKE_PULL_ICON_SVG}
-        </div>
-        <div class="citibike-pull-body citibike-map-pull-body">
-          <div class="citibike-map-wrap">
-            <div id="citibike-map" class="citibike-map" role="img" aria-label="Map of nearest Citibike racks"></div>
-            <div id="citibike-map-labels" class="citibike-map-labels"></div>
-            <div class="citibike-map-north" aria-hidden="true">
-              <div class="citibike-map-north-compass">
+      <div class="citibike-map-block">
+        <div class="citibike-map-wrap">
+          <div id="citibike-map" class="citibike-map" role="img" aria-label="Map of nearest Citibike racks"></div>
+          <div id="citibike-map-labels" class="citibike-map-labels"></div>
+          <div class="citibike-map-north" aria-hidden="true">
+            <div class="citibike-map-north-compass">
+              <div class="citibike-map-north-dial">
+                <span class="citibike-map-north-arrow" aria-hidden="true">
+                  <svg viewBox="0 0 12 8" aria-hidden="true">
+                    <path d="M6 0 L11 7.5 H1 Z" fill="currentColor"/>
+                  </svg>
+                </span>
                 <span class="citibike-map-north-needle">N</span>
               </div>
             </div>
-            ${orientPrompt ? `
-              <div class="citibike-map-orient-prompt">
-                <p class="citibike-map-status">Allow motion access so the map follows the direction you're facing.</p>
-                <button type="button" class="btn btn-cta citibike-map-orient-btn">Enable live map</button>
-              </div>
-            ` : ''}
-            ${overlay ? `<div class="citibike-map-overlay">${overlay}</div>` : ''}
           </div>
+          ${orientPrompt ? `
+            <div class="citibike-map-orient-prompt">
+              <p class="citibike-map-status">Allow motion access so the map follows the direction you're facing.</p>
+              <button type="button" class="btn btn-cta citibike-map-orient-btn">Enable live map</button>
+            </div>
+          ` : ''}
+          ${overlay ? `<div class="citibike-map-overlay">${overlay}</div>` : ''}
         </div>
       </div>
     `
@@ -1209,7 +1236,7 @@ export function renderCitibike(container, { navigate }) {
       mapMarkers.push(marker)
     })
 
-    buildMapPinLabels(nearest3)
+    buildMapPinLabels(nearest3, mode)
     if (mapOrientationTapHandler) {
       el.removeEventListener('click', mapOrientationTapHandler)
     }
@@ -1590,8 +1617,6 @@ export function renderCitibike(container, { navigate }) {
     destroyNearbyMap()
     pullCleanup?.()
     pullCleanup = null
-    mapPullCleanup?.()
-    mapPullCleanup = null
     modeSwipeCleanup?.()
     modeSwipeCleanup = null
     positionWatchStarted = false
@@ -1659,12 +1684,9 @@ export function renderCitibike(container, { navigate }) {
 
   function bind(state) {
     pullCleanup?.()
-    mapPullCleanup?.()
     modeSwipeCleanup?.()
 
     if (state.activeTab === 'nearby') {
-      const mapBlock = container.querySelector('.citibike-map-block')
-      mapPullCleanup = attachCitibikePullRefresh(mapBlock, () => refreshTabData('nearby'), { fixed: true })
       const nearbyView = container.querySelector('#view-citibike')
       modeSwipeCleanup = attachNearbyModeSwipe(nearbyView, direction => {
         if (mapDrawerStation) return
@@ -1758,6 +1780,8 @@ export function renderCitibike(container, { navigate }) {
     if (state.activeTab === 'nearby' && userPos && !nearMeLoading) {
       initNearbyMap(state.findMode).catch(console.warn)
     }
+
+    syncModeIndicator()
 
     const search = container.querySelector('#citibike-search')
     const results = container.querySelector('#citibike-search-results')

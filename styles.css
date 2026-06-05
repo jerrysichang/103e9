@@ -1939,26 +1939,14 @@ textarea.coach-input {
   margin: 0;
   gap: 0;
   pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-#view-citibike.citibike-view--nearby .citibike-map-block .citibike-map-pull-head {
-  flex-shrink: 0;
-  z-index: 40;
-}
-
-#view-citibike.citibike-view--nearby .citibike-map-pull-body {
-  flex: 1;
-  min-height: 0;
-  position: relative;
 }
 
 #view-citibike.citibike-view--nearby .citibike-map-wrap {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  touch-action: pan-x;
+  overscroll-behavior: none;
 }
 
 #view-citibike.citibike-view--nearby .citibike-map {
@@ -2247,11 +2235,30 @@ textarea.coach-input {
   box-shadow: 0 2px 8px rgba(34, 31, 30, 0.4);
 }
 
+.citibike-map-north-dial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  transform-origin: center center;
+}
+
+.citibike-map-north-arrow {
+  display: flex;
+  color: #f87171;
+  line-height: 0;
+}
+
+.citibike-map-north-arrow svg {
+  width: 10px;
+  height: 7px;
+}
+
 .citibike-map-north-needle {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: #f87171;
-  transform-origin: center center;
   line-height: 1;
 }
 
@@ -2342,21 +2349,10 @@ textarea.coach-input {
 .citibike-map-pin-label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 5px 6px 6px;
+  padding: 6px 8px;
   width: fit-content;
   min-width: 0;
-  align-items: stretch;
-}
-
-.citibike-map-pin-label .citibike-cap-segments {
-  height: 4px;
-  gap: 2px;
-  width: 100%;
-}
-
-.citibike-map-pin-label .citibike-cap-seg {
-  border-radius: 1px;
+  align-items: center;
 }
 
 .citibike-map-pin-label .citibike-pills-wrap {
@@ -2425,12 +2421,22 @@ textarea.coach-input {
   margin-top: 14px;
 }
 
+.citibike-map-drawer-modal .citibike-nearest-distance-drawer {
+  font: 800 var(--font-size-h1-detail) / 1.1 var(--font);
+}
+
+.citibike-map-drawer-modal .citibike-walk-time {
+  font: 600 var(--font-size-body) / 1.2 var(--font);
+  color: var(--text-secondary);
+}
+
 .citibike-near-block .citibike-block-title {
   padding-left: 0;
   padding-right: 0;
 }
 
 .citibike-mode-switch {
+  position: relative;
   display: flex;
   gap: 4px;
   background: var(--surface-raised);
@@ -2440,7 +2446,22 @@ textarea.coach-input {
   margin-bottom: 12px;
 }
 
+.citibike-mode-indicator {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  height: calc(100% - 8px);
+  background: var(--accent);
+  border-radius: calc(var(--radius-sm) - 2px);
+  z-index: 0;
+  pointer-events: none;
+  transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1), width 0.28s cubic-bezier(0.33, 1, 0.68, 1);
+  will-change: transform, width;
+}
+
 .citibike-mode-btn {
+  position: relative;
+  z-index: 1;
   flex: 1;
   border: none;
   background: transparent;
@@ -2449,11 +2470,16 @@ textarea.coach-input {
   padding: 8px 6px;
   border-radius: calc(var(--radius-sm) - 2px);
   cursor: pointer;
+  transition: color 0.2s ease;
 }
 
 .citibike-mode-btn.citibike-mode-active {
-  background: var(--accent);
   color: var(--text-on-accent);
+}
+
+#view-citibike.citibike-view--nearby .citibike-map-mode-dock .citibike-mode-indicator {
+  top: 6px;
+  height: calc(100% - 12px);
 }
 
 .citibike-nearest-card {
