@@ -13,8 +13,8 @@
   --text-on-accent:  #221f1e;
   --achieved:        #22c55e;
   --achieved-dim:    #16a34a33;
-  --citibike-bike:       #60a5fa;
-  --citibike-bike-dim:   #3b82f628;
+  --citibike-bike:       #3b82f6;
+  --citibike-bike-dim:   #2563eb28;
   --citibike-ebike:      #14b8a6;
   --citibike-ebike-dim:  #14b8a628;
   --citibike-dock:       #c8c4c0;
@@ -1951,25 +1951,47 @@ textarea.coach-input {
   min-height: 0;
 }
 
-#view-citibike.citibike-view--nearby .citibike-map-mode-float {
+#view-citibike.citibike-view--nearby .citibike-map-mode-dock {
   position: absolute;
-  top: calc(var(--safe-top) + var(--header-h) + 8px);
   left: 16px;
   right: 16px;
-  z-index: 6;
+  bottom: calc(56px + var(--safe-bottom) + 10px);
+  z-index: 35;
   pointer-events: auto;
 }
 
-#view-citibike.citibike-view--nearby .citibike-map-mode-float .citibike-mode-switch {
+#view-citibike.citibike-view--nearby .citibike-map-mode-dock .citibike-mode-switch {
   margin-bottom: 0;
-  background: rgba(34, 31, 30, 0.88);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(34, 31, 30, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(34, 31, 30, 0.45);
 }
 
 #view-citibike.citibike-view--nearby .citibike-map-north {
-  top: calc(var(--safe-top) + var(--header-h) + 58px);
+  top: calc(var(--safe-top) + var(--header-h) + 12px);
   right: 16px;
+}
+
+.citibike-map-orient-prompt {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(34, 31, 30, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+
+.citibike-map-orient-prompt .btn {
+  min-width: 200px;
 }
 
 #view-citibike.citibike-view--nearby .citibike-map-overlay {
@@ -2255,7 +2277,7 @@ textarea.coach-input {
 }
 
 #view-citibike .leaflet-tile-pane {
-  filter: brightness(1.32) contrast(0.96);
+  filter: brightness(1.48) contrast(0.94);
 }
 
 #view-citibike .leaflet-control-attribution {
@@ -2357,10 +2379,23 @@ textarea.coach-input {
 }
 
 .citibike-map-drawer-title {
-  font-size: 1.05rem;
-  font-weight: 600;
-  margin-bottom: 12px;
-  line-height: 1.3;
+  font: var(--text-h2);
+  letter-spacing: var(--tracking-tight);
+  margin-bottom: 16px;
+  line-height: 1.2;
+}
+
+.citibike-map-drawer-modal .citibike-cap-segments {
+  height: 14px;
+  gap: 3px;
+}
+
+.citibike-map-drawer-modal .citibike-cap-seg {
+  border-radius: 4px;
+}
+
+.citibike-map-drawer-modal .citibike-nearest-availability {
+  gap: 14px;
 }
 
 .citibike-map-drawer-save {

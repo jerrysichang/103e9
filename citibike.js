@@ -234,14 +234,32 @@ function userMapArrowIconHtml(rotation = 0) {
 }
 
 const MAP_MARKER_COLOR = {
-  bike: '#3b82f6',
+  bike: '#2563eb',
   ebike: '#0d9488',
   parking: '#6b6763',
 }
 
-const MAP_FIXED_ZOOM = 16
-/** Overscan so rotated map corners never expose empty crop edges (√2 at 45°). */
-const MAP_ROTATION_COVERAGE = Math.SQRT2 + 0.12
+function needsMotionPermissionPrompt() {
+  return typeof DeviceOrientationEvent !== 'undefined'
+    && typeof DeviceOrientationEvent.requestPermission === 'function'
+    && sessionStorage.getItem(COMPASS_PREF_KEY) !== '1'
+}
+
+const MAP_DEFAULT_ZOOM = 14
+const MAP_MIN_ZOOM = 12
+const MAP_MAX_ZOOM = 15
+/** Extra tile canvas beyond viewport so rotation never exposes empty edges. */
+const MAP_ROTATION_COVERAGE = 1.95
+
+function resolveMapZoom(nearest3) {
+  if (!nearest3?.length) return MAP_DEFAULT_ZOOM
+  const maxDist = Math.max(...nearest3.map(n => n.dist))
+  const padded = maxDist * 2.25 + 140
+  if (padded > 420) return MAP_MIN_ZOOM
+  if (padded > 280) return 13
+  if (padded > 180) return MAP_DEFAULT_ZOOM
+  return MAP_MAX_ZOOM
+}
 
 function availabilityNearbyStack(station) {
   return `
@@ -570,6 +588,7 @@ export function renderCitibike(container, { navigate }) {
   let mapViewSyncHandler = null
   let mapArrowRotation = null
   let mapHeadingFrame = null
+  let mapViewZoom = MAP_DEFAULT_ZOOM
 
   function stationById(id) {
     return stations.find(s => s.id === id)
@@ -629,16 +648,22 @@ export function renderCitibike(container, { navigate }) {
   }
 
   async function ensureMapOrientation(fromUserGesture = false) {
-    if (!compassSupported) return
+    if (!compassSupported) return false
     if (!orientationHandler) startCompassListener()
     startMapHeadingLoop()
-    if (deviceHeading != null) return
-    if (sessionStorage.getItem(COMPASS_PREF_KEY) === '1') return
+    if (deviceHeading != null) return true
+    if (sessionStorage.getItem(COMPASS_PREF_KEY) === '1') return true
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      if (!fromUserGesture) return
+      if (!fromUserGesture) return false
       const granted = await requestCompassPermission()
-      if (granted) sessionStorage.setItem(COMPASS_PREF_KEY, '1')
+      if (granted) {
+        sessionStorage.setItem(COMPASS_PREF_KEY, '1')
+        updateMapHeadingView()
+        return true
+      }
+      return false
     }
+    return true
   }
 
   function mapBearingDeg() {
@@ -802,7 +827,7 @@ export function renderCitibike(container, { navigate }) {
   function updateMapHeadingView() {
     if (!mapInstance || !userPos) return
 
-    mapInstance.setView([userPos.lat, userPos.lon], MAP_FIXED_ZOOM, { animate: false })
+    mapInstance.setView([userPos.lat, userPos.lon], mapViewZoom, { animate: false })
 
     const headingUp = deviceHeading != null
     const bearing = headingUp ? mapBearingDeg() : 0
@@ -812,7 +837,7 @@ export function renderCitibike(container, { navigate }) {
       applyMapPaneRotation()
     } else {
       clearMapPaneRotation()
-      mapInstance.setView([userPos.lat, userPos.lon], MAP_FIXED_ZOOM, { animate: false })
+      mapInstance.setView([userPos.lat, userPos.lon], mapViewZoom, { animate: false })
     }
     positionMapPinLabels()
 
@@ -917,11 +942,10 @@ export function renderCitibike(container, { navigate }) {
       }
     }
 
+    const orientPrompt = userPos && !overlay && needsMotionPermissionPrompt()
+
     return `
       <div class="citibike-map-block">
-        <div class="citibike-map-mode-float">
-          ${renderModeSwitch(state, 'Map filter')}
-        </div>
         <div class="citibike-map-wrap">
           <div id="citibike-map" class="citibike-map" role="img" aria-label="Map of nearest Citibike racks"></div>
           <div id="citibike-map-labels" class="citibike-map-labels"></div>
@@ -930,6 +954,12 @@ export function renderCitibike(container, { navigate }) {
               <span class="citibike-map-north-needle">N</span>
             </div>
           </div>
+          ${orientPrompt ? `
+            <div class="citibike-map-orient-prompt">
+              <p class="citibike-map-status">Allow motion access so the map follows the direction you're facing.</p>
+              <button type="button" class="btn btn-cta citibike-map-orient-btn">Enable live map</button>
+            </div>
+          ` : ''}
           ${overlay ? `<div class="citibike-map-overlay">${overlay}</div>` : ''}
         </div>
       </div>
@@ -963,6 +993,7 @@ export function renderCitibike(container, { navigate }) {
     }).addTo(mapInstance)
 
     const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
+    mapViewZoom = resolveMapZoom(nearest3)
     const markerColor = MAP_MARKER_COLOR[mode] ?? '#5a5552'
 
     const userIcon = L.divIcon({
@@ -1087,6 +1118,12 @@ export function renderCitibike(container, { navigate }) {
           </div>
           </div>
         </div>
+
+        ${state.activeTab === 'nearby' ? `
+          <div class="citibike-map-mode-dock">
+            ${renderModeSwitch(state, 'Map filter')}
+          </div>
+        ` : ''}
 
         <nav class="citibike-tab-bar" aria-label="Citibike sections">
           <button
@@ -1471,16 +1508,24 @@ export function renderCitibike(container, { navigate }) {
     })
 
     container.querySelectorAll('[data-citibike-tab]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const tab = btn.dataset.citibikeTab
         if (!['nearest', 'nearby', 'saved'].includes(tab)) return
         const next = loadState()
         if (next.activeTab === tab) return
+        if (tab === 'nearby') await ensureMapOrientation(true)
         next.activeTab = tab
         if (tab !== 'nearby') mapDrawerStation = null
         saveState(next)
         rerender({ preserveSearch: tab === 'saved' })
         refreshTabData(tab)
+      })
+    })
+
+    container.querySelectorAll('.citibike-map-orient-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const ok = await ensureMapOrientation(true)
+        if (ok) rerender({ preserveSearch: true })
       })
     })
 
