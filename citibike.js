@@ -245,20 +245,34 @@ function needsMotionPermissionPrompt() {
     && sessionStorage.getItem(COMPASS_PREF_KEY) !== '1'
 }
 
-const MAP_DEFAULT_ZOOM = 14
-const MAP_MIN_ZOOM = 12
-const MAP_MAX_ZOOM = 15
+const MAP_DEFAULT_ZOOM = 16
+const MAP_MIN_ZOOM = 14
+const MAP_MAX_ZOOM = 17
 /** Extra tile canvas beyond viewport so rotation never exposes empty edges. */
 const MAP_ROTATION_COVERAGE = 1.95
 
-function resolveMapZoom(nearest3) {
-  if (!nearest3?.length) return MAP_DEFAULT_ZOOM
+function resolveMapZoom(L, mapInstance, userPos, nearest3) {
+  if (!nearest3?.length || !mapInstance || !userPos) return MAP_DEFAULT_ZOOM
+
+  const bounds = L.latLngBounds([userPos.lat, userPos.lon], [userPos.lat, userPos.lon])
+  nearest3.forEach(({ station }) => bounds.extend([station.lat, station.lon]))
+
+  mapInstance.invalidateSize()
+  const pad = L.point(56, 56)
+  let zoom = mapInstance.getBoundsZoom(bounds, false, pad)
+
+  // Center stays on the user, not the bounds centroid — ease out one step for offset racks.
+  const center = bounds.getCenter()
+  const latScale = 111320
+  const lonScale = 111320 * Math.cos(userPos.lat * Math.PI / 180)
+  const offsetM = Math.hypot(
+    (userPos.lat - center.lat) * latScale,
+    (userPos.lon - center.lng) * lonScale
+  )
   const maxDist = Math.max(...nearest3.map(n => n.dist))
-  const padded = maxDist * 2.25 + 140
-  if (padded > 420) return MAP_MIN_ZOOM
-  if (padded > 280) return 13
-  if (padded > 180) return MAP_DEFAULT_ZOOM
-  return MAP_MAX_ZOOM
+  if (offsetM > maxDist * 0.2) zoom -= 1
+
+  return Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, zoom))
 }
 
 function availabilityNearbyStack(station) {
@@ -993,7 +1007,6 @@ export function renderCitibike(container, { navigate }) {
     }).addTo(mapInstance)
 
     const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
-    mapViewZoom = resolveMapZoom(nearest3)
     const markerColor = MAP_MARKER_COLOR[mode] ?? '#5a5552'
 
     const userIcon = L.divIcon({
@@ -1033,11 +1046,16 @@ export function renderCitibike(container, { navigate }) {
     mapOrientationTapHandler = () => ensureMapOrientation(true)
     el.addEventListener('click', mapOrientationTapHandler)
 
-    updateMapHeadingView()
     requestAnimationFrame(() => {
+      if (!mapInstance) return
+      mapInstance.invalidateSize()
+      mapViewZoom = resolveMapZoom(L, mapInstance, userPos, nearest3)
       updateMapHeadingView()
-      mapInstance?.invalidateSize()
-      setTimeout(() => mapInstance?.invalidateSize(), 120)
+      setTimeout(() => {
+        mapInstance?.invalidateSize()
+        mapViewZoom = resolveMapZoom(L, mapInstance, userPos, nearest3)
+        updateMapHeadingView()
+      }, 120)
     })
   }
 
