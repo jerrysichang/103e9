@@ -743,6 +743,8 @@ export function renderCitibike(container, { navigate }) {
   let mapArrowRotation = null
   let mapHeadingFrame = null
   let mapViewZoom = MAP_DEFAULT_ZOOM
+  let mapZoomApplyToken = 0
+  let mapPinsRefreshToken = 0
 
   function stationById(id) {
     return stations.find(s => s.id === id)
@@ -1123,18 +1125,19 @@ export function renderCitibike(container, { navigate }) {
     overlay?.remove()
   }
 
-  function scheduleMapZoomForPins(L, nearest3) {
+  function scheduleMapZoomForPins(L, nearest3, mode) {
     mapNearestPins = nearest3
+    const token = ++mapZoomApplyToken
     const apply = () => {
+      if (token !== mapZoomApplyToken) return
       if (!mapInstance || !userPos) return
+      if (loadState().findMode !== mode) return
       mapInstance.invalidateSize()
       mapViewZoom = resolveMapZoom(L, mapInstance, userPos, nearest3)
       updateMapHeadingView()
     }
-    requestAnimationFrame(() => {
-      apply()
-      setTimeout(apply, 120)
-    })
+    requestAnimationFrame(apply)
+    setTimeout(apply, 120)
   }
 
   function clearNearbyRackMarkers() {
@@ -1144,7 +1147,10 @@ export function renderCitibike(container, { navigate }) {
 
   async function refreshNearbyMapPins(mode) {
     if (!mapInstance || !userPos) return
+    const token = ++mapPinsRefreshToken
     const L = await loadLeaflet()
+    if (token !== mapPinsRefreshToken || loadState().findMode !== mode) return
+
     clearNearbyRackMarkers()
 
     const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
@@ -1164,9 +1170,11 @@ export function renderCitibike(container, { navigate }) {
       mapMarkers.push(marker)
     })
 
+    if (token !== mapPinsRefreshToken || loadState().findMode !== mode) return
+
     buildMapPinLabels(nearest3, mode)
     updateNearbyMapOverlay(mode)
-    scheduleMapZoomForPins(L, nearest3)
+    scheduleMapZoomForPins(L, nearest3, mode)
   }
 
   function setFindMode(mode) {
@@ -1325,7 +1333,7 @@ export function renderCitibike(container, { navigate }) {
     mapOrientationTapHandler = () => ensureMapOrientation(true)
     el.addEventListener('click', mapOrientationTapHandler)
 
-    scheduleMapZoomForPins(L, nearest3)
+    scheduleMapZoomForPins(L, nearest3, mode)
   }
 
   function rerender({ preserveSearch = false } = {}) {
