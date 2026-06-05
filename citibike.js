@@ -745,23 +745,15 @@ export function renderCitibike(container, { navigate }) {
   let mapArrowRotation = null
   let mapHeadingFrame = null
   let mapViewZoom = MAP_DEFAULT_ZOOM
-  let mapZoomApplyToken = 0
-  const mapZoomFitCache = new Map()
+  /** Auto-fit runs once per map session; mode changes and +/- keep mapViewZoom. */
+  let mapAutoZoomApplied = false
   let mapModeRefreshQueue = Promise.resolve()
-
-  function pinSetCacheKey(mode, nearest3) {
-    return `${mode}:${nearest3.map(n => n.station.id).join(',')}`
-  }
-
-  function clearMapZoomFitCache() {
-    mapZoomFitCache.clear()
-  }
 
   function enqueueMapModeRefresh(mode) {
     mapModeRefreshQueue = mapModeRefreshQueue
       .then(async () => {
         if (loadState().findMode !== mode) return
-        await initNearbyMap(mode)
+        await updateNearbyMapForMode(mode)
       })
       .catch(err => console.warn(err))
   }
@@ -998,6 +990,7 @@ export function renderCitibike(container, { navigate }) {
       mapInstance.remove()
       mapInstance = null
     }
+    mapAutoZoomApplied = false
   }
 
   function updateMapHeadingView({ animate = false } = {}) {
@@ -1147,25 +1140,48 @@ export function renderCitibike(container, { navigate }) {
 
   function scheduleMapZoomForPins(L, nearest3, mode) {
     mapNearestPins = nearest3
-    const token = ++mapZoomApplyToken
-    const cacheKey = pinSetCacheKey(mode, nearest3)
 
     const apply = () => {
-      if (token !== mapZoomApplyToken) return
       if (!mapInstance || !userPos) return
       if (loadState().findMode !== mode) return
 
-      let zoom = mapZoomFitCache.get(cacheKey)
-      if (zoom == null) {
-        zoom = resolveMapZoom(L, mapInstance, userPos, nearest3)
-        mapZoomFitCache.set(cacheKey, zoom)
+      if (!mapAutoZoomApplied) {
+        mapViewZoom = resolveMapZoom(L, mapInstance, userPos, nearest3)
+        mapAutoZoomApplied = true
       }
-
-      mapViewZoom = zoom
       updateMapHeadingView()
     }
 
     requestAnimationFrame(() => requestAnimationFrame(apply))
+  }
+
+  async function updateNearbyMapForMode(mode) {
+    if (!mapInstance || !userPos) return
+    const L = await loadLeaflet()
+
+    mapMarkers.filter(marker => marker !== mapUserMarker).forEach(marker => marker.remove())
+    mapMarkers = mapUserMarker ? [mapUserMarker] : []
+
+    const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
+
+    nearest3.forEach(({ station, dist }) => {
+      const marker = L.circleMarker([station.lat, station.lon], {
+        radius: 8,
+        color: '#221f1e',
+        fillColor: MAP_RACK_MARKER_FILL,
+        fillOpacity: 1,
+        weight: 2,
+      }).addTo(mapInstance)
+      marker.on('click', () => {
+        ensureMapOrientation(true)
+        openMapDrawer(station, dist)
+      })
+      mapMarkers.push(marker)
+    })
+
+    buildMapPinLabels(nearest3, mode)
+    updateNearbyMapOverlay(mode)
+    updateMapHeadingView()
   }
 
   function setFindMode(mode) {
@@ -2009,7 +2025,7 @@ export function renderCitibike(container, { navigate }) {
       lastFetchedAt = Date.now()
       loading = false
       error = ''
-      clearMapZoomFitCache()
+      mapAutoZoomApplied = false
 
       userPos = await getUserLocation()
       geoStatus = 'ready'
