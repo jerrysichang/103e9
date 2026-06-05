@@ -420,9 +420,15 @@ function availabilityCapacityBarSummary(station) {
   if (total === 0) {
     return '<div class="citibike-cap-segments citibike-cap-segments--summary citibike-cap-segments--empty" aria-hidden="true"></div>'
   }
-  const seg = (kind, n) =>
-    `<span class="citibike-cap-seg citibike-cap-seg-${kind}${n <= 0 ? ' citibike-cap-seg--zero' : ''}" style="flex:${n}"></span>`
-  return `<div class="citibike-cap-segments citibike-cap-segments--summary" aria-hidden="true">${seg('bike', classic)}${seg('ebike', ebikes)}${seg('dock', docks)}</div>`
+  const segments = [
+    ['bike', classic],
+    ['ebike', ebikes],
+    ['dock', docks],
+  ]
+    .filter(([, n]) => n > 0)
+    .map(([kind, n]) => `<span class="citibike-cap-seg citibike-cap-seg-${kind}" style="flex:${n}"></span>`)
+    .join('')
+  return `<div class="citibike-cap-segments citibike-cap-segments--summary" aria-hidden="true">${segments}</div>`
 }
 
 function availabilityCapacityBarDetailed(station) {
@@ -566,6 +572,7 @@ export function renderCitibike(container, { navigate }) {
   let mapPinClickHandler = null
   let mapArrowRotation = null
   let mapHeadingFrame = null
+  let mapRotationHandler = null
 
   function stationById(id) {
     return stations.find(s => s.id === id)
@@ -636,8 +643,45 @@ export function renderCitibike(container, { navigate }) {
     }
   }
 
+  function unbindMapRotationEvents() {
+    if (mapInstance && mapRotationHandler) {
+      mapInstance.off('move zoom viewreset moveend zoomend', mapRotationHandler)
+    }
+    mapRotationHandler = null
+  }
+
+  function clearMapPaneRotation() {
+    const pane = mapInstance?.getPane('mapPane')
+    if (pane) {
+      pane.style.transform = ''
+      pane.style.transformOrigin = ''
+    }
+  }
+
+  function applyMapPaneRotation() {
+    if (!mapInstance || !userPos || deviceHeading == null) return
+
+    const pane = mapInstance.getPane('mapPane')
+    if (!pane) return
+
+    const bearing = mapArrowRotation ?? deviceHeading ?? 0
+    const panePos = mapInstance._getMapPanePos()
+    const pivot = mapInstance.latLngToLayerPoint([userPos.lat, userPos.lon])
+
+    pane.style.transformOrigin = `${pivot.x}px ${pivot.y}px`
+    pane.style.transform = `translate3d(${panePos.x}px, ${panePos.y}px, 0) rotate(${-bearing}deg)`
+  }
+
+  function bindMapRotationEvents() {
+    if (!mapInstance || mapRotationHandler) return
+    mapRotationHandler = () => applyMapPaneRotation()
+    mapInstance.on('move zoom viewreset moveend zoomend', mapRotationHandler)
+  }
+
   function destroyNearbyMap() {
     stopMapHeadingLoop()
+    unbindMapRotationEvents()
+    clearMapPaneRotation()
     mapMarkers = []
     mapUserMarker = null
     if (mapInstance) {
@@ -653,15 +697,14 @@ export function renderCitibike(container, { navigate }) {
 
     const headingUp = deviceHeading != null
     const bearing = headingUp ? (mapArrowRotation ?? deviceHeading ?? 0) : 0
-    const pane = mapInstance.getPane('mapPane')
-    if (pane) {
-      if (headingUp) {
-        pane.style.transformOrigin = '50% 50%'
-        pane.style.transform = `rotate(${-bearing}deg)`
-      } else {
-        pane.style.transform = ''
-        pane.style.transformOrigin = ''
-      }
+
+    if (headingUp) {
+      bindMapRotationEvents()
+      applyMapPaneRotation()
+    } else {
+      unbindMapRotationEvents()
+      clearMapPaneRotation()
+      mapInstance.setView([userPos.lat, userPos.lon], MAP_FIXED_ZOOM, { animate: false })
     }
 
     const northNeedle = container.querySelector('.citibike-map-north-needle')
@@ -1290,15 +1333,14 @@ export function renderCitibike(container, { navigate }) {
 
   function renderSaved(entry) {
     const { station, label, stationId } = entry
-    const title = label.trim() || station.name
-    const subtitle = label.trim() ? station.name : ''
+    const nickname = label.trim()
 
     return `
       <li class="item citibike-saved-item">
         <button class="citibike-saved-row" type="button" data-edit-station="${stationId}">
           <div class="citibike-row-main">
-            <span class="item-title issue-title">${escapeHtml(title)}</span>
-            ${subtitle ? `<span class="item-subtitle">${escapeHtml(subtitle)}</span>` : ''}
+            <span class="item-title issue-title">${escapeHtml(station.name)}</span>
+            ${nickname ? `<span class="item-subtitle">${escapeHtml(nickname)}</span>` : ''}
           </div>
           ${availabilityAside(station)}
         </button>
