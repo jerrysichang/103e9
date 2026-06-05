@@ -212,17 +212,11 @@ function mapPillsNumbersRow(station) {
   `
 }
 
-function mapMarkerLabelHtml(station, dist) {
+const MAP_PIN_LABEL_OFFSET_Y = 22
+
+function mapMarkerLabelHtml(station) {
   return `
-    <div
-      class="citibike-map-pin-label"
-      data-map-pin="1"
-      data-station-id="${station.id}"
-      data-map-dist="${dist}"
-      role="button"
-      tabindex="0"
-      aria-label="${escapeHtml(station.name)}"
-    >
+    <div class="citibike-map-pin-label">
       ${availabilityCapacityBarSummary(station)}
       <div class="citibike-pills-wrap">${mapPillsNumbersRow(station)}</div>
     </div>
@@ -569,10 +563,11 @@ export function renderCitibike(container, { navigate }) {
   let mapMarkers = []
   let mapUserMarker = null
   let mapDrawerStation = null
-  let mapPinClickHandler = null
+  let mapPinLabels = []
+  let mapOrientationTapHandler = null
+  let mapViewSyncHandler = null
   let mapArrowRotation = null
   let mapHeadingFrame = null
-  let mapRotationHandler = null
 
   function stationById(id) {
     return stations.find(s => s.id === id)
@@ -622,6 +617,7 @@ export function renderCitibike(container, { navigate }) {
     const tick = () => {
       if (loadState().activeTab === 'nearby' && mapUserMarker) {
         updateUserMapArrowRotation()
+        positionMapPinLabels()
         mapHeadingFrame = requestAnimationFrame(tick)
       } else {
         mapHeadingFrame = null
@@ -643,11 +639,51 @@ export function renderCitibike(container, { navigate }) {
     }
   }
 
-  function unbindMapRotationEvents() {
-    if (mapInstance && mapRotationHandler) {
-      mapInstance.off('move zoom viewreset moveend zoomend', mapRotationHandler)
+  function mapBearingDeg() {
+    if (deviceHeading == null) return 0
+    return mapArrowRotation ?? deviceHeading ?? 0
+  }
+
+  function geoToScreenPoint(lat, lon) {
+    if (!mapInstance || !userPos) return null
+    if (deviceHeading == null) {
+      const pt = mapInstance.latLngToContainerPoint([lat, lon])
+      return { x: pt.x, y: pt.y }
     }
-    mapRotationHandler = null
+    const layerPt = mapInstance.latLngToLayerPoint([lat, lon])
+    const pivot = mapInstance.latLngToLayerPoint([userPos.lat, userPos.lon])
+    const bearing = mapBearingDeg()
+    const rad = (-bearing * Math.PI) / 180
+    const dx = layerPt.x - pivot.x
+    const dy = layerPt.y - pivot.y
+    const cos = Math.cos(rad)
+    const sin = Math.sin(rad)
+    const rdx = dx * cos - dy * sin
+    const rdy = dx * sin + dy * cos
+    const center = mapInstance.getSize().divideBy(2)
+    return { x: center.x + rdx, y: center.y + rdy }
+  }
+
+  function positionMapPinLabels() {
+    if (!mapInstance) return
+    for (const { station, el } of mapPinLabels) {
+      const pt = geoToScreenPoint(station.lat, station.lon)
+      if (!pt) continue
+      el.style.left = `${pt.x}px`
+      el.style.top = `${pt.y}px`
+    }
+  }
+
+  function syncMapView() {
+    if (deviceHeading != null) applyMapPaneRotation()
+    positionMapPinLabels()
+  }
+
+  function unbindMapViewSyncEvents() {
+    if (mapInstance && mapViewSyncHandler) {
+      mapInstance.off('move zoom viewreset moveend zoomend', mapViewSyncHandler)
+    }
+    mapViewSyncHandler = null
   }
 
   function clearMapPaneRotation() {
@@ -664,7 +700,7 @@ export function renderCitibike(container, { navigate }) {
     const pane = mapInstance.getPane('mapPane')
     if (!pane) return
 
-    const bearing = mapArrowRotation ?? deviceHeading ?? 0
+    const bearing = mapBearingDeg()
     const panePos = mapInstance._getMapPanePos()
     const pivot = mapInstance.latLngToLayerPoint([userPos.lat, userPos.lon])
 
@@ -672,16 +708,44 @@ export function renderCitibike(container, { navigate }) {
     pane.style.transform = `translate3d(${panePos.x}px, ${panePos.y}px, 0) rotate(${-bearing}deg)`
   }
 
-  function bindMapRotationEvents() {
-    if (!mapInstance || mapRotationHandler) return
-    mapRotationHandler = () => applyMapPaneRotation()
-    mapInstance.on('move zoom viewreset moveend zoomend', mapRotationHandler)
+  function bindMapViewSyncEvents() {
+    if (!mapInstance || mapViewSyncHandler) return
+    mapViewSyncHandler = () => syncMapView()
+    mapInstance.on('move zoom viewreset moveend zoomend', mapViewSyncHandler)
+  }
+
+  function buildMapPinLabels(nearest3) {
+    const labelsRoot = container.querySelector('#citibike-map-labels')
+    if (!labelsRoot) return
+
+    labelsRoot.replaceChildren()
+    mapPinLabels = nearest3.map(({ station, dist }) => {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'citibike-map-pin-label-wrap'
+      btn.setAttribute('aria-label', station.name)
+      btn.innerHTML = mapMarkerLabelHtml(station)
+      btn.addEventListener('click', () => {
+        ensureMapOrientation(true)
+        openMapDrawer(station, dist)
+      })
+      labelsRoot.appendChild(btn)
+      return { station, dist, el: btn }
+    })
+    positionMapPinLabels()
   }
 
   function destroyNearbyMap() {
     stopMapHeadingLoop()
-    unbindMapRotationEvents()
+    unbindMapViewSyncEvents()
     clearMapPaneRotation()
+    mapPinLabels = []
+    container.querySelector('#citibike-map-labels')?.replaceChildren()
+    const mapEl = container.querySelector('#citibike-map')
+    if (mapEl && mapOrientationTapHandler) {
+      mapEl.removeEventListener('click', mapOrientationTapHandler)
+      mapOrientationTapHandler = null
+    }
     mapMarkers = []
     mapUserMarker = null
     if (mapInstance) {
@@ -696,16 +760,16 @@ export function renderCitibike(container, { navigate }) {
     mapInstance.setView([userPos.lat, userPos.lon], MAP_FIXED_ZOOM, { animate: false })
 
     const headingUp = deviceHeading != null
-    const bearing = headingUp ? (mapArrowRotation ?? deviceHeading ?? 0) : 0
+    const bearing = headingUp ? mapBearingDeg() : 0
 
+    bindMapViewSyncEvents()
     if (headingUp) {
-      bindMapRotationEvents()
       applyMapPaneRotation()
     } else {
-      unbindMapRotationEvents()
       clearMapPaneRotation()
       mapInstance.setView([userPos.lat, userPos.lon], MAP_FIXED_ZOOM, { animate: false })
     }
+    positionMapPinLabels()
 
     const northNeedle = container.querySelector('.citibike-map-north-needle')
     if (northNeedle) {
@@ -813,6 +877,7 @@ export function renderCitibike(container, { navigate }) {
         ${renderModeSwitch(state, 'Map filter')}
         <div class="citibike-map-wrap">
           <div id="citibike-map" class="citibike-map" role="img" aria-label="Map of nearest Citibike racks"></div>
+          <div id="citibike-map-labels" class="citibike-map-labels"></div>
           <div class="citibike-map-north" aria-hidden="true">
             <div class="citibike-map-north-compass">
               <span class="citibike-map-north-needle">N</span>
@@ -875,14 +940,6 @@ export function renderCitibike(container, { navigate }) {
         fillOpacity: 1,
         weight: 2,
       }).addTo(mapInstance)
-      marker.bindTooltip(mapMarkerLabelHtml(station, dist), {
-        permanent: true,
-        direction: 'top',
-        offset: [0, -14],
-        className: 'citibike-map-pin-tooltip',
-        opacity: 1,
-        interactive: true,
-      })
       marker.on('click', () => {
         ensureMapOrientation(true)
         openMapDrawer(station, dist)
@@ -890,18 +947,12 @@ export function renderCitibike(container, { navigate }) {
       mapMarkers.push(marker)
     })
 
-    if (mapPinClickHandler) {
-      el.removeEventListener('click', mapPinClickHandler)
+    buildMapPinLabels(nearest3)
+    if (mapOrientationTapHandler) {
+      el.removeEventListener('click', mapOrientationTapHandler)
     }
-    mapPinClickHandler = e => {
-      ensureMapOrientation(true)
-      const pin = e.target.closest('[data-map-pin]')
-      if (!pin) return
-      const station = stationById(pin.dataset.stationId)
-      const dist = Number(pin.dataset.mapDist)
-      if (station && Number.isFinite(dist)) openMapDrawer(station, dist)
-    }
-    el.addEventListener('click', mapPinClickHandler)
+    mapOrientationTapHandler = () => ensureMapOrientation(true)
+    el.addEventListener('click', mapOrientationTapHandler)
 
     updateMapHeadingView()
     requestAnimationFrame(() => {

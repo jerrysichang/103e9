@@ -2162,7 +2162,7 @@ textarea.coach-input {
   text-align: center;
   background: rgba(34, 31, 30, 0.82);
   border-radius: var(--radius);
-  z-index: 2;
+  z-index: 5;
 }
 
 .citibike-map-overlay .btn {
@@ -2196,19 +2196,31 @@ textarea.coach-input {
   color: var(--text-secondary) !important;
 }
 
-.citibike-map-pin-tooltip {
-  background: rgba(34, 31, 30, 0.92) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 14px rgba(34, 31, 30, 0.45) !important;
-  padding: 0 !important;
-  color: var(--text) !important;
-  pointer-events: auto !important;
-  cursor: pointer;
+.citibike-map-labels {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: var(--radius);
 }
 
-.citibike-map-pin-tooltip::before {
-  display: none;
+.citibike-map-pin-label-wrap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, calc(-100% - 22px));
+  border: none;
+  background: rgba(34, 31, 30, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(34, 31, 30, 0.45);
+  padding: 0;
+  color: var(--text);
+  pointer-events: auto;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
 .citibike-map-pin-label {
