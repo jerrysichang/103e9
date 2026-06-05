@@ -196,17 +196,11 @@ function availabilityAside(station) {
   `
 }
 
-function mapMarkerTooltipHtml(station, rank, dist) {
+function mapMarkerLabelHtml(station) {
   return `
-    <div class="citibike-map-tooltip-inner">
-      <div class="citibike-map-tooltip-head">
-        <span class="citibike-map-tooltip-rank">${rank}</span>
-        <div class="citibike-map-tooltip-meta">
-          <span class="citibike-map-tooltip-title">${escapeHtml(station.name)}</span>
-          <span class="citibike-map-tooltip-dist">${formatDistance(dist)}</span>
-        </div>
-      </div>
-      ${availabilityAside(station)}
+    <div class="citibike-map-pin-label">
+      ${availabilityCapacityBarSummary(station)}
+      <div class="citibike-pills-wrap">${availabilityPillsRow(station)}</div>
     </div>
   `
 }
@@ -573,29 +567,6 @@ export function renderCitibike(container, { navigate }) {
     }
   }
 
-  function renderMapRackList(mode) {
-    if (!userPos || stations.length === 0) return ''
-    const items = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
-    if (!items.length) {
-      const modeLabel = mode === 'ebike' ? 'e-bikes' : mode === 'parking' ? 'open docks' : 'bikes'
-      return `<p class="citibike-map-empty">No racks with ${modeLabel} nearby right now.</p>`
-    }
-    return `
-      <ol class="citibike-map-rack-list">
-        ${items.map((item, i) => `
-          <li class="citibike-map-rack-item">
-            <div class="citibike-map-rack-row">
-              <span class="citibike-map-rank">${i + 1}</span>
-              <span class="citibike-map-rack-name">${escapeHtml(item.station.name)}</span>
-              <span class="citibike-map-rack-dist">${formatDistance(item.dist)}</span>
-            </div>
-            ${availabilityAside(item.station)}
-          </li>
-        `).join('')}
-      </ol>
-    `
-  }
-
   function renderNearbyMapPanel(state) {
     let overlay = ''
     if (loading && stations.length === 0) {
@@ -612,6 +583,12 @@ export function renderCitibike(container, { navigate }) {
         <p class="citibike-map-status">Show the 3 nearest racks on the map.</p>
         <button type="button" class="btn btn-cta citibike-map-load">Load map</button>
       `
+    } else if (stations.length > 0) {
+      const items = findNearestN(stations, userPos.lat, userPos.lon, state.findMode, 3)
+      if (!items.length) {
+        const modeLabel = state.findMode === 'ebike' ? 'e-bikes' : state.findMode === 'parking' ? 'open docks' : 'bikes'
+        overlay = `<p class="citibike-map-status">No racks with ${modeLabel} nearby right now.</p>`
+      }
     }
 
     return `
@@ -621,7 +598,6 @@ export function renderCitibike(container, { navigate }) {
           <div id="citibike-map" class="citibike-map" role="img" aria-label="Map of nearest Citibike racks"></div>
           ${overlay ? `<div class="citibike-map-overlay">${overlay}</div>` : ''}
         </div>
-        ${userPos && !overlay ? renderMapRackList(state.findMode) : ''}
       </div>
     `
   }
@@ -661,24 +637,23 @@ export function renderCitibike(container, { navigate }) {
     const bounds = L.latLngBounds([userPos.lat, userPos.lon], [userPos.lat, userPos.lon])
 
     nearest3.forEach((item, i) => {
-      const { station, dist } = item
+      const { station } = item
       bounds.extend([station.lat, station.lon])
       const marker = L.circleMarker([station.lat, station.lon], {
-        radius: 10,
+        radius: 8,
         color: '#221f1e',
         fillColor: rankColors[i] ?? '#5a5552',
         fillOpacity: 1,
         weight: 2,
       }).addTo(mapInstance)
-      marker.bindTooltip(mapMarkerTooltipHtml(station, i + 1, dist), {
-        className: 'citibike-map-tooltip',
+      marker.bindTooltip(mapMarkerLabelHtml(station), {
+        permanent: true,
         direction: 'top',
-        offset: [0, -10],
+        offset: [0, -14],
+        className: 'citibike-map-pin-tooltip',
         opacity: 1,
-        interactive: true,
-        sticky: true,
+        interactive: false,
       })
-      marker.on('click', () => marker.openTooltip())
       mapMarkers.push(marker)
     })
 
