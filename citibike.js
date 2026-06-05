@@ -245,6 +245,8 @@ const MAP_MARKER_COLOR = {
   parking: '#6b6763',
 }
 
+const MAP_FIXED_ZOOM = 16
+
 function availabilityNearbyStack(station) {
   return `
     <div class="citibike-nearest-availability">
@@ -644,6 +646,35 @@ export function renderCitibike(container, { navigate }) {
     }
   }
 
+  function updateMapHeadingView() {
+    if (!mapInstance || !userPos) return
+
+    mapInstance.setView([userPos.lat, userPos.lon], MAP_FIXED_ZOOM, { animate: false })
+
+    const headingUp = deviceHeading != null
+    const bearing = headingUp ? (mapArrowRotation ?? deviceHeading ?? 0) : 0
+    const pane = mapInstance.getPane('mapPane')
+    if (pane) {
+      if (headingUp) {
+        pane.style.transformOrigin = '50% 50%'
+        pane.style.transform = `rotate(${-bearing}deg)`
+      } else {
+        pane.style.transform = ''
+        pane.style.transformOrigin = ''
+      }
+    }
+
+    const northNeedle = container.querySelector('.citibike-map-north-needle')
+    if (northNeedle) {
+      northNeedle.style.transform = headingUp ? `rotate(${-bearing}deg)` : ''
+    }
+
+    const inner = mapUserMarker?.getElement()?.querySelector('.citibike-map-user-arrow')
+    if (inner) {
+      inner.style.transform = headingUp ? 'rotate(0deg)' : `rotate(${mapArrowRotation ?? 0}deg)`
+    }
+  }
+
   function updateUserMapArrowRotation() {
     if (!mapUserMarker) return
     if (deviceHeading != null) {
@@ -651,8 +682,7 @@ export function renderCitibike(container, { navigate }) {
     } else if (mapArrowRotation == null) {
       mapArrowRotation = 0
     }
-    const inner = mapUserMarker.getElement()?.querySelector('.citibike-map-user-arrow')
-    if (inner) inner.style.transform = `rotate(${mapArrowRotation}deg)`
+    updateMapHeadingView()
   }
 
   function renderRackDetailStack(station, dist, mode, { includeCompass = true } = {}) {
@@ -740,6 +770,11 @@ export function renderCitibike(container, { navigate }) {
         ${renderModeSwitch(state, 'Map filter')}
         <div class="citibike-map-wrap">
           <div id="citibike-map" class="citibike-map" role="img" aria-label="Map of nearest Citibike racks"></div>
+          <div class="citibike-map-north" aria-hidden="true">
+            <div class="citibike-map-north-compass">
+              <span class="citibike-map-north-needle">N</span>
+            </div>
+          </div>
           ${overlay ? `<div class="citibike-map-overlay">${overlay}</div>` : ''}
         </div>
       </div>
@@ -776,7 +811,7 @@ export function renderCitibike(container, { navigate }) {
 
     const userIcon = L.divIcon({
       className: 'citibike-map-user-icon',
-      html: userMapArrowIconHtml(deviceHeading ?? 0),
+      html: userMapArrowIconHtml(0),
       iconSize: [28, 28],
       iconAnchor: [14, 14],
     })
@@ -787,13 +822,9 @@ export function renderCitibike(container, { navigate }) {
     mapMarkers.push(mapUserMarker)
 
     ensureMapOrientation()
-    updateUserMapArrowRotation()
-
-    const bounds = L.latLngBounds([userPos.lat, userPos.lon], [userPos.lat, userPos.lon])
 
     nearest3.forEach((item, i) => {
       const { station, dist } = item
-      bounds.extend([station.lat, station.lon])
       const marker = L.circleMarker([station.lat, station.lon], {
         radius: 8,
         color: '#221f1e',
@@ -829,8 +860,9 @@ export function renderCitibike(container, { navigate }) {
     }
     el.addEventListener('click', mapPinClickHandler)
 
-    mapInstance.fitBounds(bounds, { padding: [48, 48], maxZoom: 16 })
+    updateMapHeadingView()
     requestAnimationFrame(() => {
+      updateMapHeadingView()
       mapInstance?.invalidateSize()
       setTimeout(() => mapInstance?.invalidateSize(), 120)
     })

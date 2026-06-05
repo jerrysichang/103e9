@@ -268,11 +268,16 @@ function renderHome(container) {
 
 function bindAppViewportHeight() {
   const update = () => {
-    const h = window.visualViewport?.height ?? window.innerHeight
+    const vv = window.visualViewport
+    const h = vv?.height ?? window.innerHeight
     document.documentElement.style.setProperty('--app-vh', `${Math.round(h)}px`)
   }
   update()
   window.addEventListener('resize', update, { passive: true })
+  window.addEventListener('orientationchange', () => setTimeout(update, 150), { passive: true })
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) update()
+  })
   window.visualViewport?.addEventListener('resize', update, { passive: true })
   window.visualViewport?.addEventListener('scroll', update, { passive: true })
 }

@@ -80,7 +80,8 @@ html {
 html, body {
   height: 100%;
   height: var(--app-vh, 100dvh);
-  min-height: -webkit-fill-available;
+  max-height: var(--app-vh, 100dvh);
+  min-height: 0;
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
@@ -1899,7 +1900,7 @@ textarea.coach-input {
 
 /* ─── Citibike ───────────────────────────────────────────────────────────── */
 #view-citibike .citibike-scroll {
-  padding-bottom: calc(72px + var(--safe-bottom));
+  padding-bottom: calc(56px + var(--safe-bottom));
   overscroll-behavior-y: contain;
 }
 
@@ -2108,6 +2109,34 @@ textarea.coach-input {
 .citibike-map-wrap {
   position: relative;
   width: 100%;
+}
+
+.citibike-map-north {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.citibike-map-north-compass {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(34, 31, 30, 0.9);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(34, 31, 30, 0.4);
+}
+
+.citibike-map-north-needle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f87171;
+  transform-origin: center center;
+  line-height: 1;
 }
 
 .citibike-map {
