@@ -2335,7 +2335,7 @@ textarea.coach-input {
 }
 
 #view-citibike .leaflet-tile-pane {
-  filter: brightness(2.08) contrast(0.88);
+  filter: brightness(2.28) contrast(1.14) saturate(0.92);
 }
 
 #view-citibike .leaflet-control-attribution {
@@ -2407,8 +2407,13 @@ textarea.coach-input {
 
 .citibike-map-pin-label-wrap .citibike-pill-dock {
   color: var(--citibike-dock);
-  border-color: #8a8682;
-  background: #4a4744;
+  border-color: #7a7672;
+  background: #353230;
+  font-weight: 500;
+}
+
+.citibike-map-pin-label-wrap .citibike-pill-dock .citibike-pill-count {
+  font-weight: 500;
 }
 
 .citibike-map-user-icon {

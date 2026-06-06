@@ -2,6 +2,10 @@ const KEY = 'ps_citibike_v1'
 const COMPASS_PREF_KEY = 'ps_citibike_compass_on'
 const GBFS_BASE = 'https://gbfs.citibikenyc.com/gbfs/en'
 const NEAR_ME_MOVE_M = 120
+/** Min walk before recentering the map (reduces tile reload while moving). */
+const MAP_RECENTER_MOVE_M = 4
+/** Debounce background pin refresh after crossing the near-me distance threshold. */
+const NEARBY_MOVE_REFRESH_MS = 2500
 /** NYC-area magnetic declination (degrees west of true north). iOS webkitCompassHeading is magnetic. */
 const MAGNETIC_DECLINATION_WEST_DEG = 12.5
 
@@ -748,6 +752,11 @@ export function renderCitibike(container, { navigate }) {
   /** Auto-fit runs once per map session; mode changes and +/- keep mapViewZoom. */
   let mapAutoZoomApplied = false
   let mapModeRefreshQueue = Promise.resolve()
+  let nearbyMoveRefreshTimer = null
+  let nearbyMoveRefreshInFlight = false
+  let lastMapCenterLat = null
+  let lastMapCenterLon = null
+  let lastMapViewZoomApplied = null
 
   function enqueueMapModeRefresh(mode) {
     mapModeRefreshQueue = mapModeRefreshQueue
@@ -991,16 +1000,64 @@ export function renderCitibike(container, { navigate }) {
       mapInstance = null
     }
     mapAutoZoomApplied = false
+    lastMapCenterLat = null
+    lastMapCenterLon = null
+    lastMapViewZoomApplied = null
   }
 
-  function updateMapHeadingView({ animate = false } = {}) {
+  function scheduleNearbyMoveRefresh() {
+    if (nearbyMoveRefreshInFlight || nearbyMoveRefreshTimer) return
+    nearbyMoveRefreshTimer = setTimeout(() => {
+      nearbyMoveRefreshTimer = null
+      refreshNearbyOnMove().catch(console.warn)
+    }, NEARBY_MOVE_REFRESH_MS)
+  }
+
+  function cancelNearbyMoveRefresh() {
+    if (nearbyMoveRefreshTimer) {
+      clearTimeout(nearbyMoveRefreshTimer)
+      nearbyMoveRefreshTimer = null
+    }
+  }
+
+  async function refreshNearbyOnMove() {
+    if (nearbyMoveRefreshInFlight || nearMeLoading || !userPos) return
+    nearbyMoveRefreshInFlight = true
+    try {
+      stations = await fetchStations()
+      lastFetchedAt = Date.now()
+      nearMeAnchor = { lat: userPos.lat, lon: userPos.lon }
+      clearBearingCache()
+      recomputeNearestByMode()
+      if (loadState().activeTab === 'nearby' && mapInstance) {
+        await updateNearbyMapForMode(loadState().findMode)
+      }
+    } catch (err) {
+      console.warn(err)
+    } finally {
+      nearbyMoveRefreshInFlight = false
+    }
+  }
+
+  function updateMapHeadingView({ animate = false, force = false } = {}) {
     if (!mapInstance || !userPos) return
 
     const viewOpts = animate
       ? { animate: true, duration: MAP_ZOOM_ANIM_DURATION, easeLinearity: 0.22 }
       : { animate: false }
 
-    mapInstance.setView([userPos.lat, userPos.lon], mapViewZoom, viewOpts)
+    const moved = lastMapCenterLat == null
+      ? Infinity
+      : distanceMeters(userPos.lat, userPos.lon, lastMapCenterLat, lastMapCenterLon)
+    const zoomChanged = lastMapViewZoomApplied !== mapViewZoom
+    const needsSetView = force || animate || zoomChanged || moved >= MAP_RECENTER_MOVE_M
+
+    if (needsSetView) {
+      mapInstance.setView([userPos.lat, userPos.lon], mapViewZoom, viewOpts)
+      lastMapCenterLat = userPos.lat
+      lastMapCenterLon = userPos.lon
+      lastMapViewZoomApplied = mapViewZoom
+    }
 
     const headingUp = deviceHeading != null
     const bearing = headingUp ? mapBearingDeg() : 0
@@ -1010,9 +1067,6 @@ export function renderCitibike(container, { navigate }) {
       applyMapPaneRotation()
     } else {
       clearMapPaneRotation()
-      if (!animate) {
-        mapInstance.setView([userPos.lat, userPos.lon], mapViewZoom, viewOpts)
-      }
     }
     positionMapPinLabels()
 
@@ -1094,13 +1148,13 @@ export function renderCitibike(container, { navigate }) {
     rerender({ preserveSearch: true })
   }
 
-  function syncModeIndicator() {
+  function syncModeIndicator({ animate = false } = {}) {
     container.querySelectorAll('.citibike-mode-switch').forEach(switchEl => {
       const idx = FIND_MODES.indexOf(
         switchEl.querySelector('.citibike-mode-btn.citibike-mode-active')?.dataset.findMode
           ?? loadState().findMode
       )
-      if (idx >= 0) applyModeIndicatorAtIndex(switchEl, idx, { animate: true })
+      if (idx >= 0) applyModeIndicatorAtIndex(switchEl, idx, { animate })
     })
   }
 
@@ -1114,7 +1168,7 @@ export function renderCitibike(container, { navigate }) {
     container.querySelectorAll('[data-find-mode]').forEach(btn => {
       btn.classList.toggle('citibike-mode-active', btn.dataset.findMode === mode)
     })
-    requestAnimationFrame(syncModeIndicator)
+    requestAnimationFrame(() => syncModeIndicator({ animate: true }))
   }
 
   function nearbyModeLabel(mode) {
@@ -1341,6 +1395,7 @@ export function renderCitibike(container, { navigate }) {
     el.addEventListener('click', mapOrientationTapHandler)
 
     scheduleMapZoomForPins(L, nearest3, mode)
+    updateMapHeadingView({ force: true })
   }
 
   function rerender({ preserveSearch = false } = {}) {
@@ -1655,8 +1710,7 @@ export function renderCitibike(container, { navigate }) {
           deviceHeading = smoothAngle(deviceHeading, geoHeading, 0.4, 0.5)
         }
         if (nearMeLoadedAt && nearMeNeedsLoad()) {
-          rerender({ preserveSearch: true })
-          return
+          scheduleNearbyMoveRefresh()
         }
         if (loadState().activeTab === 'nearby' && userPos) {
           if (mapUserMarker && mapInstance) {
@@ -1698,6 +1752,7 @@ export function renderCitibike(container, { navigate }) {
     stopCompassListener()
     stopPositionWatch()
     stopNearMeAgo()
+    cancelNearbyMoveRefresh()
     destroyNearbyMap()
     pullCleanup?.()
     pullCleanup = null
@@ -1873,7 +1928,7 @@ export function renderCitibike(container, { navigate }) {
       initNearbyMap(state.findMode).catch(console.warn)
     }
 
-    syncModeIndicator()
+    syncModeIndicator({ animate: false })
 
     const search = container.querySelector('#citibike-search')
     const results = container.querySelector('#citibike-search-results')
