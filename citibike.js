@@ -6,6 +6,8 @@ const NEAR_ME_MOVE_M = 120
 const MAP_RECENTER_MOVE_M = 4
 /** Debounce background pin refresh after crossing the near-me distance threshold. */
 const NEARBY_MOVE_REFRESH_MS = 2500
+/** Number of nearest racks shown on the Nearby map. */
+const MAP_NEAREST_COUNT = 5
 /** NYC-area magnetic declination (degrees west of true north). iOS webkitCompassHeading is magnetic. */
 const MAGNETIC_DECLINATION_WEST_DEG = 12.5
 
@@ -1181,7 +1183,7 @@ export function renderCitibike(container, { navigate }) {
     const wrap = container.querySelector('.citibike-map-wrap')
     if (!wrap || !userPos) return
 
-    const items = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
+    const items = findNearestN(stations, userPos.lat, userPos.lon, mode, MAP_NEAREST_COUNT)
     const overlay = wrap.querySelector('.citibike-map-overlay')
     if (!items.length && stations.length > 0) {
       const html = `<p class="citibike-map-status">No racks with ${nearbyModeLabel(mode)} nearby right now.</p>`
@@ -1216,7 +1218,7 @@ export function renderCitibike(container, { navigate }) {
     mapMarkers.filter(marker => marker !== mapUserMarker).forEach(marker => marker.remove())
     mapMarkers = mapUserMarker ? [mapUserMarker] : []
 
-    const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
+    const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, MAP_NEAREST_COUNT)
 
     nearest3.forEach(({ station, dist }) => {
       const marker = L.circleMarker([station.lat, station.lon], {
@@ -1281,11 +1283,11 @@ export function renderCitibike(container, { navigate }) {
       `
     } else if (!userPos) {
       overlay = `
-        <p class="citibike-map-status">Show the 3 nearest racks on the map.</p>
+        <p class="citibike-map-status">Show the 5 nearest racks on the map.</p>
         <button type="button" class="btn btn-cta citibike-map-load">Load map</button>
       `
     } else if (stations.length > 0) {
-      const items = findNearestN(stations, userPos.lat, userPos.lon, state.findMode, 3)
+      const items = findNearestN(stations, userPos.lat, userPos.lon, state.findMode, MAP_NEAREST_COUNT)
       if (!items.length) {
         const modeLabel = state.findMode === 'ebike' ? 'e-bikes' : state.findMode === 'parking' ? 'open docks' : 'bikes'
         overlay = `<p class="citibike-map-status">No racks with ${modeLabel} nearby right now.</p>`
@@ -1355,7 +1357,7 @@ export function renderCitibike(container, { navigate }) {
       maxZoom: 19,
     }).addTo(mapInstance)
 
-    const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, 3)
+    const nearest3 = findNearestN(stations, userPos.lat, userPos.lon, mode, MAP_NEAREST_COUNT)
 
     const userIcon = L.divIcon({
       className: 'citibike-map-user-icon',
