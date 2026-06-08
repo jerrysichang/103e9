@@ -15,6 +15,7 @@ import { renderDietTracker, renderDietGoals } from './diet.js'
 import { renderIssuesList } from './issues.js'
 import { renderChallenges } from './challenges.js'
 import { renderCitibike } from './citibike.js'
+import { renderBars } from './bars.js'
 import { onRemoteUpdate, handleRemoteData } from './storage.js'
 import { hasPassphrase, getPassphrase, connect, disconnect } from './firebase-sync.js'
 
@@ -62,6 +63,13 @@ const TOOLS = [
     description: 'Check bike and dock availability at NYC stations',
     icon:        '◉',
     defaultView: 'citibike',
+  },
+  {
+    id:          'bars',
+    name:        'Bars',
+    description: 'Map nearby bars and see how busy they are right now',
+    icon:        '◐',
+    defaultView: 'bars',
   },
 ]
 
@@ -158,6 +166,11 @@ function renderApp() {
 
   if (view === 'citibike') {
     renderCitibike(app, { navigate })
+    return
+  }
+
+  if (view === 'bars') {
+    renderBars(app, { navigate })
     return
   }
 }

@@ -2938,3 +2938,254 @@ textarea.coach-input {
   opacity: 0.45;
   cursor: default;
 }
+
+/* ─── Bars ──────────────────────────────────────────────────────────────── */
+
+.bars-view .header-right {
+  display: flex;
+  align-items: center;
+}
+
+.bars-scroll {
+  padding-bottom: calc(16px + var(--safe-bottom));
+}
+
+.bars-notice {
+  margin: 12px 16px 0;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.bars-notice-link {
+  border: none;
+  background: none;
+  color: var(--text);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.bars-map-block {
+  margin: 12px 16px 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.bars-map-wrap {
+  position: relative;
+  height: 42vh;
+  min-height: 220px;
+  max-height: 360px;
+}
+
+.bars-map {
+  width: 100%;
+  height: 100%;
+  background: var(--surface);
+}
+
+.bars-map-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  background: rgba(34, 31, 30, 0.72);
+  text-align: center;
+  z-index: 500;
+}
+
+.bars-map-status {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-secondary);
+  max-width: 260px;
+}
+
+.bars-map-user-icon {
+  background: transparent;
+  border: none;
+}
+
+.bars-map-user-dot {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #60a5fa;
+  border: 2px solid #221f1e;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.35);
+}
+
+#view-bars .leaflet-container {
+  background: var(--surface);
+  font: var(--text-body-sm);
+}
+
+#view-bars .leaflet-control-attribution {
+  font-size: 10px;
+  background: rgba(34, 31, 30, 0.75);
+  color: var(--text-muted);
+}
+
+#view-bars .leaflet-control-attribution a {
+  color: var(--text-secondary);
+}
+
+.bars-list {
+  margin-top: 8px;
+}
+
+.bars-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bars-row--selected {
+  background: var(--surface-raised);
+}
+
+.bars-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.bars-row-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.bars-row-dist {
+  color: var(--text-muted);
+}
+
+.bars-busy-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font: var(--text-overline);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.bars-busy-pill--lg {
+  font-size: 13px;
+  padding: 5px 10px;
+}
+
+.bars-busy-pill--quiet {
+  background: #22c55e28;
+  color: #4ade80;
+}
+
+.bars-busy-pill--moderate {
+  background: #eab30828;
+  color: #facc15;
+}
+
+.bars-busy-pill--busy {
+  background: #ef444428;
+  color: #f87171;
+}
+
+.bars-busy-pill--unknown {
+  background: var(--surface-raised);
+  color: var(--text-muted);
+}
+
+.bars-cap-bar {
+  margin-top: 8px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.bars-cap-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.bars-cap-fill--quiet { background: #22c55e; }
+.bars-cap-fill--moderate { background: #eab308; }
+.bars-cap-fill--busy { background: #ef4444; }
+.bars-cap-fill--unknown { background: var(--text-muted); }
+
+.bars-meta {
+  color: var(--text-muted);
+}
+
+.bars-empty {
+  margin: 16px;
+  color: var(--text-secondary);
+}
+
+.bars-drawer-modal {
+  max-width: 360px;
+}
+
+.bars-drawer-title {
+  margin-bottom: 4px;
+}
+
+.bars-drawer-address,
+.bars-drawer-meta,
+.bars-drawer-dist,
+.bars-drawer-hint {
+  margin: 0 0 10px;
+  color: var(--text-secondary);
+}
+
+.bars-drawer-busy {
+  margin: 12px 0;
+}
+
+.bars-settings-desc,
+.bars-settings-hint {
+  color: var(--text-secondary);
+  margin: 8px 0 12px;
+}
+
+.bars-settings-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+}
+
+.bars-api-input {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.bars-settings-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.bars-settings-actions .btn {
+  flex: 1;
+}
+
+.bars-settings-hint a {
+  color: var(--text);
+}
