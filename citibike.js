@@ -1,5 +1,8 @@
 const KEY = 'ps_citibike_v1'
 const COMPASS_PREF_KEY = 'ps_citibike_compass_on'
+const LAST_POS_KEY = 'ps_citibike_last_pos'
+/** Reuse last fix on reopen so the map loads without a fresh GPS prompt. */
+const LAST_POS_MAX_AGE_MS = 24 * 60 * 60 * 1000
 const GBFS_BASE = 'https://gbfs.citibikenyc.com/gbfs/en'
 const NEAR_ME_MOVE_M = 120
 /** Min walk before recentering the map (reduces tile reload while moving). */
@@ -640,18 +643,37 @@ function googleMapsDirectionsUrl(destLat, destLon, mode, origin) {
   return `https://www.google.com/maps/dir/?${params}`
 }
 
-function getUserLocation() {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('Geolocation is not supported on this device.'))
-      return
+function loadCachedUserPosition() {
+  try {
+    const raw = localStorage.getItem(LAST_POS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const lat = Number(parsed?.lat)
+    const lon = Number(parsed?.lon)
+    const at = Number(parsed?.at)
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(at)) return null
+    if (Date.now() - at > LAST_POS_MAX_AGE_MS) return null
+    return {
+      lat,
+      lon,
+      at,
+      anchorLat: Number.isFinite(Number(parsed?.anchorLat)) ? Number(parsed.anchorLat) : lat,
+      anchorLon: Number.isFinite(Number(parsed?.anchorLon)) ? Number(parsed.anchorLon) : lon,
     }
-    navigator.geolocation.getCurrentPosition(
-      pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-      err => reject(err),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 }
-    )
-  })
+  } catch {
+    return null
+  }
+}
+
+function saveCachedUserPosition(pos, anchor = pos) {
+  if (!pos) return
+  localStorage.setItem(LAST_POS_KEY, JSON.stringify({
+    lat: pos.lat,
+    lon: pos.lon,
+    anchorLat: anchor?.lat ?? pos.lat,
+    anchorLon: anchor?.lon ?? pos.lon,
+    at: Date.now(),
+  }))
 }
 
 function isIosDevice() {
@@ -736,10 +758,11 @@ export function renderCitibike(container, { navigate }) {
   let nearMeAnchor = null
   let nearMeLoading = false
   let positionWatchId = null
+  let positionWatchStarted = false
+  let positionFixWaiters = []
   let nearMeAgoTimer = null
   let pullCleanup = null
   let modeSwipeCleanup = null
-  let positionWatchStarted = false
   let mapInstance = null
   let mapNearestPins = []
   let mapMarkers = []
@@ -1695,22 +1718,40 @@ export function renderCitibike(container, { navigate }) {
     }
   }
 
+  function settlePositionFixWaiters(err) {
+    const waiters = positionFixWaiters
+    positionFixWaiters = []
+    waiters.forEach(({ resolve, reject }) => {
+      if (err) reject(err)
+      else resolve(userPos)
+    })
+  }
+
+  function applyUserPosition(pos) {
+    userPos = { lat: pos.coords.latitude, lon: pos.coords.longitude }
+    saveCachedUserPosition(userPos, nearMeAnchor || userPos)
+    const geoHeading = pos.coords.heading
+    if (typeof geoHeading === 'number' && !Number.isNaN(geoHeading) && geoHeading >= 0) {
+      deviceHeading = smoothAngle(deviceHeading, geoHeading, 0.4, 0.5)
+    }
+    if (positionFixWaiters.length) settlePositionFixWaiters()
+  }
+
   function stopPositionWatch() {
     if (positionWatchId != null && navigator.geolocation) {
       navigator.geolocation.clearWatch(positionWatchId)
       positionWatchId = null
     }
+    positionWatchStarted = false
+    settlePositionFixWaiters(Object.assign(new Error('Location watch stopped'), { code: 2 }))
   }
 
   function startPositionWatch() {
-    if (!navigator.geolocation || positionWatchId != null) return
+    if (!navigator.geolocation || positionWatchStarted) return
+    positionWatchStarted = true
     positionWatchId = navigator.geolocation.watchPosition(
       pos => {
-        userPos = { lat: pos.coords.latitude, lon: pos.coords.longitude }
-        const geoHeading = pos.coords.heading
-        if (typeof geoHeading === 'number' && !Number.isNaN(geoHeading) && geoHeading >= 0) {
-          deviceHeading = smoothAngle(deviceHeading, geoHeading, 0.4, 0.5)
-        }
+        applyUserPosition(pos)
         if (nearMeLoadedAt && nearMeNeedsLoad()) {
           scheduleNearbyMoveRefresh()
         }
@@ -1718,7 +1759,7 @@ export function renderCitibike(container, { navigate }) {
           if (mapUserMarker && mapInstance) {
             mapUserMarker.setLatLng([userPos.lat, userPos.lon])
             updateUserMapArrowRotation()
-          } else {
+          } else if (!nearMeLoading) {
             initNearbyMap(loadState().findMode).catch(console.warn)
           }
         }
@@ -1726,9 +1767,48 @@ export function renderCitibike(container, { navigate }) {
           scheduleCompassUpdate()
         }
       },
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 8000, timeout: 20000 }
+      err => {
+        if (positionFixWaiters.length) settlePositionFixWaiters(err)
+        if (!userPos) {
+          geoStatus = err?.code === 1 ? 'denied' : 'error'
+          geoError = err?.code === 1
+            ? 'Location access is off. Enable it in Settings to find the nearest rack.'
+            : 'Could not get your location. Try again when you have a GPS signal.'
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 120000, timeout: 20000 }
     )
+  }
+
+  function waitForFirstPosition(timeoutMs = 12000) {
+    if (userPos) return Promise.resolve(userPos)
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        positionFixWaiters = positionFixWaiters.filter(w => w.reject !== reject)
+        reject(Object.assign(new Error('Location timeout'), { code: 3 }))
+      }, timeoutMs)
+      positionFixWaiters.push({
+        resolve: pos => {
+          clearTimeout(timer)
+          resolve(pos)
+        },
+        reject: err => {
+          clearTimeout(timer)
+          reject(err)
+        },
+      })
+      startPositionWatch()
+    })
+  }
+
+  function restoreCachedUserPosition() {
+    const cached = loadCachedUserPosition()
+    if (!cached) return false
+    userPos = { lat: cached.lat, lon: cached.lon }
+    nearMeAnchor = { lat: cached.anchorLat, lon: cached.anchorLon }
+    nearMeLoadedAt = cached.at
+    geoStatus = 'ready'
+    return true
   }
 
   async function refreshTabData(tab) {
@@ -1737,16 +1817,6 @@ export function renderCitibike(container, { navigate }) {
       return
     }
     await loadNearMe()
-    if (tab === 'nearby') {
-      await initNearbyMap(loadState().findMode)
-    }
-  }
-
-  function ensurePositionWatch() {
-    if (!positionWatchStarted) {
-      positionWatchStarted = true
-      startPositionWatch()
-    }
   }
 
   compassCleanup = () => {
@@ -1760,7 +1830,7 @@ export function renderCitibike(container, { navigate }) {
     pullCleanup = null
     modeSwipeCleanup?.()
     modeSwipeCleanup = null
-    positionWatchStarted = false
+    positionFixWaiters = []
     compassCleanup = null
   }
 
@@ -1864,7 +1934,6 @@ export function renderCitibike(container, { navigate }) {
         if (!['nearby', 'saved'].includes(tab)) return
         const next = loadState()
         if (next.activeTab === tab) return
-        if (tab === 'nearby') await ensureMapOrientation(true)
         next.activeTab = tab
         if (tab !== 'nearby') mapDrawerStation = null
         saveState(next)
@@ -1881,10 +1950,7 @@ export function renderCitibike(container, { navigate }) {
     })
 
     container.querySelectorAll('.citibike-map-load').forEach(btn => {
-      btn.addEventListener('click', () => {
-        ensureMapOrientation(true)
-        loadNearMe().then(() => initNearbyMap(loadState().findMode))
-      })
+      btn.addEventListener('click', () => loadNearMe())
     })
 
     container.querySelectorAll('.citibike-load-near').forEach(btn => {
@@ -2074,8 +2140,9 @@ export function renderCitibike(container, { navigate }) {
   async function loadNearMe() {
     if (nearMeLoading) return
     nearMeLoading = true
-    geoStatus = 'loading'
+    geoStatus = userPos ? 'ready' : 'loading'
     geoError = ''
+    if (!userPos) restoreCachedUserPosition()
     rerender({ preserveSearch: true })
     try {
       stations = await fetchStations()
@@ -2084,11 +2151,17 @@ export function renderCitibike(container, { navigate }) {
       error = ''
       mapAutoZoomApplied = false
 
-      userPos = await getUserLocation()
+      if (!userPos) {
+        await waitForFirstPosition()
+      } else {
+        startPositionWatch()
+      }
+
       geoStatus = 'ready'
       geoError = ''
 
       nearMeAnchor = { lat: userPos.lat, lon: userPos.lon }
+      saveCachedUserPosition(userPos, nearMeAnchor)
       clearBearingCache()
       recomputeNearestByMode()
       nearMeLoadedAt = Date.now()
@@ -2097,11 +2170,12 @@ export function renderCitibike(container, { navigate }) {
       await tryRestoreCompass()
       scheduleCompassUpdate()
     } catch (err) {
-      userPos = null
-      geoStatus = err?.code === 1 ? 'denied' : 'error'
-      geoError = err?.code === 1
-        ? 'Location access is off. Enable it in Settings to find the nearest rack.'
-        : 'Could not get your location. Try again when you have a GPS signal.'
+      if (!userPos) {
+        geoStatus = err?.code === 1 ? 'denied' : 'error'
+        geoError = err?.code === 1
+          ? 'Location access is off. Enable it in Settings to find the nearest rack.'
+          : 'Could not get your location. Try again when you have a GPS signal.'
+      }
       console.warn(err)
     } finally {
       nearMeLoading = false
@@ -2109,8 +2183,9 @@ export function renderCitibike(container, { navigate }) {
     }
   }
 
+  restoreCachedUserPosition()
   const initialTab = loadState().activeTab
-  refreshTabData(initialTab).finally(ensurePositionWatch)
+  refreshTabData(initialTab)
 }
 
 function escapeHtml(str) {
