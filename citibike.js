@@ -210,8 +210,8 @@ function pill(kind, count) {
 function availabilityAside(station) {
   return `
     <div class="citibike-aside-col">
-      ${availabilityCapacityBarSummary(station)}
       <div class="citibike-pills-wrap">${availabilityPillsRow(station)}</div>
+      ${availabilityCapacityBarSummary(station)}
     </div>
   `
 }
@@ -244,9 +244,10 @@ function userMapArrowIconHtml(rotation = 0) {
 }
 
 function needsMotionPermissionPrompt() {
+  // null = never prompted this session; '1' = granted, '0' = denied (don't re-ask).
   return typeof DeviceOrientationEvent !== 'undefined'
     && typeof DeviceOrientationEvent.requestPermission === 'function'
-    && sessionStorage.getItem(COMPASS_PREF_KEY) !== '1'
+    && sessionStorage.getItem(COMPASS_PREF_KEY) == null
 }
 
 const MAP_DEFAULT_ZOOM = 16
@@ -319,8 +320,8 @@ function resolveMapZoom(L, mapInstance, userPos, nearest3) {
 function availabilityNearbyStack(station) {
   return `
     <div class="citibike-nearest-availability">
-      ${availabilityCapacityBarDetailed(station)}
       <div class="citibike-pills-wrap citibike-nearest-pills-large">${availabilityPillsRow(station)}</div>
+      ${availabilityCapacityBarDetailed(station)}
     </div>
   `
 }
@@ -858,8 +859,11 @@ export function renderCitibike(container, { navigate }) {
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
       if (!fromUserGesture) return false
       const granted = await requestCompassPermission()
+      sessionStorage.setItem(COMPASS_PREF_KEY, granted ? '1' : '0')
+      // Same tap also unlocks the deferred location watch so iOS shows the
+      // motion and location prompts together instead of in separate steps.
+      startPositionWatch()
       if (granted) {
-        sessionStorage.setItem(COMPASS_PREF_KEY, '1')
         updateMapHeadingView()
         return true
       }
@@ -1307,7 +1311,7 @@ export function renderCitibike(container, { navigate }) {
     } else if (!userPos) {
       overlay = `
         <p class="citibike-map-status">Show the 5 nearest racks on the map.</p>
-        <button type="button" class="btn btn-cta citibike-map-load">Load map</button>
+        <button type="button" class="btn btn-cta citibike-map-load">${needsMotionPermissionPrompt() ? 'Enable live map' : 'Load map'}</button>
       `
     } else if (stations.length > 0) {
       const items = findNearestN(stations, userPos.lat, userPos.lon, state.findMode, MAP_NEAREST_COUNT)
@@ -1338,7 +1342,7 @@ export function renderCitibike(container, { navigate }) {
           </div>
           ${orientPrompt ? `
             <div class="citibike-map-orient-prompt">
-              <p class="citibike-map-status">Allow motion access so the map follows the direction you're facing.</p>
+              <p class="citibike-map-status">Turn on live view so the map follows your location and the direction you're facing.</p>
               <button type="button" class="btn btn-cta citibike-map-orient-btn">Enable live map</button>
             </div>
           ` : ''}
@@ -1944,17 +1948,21 @@ export function renderCitibike(container, { navigate }) {
 
     container.querySelectorAll('.citibike-map-orient-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const ok = await ensureMapOrientation(true)
-        if (ok) rerender({ preserveSearch: true })
+        try {
+          await ensureMapOrientation(true)
+        } catch (err) {
+          console.warn('Motion permission failed:', err)
+        }
+        rerender({ preserveSearch: true })
       })
     })
 
     container.querySelectorAll('.citibike-map-load').forEach(btn => {
-      btn.addEventListener('click', () => loadNearMe())
+      btn.addEventListener('click', () => loadNearMeFromTap())
     })
 
     container.querySelectorAll('.citibike-load-near').forEach(btn => {
-      btn.addEventListener('click', () => loadNearMe())
+      btn.addEventListener('click', () => loadNearMeFromTap())
     })
 
     if (nearMeLoadedAt && !nearMeNeedsLoad() && !nearMeLoading) {
@@ -1975,7 +1983,7 @@ export function renderCitibike(container, { navigate }) {
     })
 
     container.querySelector('.citibike-retry-geo')?.addEventListener('click', () => {
-      loadNearMe()
+      loadNearMeFromTap()
     })
 
     container.querySelector('#citibike-compass-btn')?.addEventListener('click', () => {
@@ -2137,7 +2145,19 @@ export function renderCitibike(container, { navigate }) {
     rerender({ preserveSearch: silent })
   }
 
-  async function loadNearMe() {
+  /** One tap requests motion access (if pending) and location together. */
+  async function loadNearMeFromTap() {
+    if (needsMotionPermissionPrompt()) {
+      try {
+        await ensureMapOrientation(true)
+      } catch (err) {
+        console.warn('Motion permission failed:', err)
+      }
+    }
+    await loadNearMe({ fromUserGesture: true })
+  }
+
+  async function loadNearMe({ fromUserGesture = false } = {}) {
     if (nearMeLoading) return
     nearMeLoading = true
     geoStatus = userPos ? 'ready' : 'loading'
@@ -2151,9 +2171,17 @@ export function renderCitibike(container, { navigate }) {
       error = ''
       mapAutoZoomApplied = false
 
+      // While the iOS motion prompt is still pending, don't auto-trigger the
+      // location prompt — the live-view tap requests both permissions at once.
+      const deferLocationForMotion = !fromUserGesture && needsMotionPermissionPrompt()
+
       if (!userPos) {
+        if (deferLocationForMotion) {
+          geoStatus = 'idle'
+          return
+        }
         await waitForFirstPosition()
-      } else {
+      } else if (!deferLocationForMotion) {
         startPositionWatch()
       }
 
