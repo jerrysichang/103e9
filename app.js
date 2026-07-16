@@ -16,6 +16,7 @@ import { renderIssuesList } from './issues.js'
 import { renderChallenges } from './challenges.js'
 import { renderCitibike } from './citibike.js'
 import { renderBars } from './bars.js'
+import { renderRates } from './rates.js'
 import { onRemoteUpdate, handleRemoteData } from './storage.js'
 import { hasPassphrase, getPassphrase, connect, disconnect } from './firebase-sync.js'
 
@@ -44,18 +45,11 @@ const TOOLS = [
     defaultView: 'diet',
   },
   {
-    id:          'challenges',
-    name:        'Challenges',
-    description: 'Generate and complete mini challenges by topic',
-    icon:        '△',
-    defaultView: 'challenges',
-  },
-  {
-    id:          'issues',
-    name:        'Changes',
-    description: 'Track fixes and changes for 103e3',
-    icon:        '□',
-    defaultView: 'issues',
+    id:          'rates',
+    name:        'Rates',
+    description: 'Track refill rates and spend tokens over time',
+    icon:        '◷',
+    defaultView: 'rates',
   },
   {
     id:          'citibike',
@@ -65,13 +59,34 @@ const TOOLS = [
     defaultView: 'citibike',
   },
   {
+    id:          'challenges',
+    name:        'Challenges',
+    description: 'Generate and complete mini challenges by topic',
+    icon:        '△',
+    defaultView: 'challenges',
+    hidden:      true,
+  },
+  {
+    id:          'issues',
+    name:        'Changes',
+    description: 'Track fixes and changes for 103e3',
+    icon:        '□',
+    defaultView: 'issues',
+    hidden:      true,
+  },
+  {
     id:          'bars',
     name:        'Bars',
     description: 'Map nearby bars and see how busy they are right now',
     icon:        '◐',
     defaultView: 'bars',
+    hidden:      true,
   },
 ]
+
+function visibleTools() {
+  return TOOLS.filter(t => !t.hidden)
+}
 
 // ─── Router ───────────────────────────────────────────────────────────────
 
@@ -173,6 +188,11 @@ function renderApp() {
     renderBars(app, { navigate })
     return
   }
+
+  if (view === 'rates') {
+    renderRates(app, { navigate })
+    return
+  }
 }
 
 // ─── Passphrase Screen ──────────────────────────────────────────────────
@@ -217,8 +237,8 @@ function renderPassphrase(container) {
     try {
       await connect(phrase, handleRemoteData)
       // Go to the app
-      if (TOOLS.length === 1) {
-        navigate(TOOLS[0].defaultView)
+      if (visibleTools().length === 1) {
+        navigate(visibleTools()[0].defaultView)
       } else {
         navigate('home')
       }
@@ -240,6 +260,7 @@ function renderPassphrase(container) {
 // ─── Home Screen (shown when multiple tools exist) ────────────────────────
 
 function renderHome(container) {
+  const tools = visibleTools()
   container.innerHTML = `
     <div class="view">
       <div class="scroll">
@@ -250,8 +271,8 @@ function renderHome(container) {
           </div>
         </div>
         <div class="tools-grid">
-          ${TOOLS.map(tool => `
-            <div class="tool-card ${tool.id === 'issues' ? 'tool-card-changes' : ''}" data-tool="${tool.id}">
+          ${tools.map(tool => `
+            <div class="tool-card" data-tool="${tool.id}">
               <div class="tool-card-icon">${tool.icon}</div>
               <div class="tool-card-name">${tool.name}</div>
             </div>
@@ -320,8 +341,8 @@ async function boot() {
       console.warn('Auto-reconnect failed, continuing with local data:', err)
     }
 
-    if (TOOLS.length === 1) {
-      navigate(TOOLS[0].defaultView)
+    if (visibleTools().length === 1) {
+      navigate(visibleTools()[0].defaultView)
     } else {
       navigate('home')
     }

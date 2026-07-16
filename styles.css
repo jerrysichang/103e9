@@ -3202,3 +3202,156 @@ textarea.coach-input {
 .bars-settings-hint a {
   color: var(--text);
 }
+
+/* ─── Rates ──────────────────────────────────────────────────────────────── */
+.rates-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px 24px;
+}
+
+.rates-card {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-drop);
+  padding: 14px;
+}
+
+.rates-card-main {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rates-card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rates-card-name {
+  font: var(--text-h4);
+  letter-spacing: var(--tracking-title);
+}
+
+.rates-card-balance {
+  font: 600 var(--font-size-h3) / 1 var(--font-display);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.rates-card-meta,
+.rates-card-footer {
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.rates-card-dot {
+  opacity: 0.5;
+}
+
+.rates-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  border: 0.5px solid var(--border-subtle);
+  overflow: hidden;
+  margin: 2px 0;
+}
+
+.rates-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--text);
+  transition: width 0.35s ease;
+}
+
+.rates-log-btn {
+  align-self: center;
+  flex-shrink: 0;
+  min-width: 72px;
+  padding: 12px 16px;
+}
+
+.rates-log-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.rates-empty {
+  padding: 48px 28px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.rates-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.rates-field-label {
+  font: var(--text-body-sm);
+  color: var(--text-secondary);
+}
+
+.rates-field-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.rates-field-join {
+  padding-bottom: 14px;
+  color: var(--text-secondary);
+  font: var(--text-body-sm);
+  flex-shrink: 0;
+}
+
+.rates-delete-btn {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.rates-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(28px + var(--safe-bottom));
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--text-on-accent);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font: 600 var(--font-size-body-sm) / 1.2 var(--font);
+  z-index: 120;
+  box-shadow: var(--shadow-drop);
+  pointer-events: none;
+}
+
+.rates-modal .input {
+  margin-bottom: 0;
+}

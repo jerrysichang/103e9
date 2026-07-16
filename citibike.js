@@ -243,11 +243,32 @@ function userMapArrowIconHtml(rotation = 0) {
   `
 }
 
+function getCompassPref() {
+  try {
+    const local = localStorage.getItem(COMPASS_PREF_KEY)
+    if (local === '1' || local === '0') return local
+    // Migrate older session-only preference so reopen keeps working.
+    const session = sessionStorage.getItem(COMPASS_PREF_KEY)
+    if (session === '1' || session === '0') {
+      localStorage.setItem(COMPASS_PREF_KEY, session)
+      return session
+    }
+  } catch { /* ignore quota / private mode */ }
+  return null
+}
+
+function setCompassPref(value) {
+  try {
+    localStorage.setItem(COMPASS_PREF_KEY, value)
+    sessionStorage.setItem(COMPASS_PREF_KEY, value)
+  } catch { /* ignore quota / private mode */ }
+}
+
 function needsMotionPermissionPrompt() {
-  // null = never prompted this session; '1' = granted, '0' = denied (don't re-ask).
+  // null = never asked; '1' / '0' remembered across app reopen (localStorage).
   return typeof DeviceOrientationEvent !== 'undefined'
     && typeof DeviceOrientationEvent.requestPermission === 'function'
-    && sessionStorage.getItem(COMPASS_PREF_KEY) == null
+    && getCompassPref() == null
 }
 
 const MAP_DEFAULT_ZOOM = 16
@@ -855,11 +876,17 @@ export function renderCitibike(container, { navigate }) {
     if (!orientationHandler) startCompassListener()
     startMapHeadingLoop()
     if (deviceHeading != null) return true
-    if (sessionStorage.getItem(COMPASS_PREF_KEY) === '1') return true
+
+    const pref = getCompassPref()
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      if (!fromUserGesture) return false
+      if (pref === '0') return false
+      // Already granted earlier: listener is running; heading events usually
+      // resume without another system dialog. Skip the overlay on reopen.
+      if (!fromUserGesture) return pref === '1'
+      // User gesture: re-call requestPermission. If already allowed at the OS
+      // level this returns 'granted' with no dialog and unlocks heading.
       const granted = await requestCompassPermission()
-      sessionStorage.setItem(COMPASS_PREF_KEY, granted ? '1' : '0')
+      setCompassPref(granted ? '1' : '0')
       // Same tap also unlocks the deferred location watch so iOS shows the
       // motion and location prompts together instead of in separate steps.
       startPositionWatch()
@@ -869,6 +896,9 @@ export function renderCitibike(container, { navigate }) {
       }
       return false
     }
+
+    setCompassPref('1')
+    startPositionWatch()
     return true
   }
 
@@ -1399,6 +1429,9 @@ export function renderCitibike(container, { navigate }) {
     mapMarkers.push(mapUserMarker)
 
     ensureMapOrientation()
+    if (getCompassPref() === '1') {
+      tryRestoreCompass().catch(console.warn)
+    }
 
     nearest3.forEach((item, i) => {
       const { station, dist } = item
@@ -1609,10 +1642,13 @@ export function renderCitibike(container, { navigate }) {
       if (typeof DeviceOrientationEvent.requestPermission === 'function') {
         if (!fromUserTap) return
         const granted = await requestCompassPermission()
-        if (!granted) return
+        if (!granted) {
+          setCompassPref('0')
+          return
+        }
       }
       compassActive = true
-      sessionStorage.setItem(COMPASS_PREF_KEY, '1')
+      setCompassPref('1')
       deviceHeading = null
       displayArrowRotation = null
       startCompassListener()
@@ -1626,12 +1662,15 @@ export function renderCitibike(container, { navigate }) {
 
   async function tryRestoreCompass() {
     if (!compassSupported || compassActive) return
-    if (sessionStorage.getItem(COMPASS_PREF_KEY) !== '1') return
+    if (getCompassPref() !== '1') return
 
     startCompassListener()
+    startMapHeadingLoop()
     await new Promise(resolve => setTimeout(resolve, 450))
     if (deviceHeading == null) {
-      stopCompassListener()
+      // Permission remembered, but iOS may need one more gesture to resume
+      // events — keep the listener and map tap handler; don't clear the pref
+      // or show the full-screen prompt again.
       return
     }
     compassActive = true
