@@ -114,7 +114,7 @@ function busynessColor(pct) {
   if (level === 'quiet') return '#22c55e'
   if (level === 'moderate') return '#eab308'
   if (level === 'busy') return '#ef4444'
-  return '#8a8682'
+  return '#a8a8a8'
 }
 
 function currentBusyness(venue) {
@@ -481,7 +481,7 @@ export function renderBars(container, { navigate }) {
       attributionControl: true,
     })
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CARTO',
       subdomains: 'abcd',
       maxZoom: 19,
@@ -504,7 +504,7 @@ export function renderBars(container, { navigate }) {
       const color = busynessColor(pct)
       const marker = L.circleMarker([bar.lat, bar.lon], {
         radius: 9,
-        color: '#221f1e',
+        color: '#111111',
         fillColor: color,
         fillOpacity: 0.95,
         weight: 2,

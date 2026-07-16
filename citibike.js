@@ -217,7 +217,7 @@ function availabilityAside(station) {
 }
 
 const MAP_PIN_LABEL_OFFSET_Y = 22
-const MAP_RACK_MARKER_FILL = '#f5f3f0'
+const MAP_RACK_MARKER_FILL = '#ffffff'
 
 function mapPillsForMode(station, mode) {
   if (station.isOffline) return '<span class="citibike-offline">Offline</span>'
@@ -237,7 +237,7 @@ function userMapArrowIconHtml(rotation = 0) {
   return `
     <div class="citibike-map-user-arrow" style="transform: rotate(${rotation}deg)">
       <svg class="citibike-map-user-arrow-svg" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 3 L19 19 L12 15 L5 19 Z" fill="#f5f3f0" stroke="#221f1e" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M12 3 L19 19 L12 15 L5 19 Z" fill="#111111" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
       </svg>
     </div>
   `
@@ -1250,7 +1250,7 @@ export function renderCitibike(container, { navigate }) {
     nearest3.forEach(({ station, dist }) => {
       const marker = L.circleMarker([station.lat, station.lon], {
         radius: 8,
-        color: '#221f1e',
+        color: '#111111',
         fillColor: MAP_RACK_MARKER_FILL,
         fillOpacity: 1,
         weight: 2,
@@ -1378,7 +1378,7 @@ export function renderCitibike(container, { navigate }) {
       zoomDelta: MAP_ZOOM_STEP,
     })
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CARTO',
       subdomains: 'abcd',
       maxZoom: 19,
@@ -1404,7 +1404,7 @@ export function renderCitibike(container, { navigate }) {
       const { station, dist } = item
       const marker = L.circleMarker([station.lat, station.lon], {
         radius: 8,
-        color: '#221f1e',
+        color: '#111111',
         fillColor: MAP_RACK_MARKER_FILL,
         fillOpacity: 1,
         weight: 2,
