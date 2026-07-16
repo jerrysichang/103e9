@@ -123,16 +123,18 @@ function ratesStorage() {
       saveState({ trackers })
     },
 
-    create({ name, rateAmount, rateDays, cap }) {
+    create({ name, rateAmount, rateDays, cap, balance = 0 }) {
       const state = loadState()
       const now = Date.now()
+      const capped = Math.floor(Math.max(1, Number(cap) || 1))
+      const start = Math.min(capped, Math.max(0, Number(balance) || 0))
       const tracker = normalizeTracker({
         id: crypto.randomUUID(),
         name,
         rateAmount,
         rateDays,
-        cap,
-        balance: 0,
+        cap: capped,
+        balance: start,
         lastTickAt: now,
         createdAt: new Date(now).toISOString(),
         updatedAt: new Date(now).toISOString(),
@@ -237,11 +239,15 @@ export function renderRates(container, { navigate }) {
     const rateAmount = Number(root.querySelector('#rates-amount')?.value)
     const rateDays = Number(root.querySelector('#rates-days')?.value)
     const cap = Number(root.querySelector('#rates-cap')?.value)
+    const balance = Number(root.querySelector('#rates-start')?.value)
     if (!name) return { error: 'Give it a name.' }
     if (!Number.isFinite(rateAmount) || rateAmount <= 0) return { error: 'Rate amount must be greater than 0.' }
     if (!Number.isFinite(rateDays) || rateDays <= 0) return { error: 'Period must be greater than 0 days.' }
     if (!Number.isFinite(cap) || cap < 1) return { error: 'Cap must be at least 1.' }
-    return { name, rateAmount, rateDays, cap: Math.floor(cap) }
+    if (!Number.isFinite(balance) || balance < 0) return { error: 'Starting tokens can’t be negative.' }
+    const capInt = Math.floor(cap)
+    if (balance > capInt) return { error: 'Starting tokens can’t exceed the cap.' }
+    return { name, rateAmount, rateDays, cap: capInt, balance }
   }
 
   function saveModal() {
@@ -269,7 +275,7 @@ export function renderRates(container, { navigate }) {
       <li class="rates-card" data-tracker-id="${t.id}">
         <button type="button" class="rates-card-main" data-edit-tracker="${t.id}">
           <div class="rates-card-top">
-            <span class="rates-card-name item-title">${escapeHtml(t.name)}</span>
+            <span class="rates-card-name">${escapeHtml(t.name)}</span>
             <span class="rates-card-balance">${formatBalance(bal)}</span>
           </div>
           <div class="rates-card-meta text-body-sm">
@@ -305,6 +311,8 @@ export function renderRates(container, { navigate }) {
     const rateAmount = isEdit ? existing.rateAmount : 1
     const rateDays = isEdit ? existing.rateDays : 3
     const cap = isEdit ? existing.cap : 5
+    const startBal = isEdit ? formatBalance(currentBalance(existing)) : 0
+    const startLabel = isEdit ? 'Current tokens' : 'Starting tokens'
 
     return `
       <div class="modal-backdrop" id="rates-modal">
@@ -326,10 +334,16 @@ export function renderRates(container, { navigate }) {
               <input class="input" id="rates-days" type="number" min="0.01" step="any" inputmode="decimal" value="${rateDays}" />
             </label>
           </div>
-          <label class="rates-field">
-            <span class="rates-field-label">Max tokens (cap)</span>
-            <input class="input" id="rates-cap" type="number" min="1" step="1" inputmode="numeric" value="${cap}" />
-          </label>
+          <div class="rates-field-row">
+            <label class="rates-field">
+              <span class="rates-field-label">${startLabel}</span>
+              <input class="input" id="rates-start" type="number" min="0" step="any" inputmode="decimal" value="${startBal}" />
+            </label>
+            <label class="rates-field">
+              <span class="rates-field-label">Max tokens (cap)</span>
+              <input class="input" id="rates-cap" type="number" min="1" step="1" inputmode="numeric" value="${cap}" />
+            </label>
+          </div>
           <p class="diet-modal-hint">Tokens refill over time up to the cap. Logging spends 1 token.</p>
           <div class="modal-actions">
             <button class="btn btn-secondary" id="rates-modal-cancel" type="button">Cancel</button>
