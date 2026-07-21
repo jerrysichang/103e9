@@ -26,7 +26,7 @@ function normalizeTracker(t) {
   const rateAmount = Number(t.rateAmount) || 1
   const rateDays = Math.max(0.01, Number(t.rateDays) || 1)
   const cap = Math.max(1, Number(t.cap) || 1)
-  const balance = Math.max(0, Number(t.balance) || 0)
+  const balance = Number(t.balance) || 0
   const lastTickAt = Number(t.lastTickAt) || Date.now()
   return {
     id: String(t.id),
@@ -34,7 +34,7 @@ function normalizeTracker(t) {
     rateAmount,
     rateDays,
     cap,
-    balance: Math.min(cap, balance),
+    balance,
     lastTickAt,
     createdAt: t.createdAt || new Date().toISOString(),
     updatedAt: t.updatedAt || new Date().toISOString(),
@@ -160,8 +160,8 @@ function ratesStorage() {
         lastTickAt: Date.now(),
         balance: patch.balance != null ? Number(patch.balance) : settled.balance,
       })
-      // Re-clamp after rate/cap edits
-      next.balance = Math.min(next.cap, Math.max(0, next.balance))
+      // Clamp to cap if above, but allow negative values
+      next.balance = Math.min(next.cap, next.balance)
       state.trackers[idx] = next
       this._write(state.trackers)
       return next
@@ -187,6 +187,28 @@ function ratesStorage() {
         updatedAt: new Date(now).toISOString(),
         log: [
           { id: crypto.randomUUID(), type: 'consume', amount: 1, at: new Date(now).toISOString() },
+          ...(settled.log || []),
+        ].slice(0, 50),
+      }
+      state.trackers[idx] = next
+      this._write(state.trackers)
+      return { tracker: next, ok: true }
+    },
+
+    /** Add one token. Capped at max. */
+    add(id) {
+      const state = loadState()
+      const idx = state.trackers.findIndex(t => t.id === id)
+      if (idx === -1) return null
+      const settled = settleTracker(normalizeTracker(state.trackers[idx]))
+      const now = Date.now()
+      const next = {
+        ...settled,
+        balance: Math.min(settled.cap, settled.balance + 1),
+        lastTickAt: now,
+        updatedAt: new Date(now).toISOString(),
+        log: [
+          { id: crypto.randomUUID(), type: 'add', amount: 1, at: new Date(now).toISOString() },
           ...(settled.log || []),
         ].slice(0, 50),
       }
@@ -399,13 +421,52 @@ export function renderRates(container, { navigate }) {
     })
 
     container.querySelectorAll('[data-log-tracker]').forEach(btn => {
-      btn.addEventListener('click', e => {
+      let pressTimer = null
+      let isLongPress = false
+
+      const startPress = (e) => {
         e.stopPropagation()
-        const id = btn.dataset.logTracker
-        const result = storage.consume(id)
-        if (!result) return
-        showToast('Logged −1')
-      })
+        e.preventDefault()
+        isLongPress = false
+        pressTimer = setTimeout(() => {
+          isLongPress = true
+          const id = btn.dataset.logTracker
+          const result = storage.add(id)
+          if (!result) return
+          showToast('Added +1')
+        }, 1000)
+      }
+
+      const endPress = (e) => {
+        e.stopPropagation()
+        if (pressTimer) {
+          clearTimeout(pressTimer)
+          pressTimer = null
+        }
+        if (!isLongPress) {
+          const id = btn.dataset.logTracker
+          const result = storage.consume(id)
+          if (!result) return
+          showToast('Logged −1')
+        }
+        isLongPress = false
+      }
+
+      const cancelPress = () => {
+        if (pressTimer) {
+          clearTimeout(pressTimer)
+          pressTimer = null
+        }
+        isLongPress = false
+      }
+
+      btn.addEventListener('mousedown', startPress)
+      btn.addEventListener('touchstart', startPress)
+      btn.addEventListener('mouseup', endPress)
+      btn.addEventListener('touchend', endPress)
+      btn.addEventListener('mouseleave', cancelPress)
+      btn.addEventListener('touchcancel', cancelPress)
+      btn.addEventListener('click', e => e.preventDefault())
     })
 
     const backdrop = container.querySelector('#rates-modal')
