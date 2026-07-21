@@ -23,7 +23,7 @@ function saveState(state) {
 }
 
 function normalizeTracker(t) {
-  const rateAmount = Math.max(0.01, Number(t.rateAmount) || 1)
+  const rateAmount = Number(t.rateAmount) || 1
   const rateDays = Math.max(0.01, Number(t.rateDays) || 1)
   const cap = Math.max(1, Number(t.cap) || 1)
   const balance = Math.max(0, Number(t.balance) || 0)
@@ -241,7 +241,7 @@ export function renderRates(container, { navigate }) {
     const cap = Number(root.querySelector('#rates-cap')?.value)
     const balance = Number(root.querySelector('#rates-start')?.value)
     if (!name) return { error: 'Give it a name.' }
-    if (!Number.isFinite(rateAmount) || rateAmount <= 0) return { error: 'Rate amount must be greater than 0.' }
+    if (!Number.isFinite(rateAmount)) return { error: 'Rate amount must be a valid number.' }
     if (!Number.isFinite(rateDays) || rateDays <= 0) return { error: 'Period must be greater than 0 days.' }
     if (!Number.isFinite(cap) || cap < 1) return { error: 'Cap must be at least 1.' }
     if (!Number.isFinite(balance) || balance < 0) return { error: 'Starting tokens can’t be negative.' }
@@ -326,7 +326,7 @@ export function renderRates(container, { navigate }) {
           <div class="rates-field-row">
             <label class="rates-field">
               <span class="rates-field-label">Tokens</span>
-              <input class="input" id="rates-amount" type="number" min="0.01" step="any" inputmode="decimal" value="${rateAmount}" />
+              <input class="input" id="rates-amount" type="number" step="any" inputmode="decimal" value="${rateAmount}" />
             </label>
             <span class="rates-field-join">per</span>
             <label class="rates-field">
