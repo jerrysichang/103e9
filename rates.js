@@ -23,7 +23,7 @@ function saveState(state) {
 }
 
 function normalizeTracker(t) {
-  const rateAmount = Math.max(0.01, Number(t.rateAmount) || 1)
+  const rateAmount = Number(t.rateAmount) || 1
   const rateDays = Math.max(0.01, Number(t.rateDays) || 1)
   const cap = Math.max(1, Number(t.cap) || 1)
   const balance = Math.max(0, Number(t.balance) || 0)
@@ -173,17 +173,16 @@ function ratesStorage() {
       this._write(state.trackers)
     },
 
-    /** Spend one token if available. Returns updated tracker or null if none left. */
+    /** Spend one token. Balance can go negative. */
     consume(id) {
       const state = loadState()
       const idx = state.trackers.findIndex(t => t.id === id)
       if (idx === -1) return null
       const settled = settleTracker(normalizeTracker(state.trackers[idx]))
-      if (settled.balance < 1 - 1e-9) return { tracker: settled, ok: false }
       const now = Date.now()
       const next = {
         ...settled,
-        balance: Math.max(0, settled.balance - 1),
+        balance: settled.balance - 1,
         lastTickAt: now,
         updatedAt: new Date(now).toISOString(),
         log: [
@@ -241,7 +240,7 @@ export function renderRates(container, { navigate }) {
     const cap = Number(root.querySelector('#rates-cap')?.value)
     const balance = Number(root.querySelector('#rates-start')?.value)
     if (!name) return { error: 'Give it a name.' }
-    if (!Number.isFinite(rateAmount) || rateAmount <= 0) return { error: 'Rate amount must be greater than 0.' }
+    if (!Number.isFinite(rateAmount)) return { error: 'Rate amount must be a valid number.' }
     if (!Number.isFinite(rateDays) || rateDays <= 0) return { error: 'Period must be greater than 0 days.' }
     if (!Number.isFinite(cap) || cap < 1) return { error: 'Cap must be at least 1.' }
     if (!Number.isFinite(balance) || balance < 0) return { error: 'Starting tokens can’t be negative.' }
@@ -268,7 +267,6 @@ export function renderRates(container, { navigate }) {
     const bal = currentBalance(t)
     const whole = Math.floor(bal + 1e-9)
     const prog = progressToNextToken(t)
-    const canLog = bal >= 1 - 1e-9
     const barPct = prog.atCap ? 100 : Math.round(prog.progress * 100)
 
     return `
@@ -296,7 +294,6 @@ export function renderRates(container, { navigate }) {
           type="button"
           class="btn btn-cta rates-log-btn"
           data-log-tracker="${t.id}"
-          ${canLog ? '' : 'disabled'}
         >Log</button>
       </li>
     `
@@ -326,7 +323,7 @@ export function renderRates(container, { navigate }) {
           <div class="rates-field-row">
             <label class="rates-field">
               <span class="rates-field-label">Tokens</span>
-              <input class="input" id="rates-amount" type="number" min="0.01" step="any" inputmode="decimal" value="${rateAmount}" />
+              <input class="input" id="rates-amount" type="number" step="any" inputmode="decimal" value="${rateAmount}" />
             </label>
             <span class="rates-field-join">per</span>
             <label class="rates-field">
@@ -406,10 +403,7 @@ export function renderRates(container, { navigate }) {
         e.stopPropagation()
         const id = btn.dataset.logTracker
         const result = storage.consume(id)
-        if (!result?.ok) {
-          showToast('No tokens left yet')
-          return
-        }
+        if (!result) return
         showToast('Logged −1')
       })
     })
