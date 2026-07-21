@@ -16,6 +16,7 @@ import {
   updateFavorite,
   deleteFavorite,
 } from './diet-storage.js'
+import { getCurrentTheme, toggleTheme } from './theme.js'
 
 // ─── Config (match coach.js worker) ───────────────────────────────────────
 
@@ -447,6 +448,7 @@ export function renderDietTracker(container, { navigate }) {
           <div class="header-title">Fuel</div>
           <div class="header-right">
             <button class="btn btn-icon" id="btn-diet-goals" aria-label="Edit goals">${ICONS.target}</button>
+            <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
           </div>
         </header>
 
@@ -568,6 +570,19 @@ export function renderDietTracker(container, { navigate }) {
   function bindMainEvents() {
     container.querySelector('#btn-diet-back')?.addEventListener('click', () => navigate('home'))
     container.querySelector('#btn-diet-goals')?.addEventListener('click', () => navigate('diet-goals'))
+
+    // Theme toggle
+    const themeBtn = container.querySelector('#btn-theme-toggle')
+    if (themeBtn) {
+      function updateIcon() {
+        themeBtn.textContent = getCurrentTheme() === 'dark' ? '☀' : '☾'
+      }
+      updateIcon()
+      themeBtn.addEventListener('click', () => {
+        toggleTheme()
+        updateIcon()
+      })
+    }
 
     container.querySelector('#btn-open-log')?.addEventListener('click', () => {
       openLogModal()

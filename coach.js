@@ -6,6 +6,7 @@
  */
 
 import { getProfile, patchProfile } from './coach-profile.js'
+import { getCurrentTheme, toggleTheme } from './theme.js'
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
@@ -150,6 +151,7 @@ export function renderCoachChat(container, { navigate }) {
             <button class="btn btn-icon" id="btn-coach-profile" aria-label="View profile">
               ${ICONS.profile}
             </button>
+            <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
           </div>
         </header>
 
@@ -317,6 +319,19 @@ export function renderCoachChat(container, { navigate }) {
 
     const inputEl = view.querySelector('#coach-input')
     inputEl.addEventListener('input', () => autoResize(inputEl))
+
+    // Theme toggle
+    const themeBtn = view.querySelector('#btn-theme-toggle')
+    if (themeBtn) {
+      function updateIcon() {
+        themeBtn.textContent = getCurrentTheme() === 'dark' ? '☀' : '☾'
+      }
+      updateIcon()
+      themeBtn.addEventListener('click', () => {
+        toggleTheme()
+        updateIcon()
+      })
+    }
   }
 
   render()

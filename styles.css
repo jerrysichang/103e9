@@ -21,6 +21,35 @@
   --citibike-dock-dim:   #f0f0f0;
   --danger:          #dc2626;
   --danger-dim:      #dc26261a;
+}
+
+/* Yarn DS — dark monochrome palette */
+:root[data-theme="dark"] {
+  --bg:              #0a0a0a;
+  --surface:         #161616;
+  --surface-raised:  #1f1f1f;
+  --border:          #3a3a3a;
+  --border-subtle:   #262626;
+  --text:            #ededed;
+  --text-secondary:  #a0a0a0;
+  --text-muted:      #6b6b6b;
+  --accent:          #ededed;
+  --text-on-accent:  #0a0a0a;
+  --achieved:        #22c55e;
+  --achieved-dim:    #22c55e1a;
+  --citibike-bike:       #3b82f6;
+  --citibike-bike-dim:   #3b82f614;
+  --citibike-ebike:      #14b8a6;
+  --citibike-ebike-dim:  #14b8a614;
+  --citibike-dock:       #a0a0a0;
+  --citibike-dock-dim:   #262626;
+  --danger:          #ef4444;
+  --danger-dim:      #ef44441a;
+  --shadow-drop:     0 2px 4px rgba(0, 0, 0, 0.24), 0 2px 4px rgba(0, 0, 0, 0.32);
+  --shadow-inset:    inset 0 2px 4px rgba(0, 0, 0, 0.32), inset 0 2px 4px rgba(0, 0, 0, 0.24);
+}
+
+:root {
   --radius:          16px;   /* radius/lrg */
   --radius-sm:       8px;    /* radius/med */
   --radius-xs:       4px;    /* radius/sml */
@@ -201,6 +230,30 @@ h4 { font: var(--text-h4); }
 
 .header-right { justify-content: flex-end; }
 .header-left  { justify-content: flex-start; }
+
+/* ─── Theme Toggle ───────────────────────────────────────────────────────── */
+.theme-toggle {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 20px;
+  border: 0.5px solid var(--border);
+  box-shadow: var(--shadow-drop);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.theme-toggle:active {
+  opacity: 0.65;
+  transform: scale(0.97);
+}
 
 /* ─── Buttons ─────────────────────────────────────────────────────────────── */
 .btn {
@@ -591,6 +644,10 @@ h4 { font: var(--text-h4); }
   animation: fadeIn 0.2s ease;
 }
 
+:root[data-theme="dark"] .modal-backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
 .modal {
   background: var(--surface);
   border-radius: var(--radius) var(--radius) 0 0;
@@ -865,6 +922,11 @@ textarea.input {
   border-color: #b7cfa6;
 }
 
+:root[data-theme="dark"] .tool-card-changes {
+  background: #1a2318;
+  border-color: #2d4028;
+}
+
 .tool-card:active {
   background: var(--surface-raised);
   transform: scale(0.97);
@@ -933,6 +995,8 @@ textarea.input {
   }
 
   body { background: #f0f0f0; }
+
+  :root[data-theme="dark"] body { background: #000000; }
 
   .tools-grid { grid-template-columns: repeat(3, 1fr); }
 }
@@ -1924,6 +1988,11 @@ textarea.coach-input {
   border-bottom-color: rgba(0, 0, 0, 0.08);
 }
 
+:root[data-theme="dark"] #view-citibike.citibike-view--nearby .header {
+  background: rgba(10, 10, 10, 0.78);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
 #view-citibike.citibike-view--nearby .citibike-scroll {
   position: absolute;
   inset: 0;
@@ -1984,6 +2053,10 @@ textarea.coach-input {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
 }
 
+:root[data-theme="dark"] #view-citibike.citibike-view--nearby .citibike-map-mode-dock .citibike-mode-switch {
+  background: rgba(22, 22, 22, 0.88);
+}
+
 #view-citibike.citibike-view--nearby .citibike-map-mode-dock .citibike-mode-btn {
   padding: 14px 10px;
   min-height: 48px;
@@ -2024,6 +2097,14 @@ textarea.coach-input {
   background: rgba(247, 247, 247, 0.98);
 }
 
+:root[data-theme="dark"] .citibike-map-zoom-btn {
+  background: rgba(22, 22, 22, 0.88);
+}
+
+:root[data-theme="dark"] .citibike-map-zoom-btn:active {
+  background: rgba(31, 31, 31, 0.98);
+}
+
 .citibike-map-orient-prompt {
   position: absolute;
   inset: 0;
@@ -2039,6 +2120,10 @@ textarea.coach-input {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   pointer-events: auto;
+}
+
+:root[data-theme="dark"] .citibike-map-orient-prompt {
+  background: rgba(10, 10, 10, 0.62);
 }
 
 .citibike-map-orient-prompt .btn {
@@ -2276,6 +2361,10 @@ textarea.coach-input {
   box-shadow: var(--shadow-drop);
 }
 
+:root[data-theme="dark"] .citibike-map-north-compass {
+  background: rgba(22, 22, 22, 0.92);
+}
+
 .citibike-map-north-dial {
   display: flex;
   flex-direction: column;
@@ -2329,6 +2418,10 @@ textarea.coach-input {
   z-index: 5;
 }
 
+:root[data-theme="dark"] .citibike-map-overlay {
+  background: rgba(10, 10, 10, 0.86);
+}
+
 .citibike-map-overlay .btn {
   width: auto;
   min-width: 160px;
@@ -2354,6 +2447,10 @@ textarea.coach-input {
   background: rgba(255, 255, 255, 0.85) !important;
   color: var(--text-muted) !important;
   font-size: 10px !important;
+}
+
+:root[data-theme="dark"] #view-citibike .leaflet-control-attribution {
+  background: rgba(22, 22, 22, 0.85) !important;
 }
 
 #view-citibike .leaflet-control-attribution a {
@@ -2422,6 +2519,12 @@ textarea.coach-input {
   border-color: var(--border);
   background: #ffffff;
   font-weight: 500;
+}
+
+:root[data-theme="dark"] .citibike-map-pin-label-wrap .citibike-pill-bike,
+:root[data-theme="dark"] .citibike-map-pin-label-wrap .citibike-pill-ebike,
+:root[data-theme="dark"] .citibike-map-pin-label-wrap .citibike-pill-dock {
+  background: #161616;
 }
 
 .citibike-map-pin-label-wrap .citibike-pill-dock .citibike-pill-count {
@@ -2519,6 +2622,10 @@ textarea.coach-input {
   pointer-events: none;
   transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1), width 0.28s cubic-bezier(0.33, 1, 0.68, 1);
   will-change: transform, width;
+}
+
+:root[data-theme="dark"] .citibike-mode-indicator {
+  background: #262626;
 }
 
 .citibike-mode-switch.citibike-mode-dragging .citibike-mode-indicator {
@@ -3016,6 +3123,10 @@ textarea.coach-input {
   z-index: 500;
 }
 
+:root[data-theme="dark"] .bars-map-overlay {
+  background: rgba(10, 10, 10, 0.82);
+}
+
 .bars-map-status {
   margin: 0;
   font: var(--text-body-sm);
@@ -3047,6 +3158,10 @@ textarea.coach-input {
   font-size: 10px;
   background: rgba(255, 255, 255, 0.85);
   color: var(--text-muted);
+}
+
+:root[data-theme="dark"] #view-bars .leaflet-control-attribution {
+  background: rgba(22, 22, 22, 0.85);
 }
 
 #view-bars .leaflet-control-attribution a {

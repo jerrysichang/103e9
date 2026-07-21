@@ -1,5 +1,6 @@
 import { gratitudeStorage, suppressRemoteRender } from './storage.js'
 import { makeSortable }      from './sortable.js'
+import { getCurrentTheme, toggleTheme } from './theme.js'
 
 // ─── Journal Prompts ──────────────────────────────────────────────────────
 
@@ -56,6 +57,9 @@ export function renderGratitudeList(container, { navigate }) {
             </button>
           </div>
           <div class="header-title">Gratitude</div>
+          <div class="header-right">
+            <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
+          </div>
         </header>
 
         <div class="scroll">
@@ -157,6 +161,19 @@ function bindListEvents(navigate, rerender) {
   if (!root) return
 
   root.querySelector('#btn-home-list').addEventListener('click', () => navigate('home'))
+
+  // Theme toggle
+  const themeBtn = root.querySelector('#btn-theme-toggle')
+  if (themeBtn) {
+    function updateIcon() {
+      themeBtn.textContent = getCurrentTheme() === 'dark' ? '☀' : '☾'
+    }
+    updateIcon()
+    themeBtn.addEventListener('click', () => {
+      toggleTheme()
+      updateIcon()
+    })
+  }
 
   // Open item
   root.addEventListener('click', e => {

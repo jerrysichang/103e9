@@ -1,3 +1,5 @@
+import { getCurrentTheme, toggleTheme } from './theme.js'
+
 const KEY = 'ps_citibike_v1'
 const COMPASS_PREF_KEY = 'ps_citibike_compass_on'
 const LAST_POS_KEY = 'ps_citibike_last_pos'
@@ -1488,6 +1490,9 @@ export function renderCitibike(container, { navigate }) {
             </button>
           </div>
           <div class="header-title">Citibike</div>
+          <div class="header-right">
+            <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
+          </div>
         </header>
 
         <div class="scroll citibike-scroll citibike-pull-host">
@@ -1957,6 +1962,19 @@ export function renderCitibike(container, { navigate }) {
     }
 
     container.querySelector('#btn-citibike-home')?.addEventListener('click', () => navigate('home'))
+
+    // Theme toggle
+    const themeBtn = container.querySelector('#btn-theme-toggle')
+    if (themeBtn) {
+      function updateIcon() {
+        themeBtn.textContent = getCurrentTheme() === 'dark' ? '☀' : '☾'
+      }
+      updateIcon()
+      themeBtn.addEventListener('click', () => {
+        toggleTheme()
+        updateIcon()
+      })
+    }
 
     const mapDrawer = container.querySelector('#citibike-map-drawer')
     mapDrawer?.addEventListener('click', e => {

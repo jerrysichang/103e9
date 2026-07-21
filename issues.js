@@ -1,5 +1,6 @@
 import { issueStorage, suppressRemoteRender } from './storage.js'
 import { makeSortable } from './sortable.js'
+import { getCurrentTheme, toggleTheme } from './theme.js'
 
 export function renderIssuesList(container, { navigate }) {
   let openSortable = null
@@ -27,6 +28,9 @@ export function renderIssuesList(container, { navigate }) {
             </button>
           </div>
           <div class="header-title">Changes</div>
+          <div class="header-right">
+            <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
+          </div>
         </header>
 
         <div class="scroll">
@@ -136,6 +140,19 @@ function bindEvents(navigate, rerender) {
 
   root.querySelector('#btn-home-issues').addEventListener('click', () => navigate('home'))
   root.querySelector('#btn-add-issue-fab')?.addEventListener('click', () => openIssueCreator(rerender))
+
+  // Theme toggle
+  const themeBtn = root.querySelector('#btn-theme-toggle')
+  if (themeBtn) {
+    function updateIcon() {
+      themeBtn.textContent = getCurrentTheme() === 'dark' ? '☀' : '☾'
+    }
+    updateIcon()
+    themeBtn.addEventListener('click', () => {
+      toggleTheme()
+      updateIcon()
+    })
+  }
 
   root.querySelectorAll('[data-issue-complete]').forEach(inputEl => {
     inputEl.addEventListener('change', () => {

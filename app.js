@@ -19,6 +19,7 @@ import { renderBars } from './bars.js'
 import { renderRates } from './rates.js'
 import { onRemoteUpdate, handleRemoteData } from './storage.js'
 import { hasPassphrase, getPassphrase, connect, disconnect } from './firebase-sync.js'
+import { initTheme, getCurrentTheme, toggleTheme } from './theme.js'
 
 // ─── Tool Registry ────────────────────────────────────────────────────────
 
@@ -257,6 +258,24 @@ function renderPassphrase(container) {
   setTimeout(() => input.focus(), 100)
 }
 
+// ─── Theme Toggle Helper ──────────────────────────────────────────────────
+
+function setupThemeToggle(container) {
+  const btn = container.querySelector('#btn-theme-toggle')
+  if (!btn) return
+  
+  function updateIcon() {
+    btn.textContent = getCurrentTheme() === 'dark' ? '☀' : '☾'
+  }
+  
+  updateIcon()
+  
+  btn.addEventListener('click', () => {
+    toggleTheme()
+    updateIcon()
+  })
+}
+
 // ─── Home Screen (shown when multiple tools exist) ────────────────────────
 
 function renderHome(container) {
@@ -265,7 +284,10 @@ function renderHome(container) {
     <div class="view">
       <div class="scroll">
         <div class="home-header">
-          <h1 class="home-title">103e9</h1>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <h1 class="home-title" style="margin:0">103e9</h1>
+            <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
+          </div>
           <div style="margin-top:14px">
             <button class="btn btn-secondary" id="btn-logout">Logout this device</button>
           </div>
@@ -294,6 +316,9 @@ function renderHome(container) {
     disconnect()
     navigate('passphrase')
   })
+
+  // Theme toggle
+  setupThemeToggle(container)
 }
 
 // ─── Viewport height (iOS home-screen / PWA) ─────────────────────────────
@@ -329,6 +354,9 @@ function bindAppViewportHeight() {
 }
 
 bindAppViewportHeight()
+
+// Initialize theme
+initTheme()
 
 // ─── Boot ─────────────────────────────────────────────────────────────────
 

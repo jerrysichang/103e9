@@ -1,3 +1,5 @@
+import { getCurrentTheme, toggleTheme } from './theme.js'
+
 const KEY = 'ps_challenges_v1'
 
 const DEFAULT_STATE = {
@@ -183,6 +185,7 @@ export function renderChallenges(container, { navigate }) {
           <div class="header-right">
             <button class="btn btn-secondary" id="btn-diff-down" type="button">-</button>
             <button class="btn btn-secondary" id="btn-diff-up" type="button">+</button>
+            <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
           </div>
         </header>
         <div class="scroll">
@@ -235,6 +238,20 @@ export function renderChallenges(container, { navigate }) {
 
   function bind() {
     container.querySelector('#btn-challenges-home')?.addEventListener('click', () => navigate('home'))
+
+    // Theme toggle
+    const themeBtn = container.querySelector('#btn-theme-toggle')
+    if (themeBtn) {
+      function updateIcon() {
+        themeBtn.textContent = getCurrentTheme() === 'dark' ? '☀' : '☾'
+      }
+      updateIcon()
+      themeBtn.addEventListener('click', () => {
+        toggleTheme()
+        updateIcon()
+      })
+    }
+
     container.querySelector('#btn-add-topic')?.addEventListener('click', () => {
       const input = container.querySelector('#challenge-topic-input')
       const text = String(input?.value || '').trim()

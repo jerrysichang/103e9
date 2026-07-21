@@ -1,3 +1,5 @@
+import { getCurrentTheme, toggleTheme } from './theme.js'
+
 const KEY = 'ps_bars_v1'
 const API_KEY_KEY = 'ps_bars_api_key'
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
@@ -452,6 +454,7 @@ export function renderBars(container, { navigate }) {
           <div class="header-title">Bars</div>
           <div class="header-right">
             <button class="btn btn-icon" id="btn-bars-settings" aria-label="Data source settings">⚙</button>
+            <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
           </div>
         </header>
 
@@ -595,6 +598,20 @@ export function renderBars(container, { navigate }) {
       showSettings = true
       rerender()
     })
+
+    // Theme toggle
+    const themeBtn = container.querySelector('#btn-theme-toggle')
+    if (themeBtn) {
+      function updateIcon() {
+        themeBtn.textContent = getCurrentTheme() === 'dark' ? '☀' : '☾'
+      }
+      updateIcon()
+      themeBtn.addEventListener('click', () => {
+        toggleTheme()
+        updateIcon()
+      })
+    }
+
     container.querySelector('#bars-open-settings')?.addEventListener('click', () => {
       apiKeyDraft = loadApiKey()
       showSettings = true

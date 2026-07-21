@@ -1,3 +1,5 @@
+import { getCurrentTheme, toggleTheme } from './theme.js'
+
 const KEY = 'ps_rates_v1'
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -388,6 +390,9 @@ export function renderRates(container, { navigate }) {
             </button>
           </div>
           <div class="header-title">Rates</div>
+          <div class="header-right">
+            <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
+          </div>
         </header>
 
         <div class="scroll">
@@ -415,6 +420,19 @@ export function renderRates(container, { navigate }) {
   function bind() {
     container.querySelector('#btn-rates-home')?.addEventListener('click', () => navigate('home'))
     container.querySelector('#btn-rates-add')?.addEventListener('click', openAdd)
+
+    // Theme toggle
+    const themeBtn = container.querySelector('#btn-theme-toggle')
+    if (themeBtn) {
+      function updateIcon() {
+        themeBtn.textContent = getCurrentTheme() === 'dark' ? '☀' : '☾'
+      }
+      updateIcon()
+      themeBtn.addEventListener('click', () => {
+        toggleTheme()
+        updateIcon()
+      })
+    }
 
     container.querySelectorAll('[data-edit-tracker]').forEach(btn => {
       btn.addEventListener('click', () => openEdit(btn.dataset.editTracker))
