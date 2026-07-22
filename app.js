@@ -48,7 +48,7 @@ const TOOLS = [
   {
     id:          'rates',
     name:        'Rates',
-    description: 'Track refill and maintain rates over time',
+    description: 'Track spend and maintain rates over time',
     icon:        '◷',
     defaultView: 'rates',
   },
