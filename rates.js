@@ -122,14 +122,10 @@ function formatDuration(ms) {
   return remH ? `${days}d ${remH}h` : `${days}d`
 }
 
+/** Display balance as a whole number, truncated toward zero (0.7→0, −2.5→−2). */
 function formatBalance(bal) {
   if (!Number.isFinite(bal)) return '0'
-  const sign = bal < 0 ? -1 : 1
-  const abs = Math.abs(bal)
-  const whole = Math.floor(abs + 1e-9)
-  const frac = abs - whole
-  if (frac < 0.05) return String(sign * whole)
-  return (sign * abs).toFixed(1).replace(/\.0$/, '')
+  return String(Math.trunc(bal + (bal < 0 ? -1e-9 : 1e-9)))
 }
 
 function escapeHtml(str) {
