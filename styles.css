@@ -3445,6 +3445,35 @@ textarea.coach-input {
   color: var(--text-secondary);
 }
 
+.rates-mode-toggle {
+  display: flex;
+  gap: 0;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  overflow: hidden;
+  background: var(--surface-raised);
+}
+
+.rates-mode-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font: var(--text-body-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.rates-mode-btn + .rates-mode-btn {
+  border-left: 0.5px solid var(--border);
+}
+
+.rates-mode-btn.is-active {
+  background: var(--text);
+  color: var(--text-on-accent);
+  font-weight: 600;
+}
+
 .rates-field-row {
   display: flex;
   align-items: flex-end;

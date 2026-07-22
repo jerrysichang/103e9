@@ -24,6 +24,10 @@ function saveState(state) {
   localStorage.setItem(KEY, JSON.stringify(state))
 }
 
+function normalizeMode(mode) {
+  return mode === 'maintain' ? 'maintain' : 'refill'
+}
+
 function normalizeTracker(t) {
   const rateAmount = Number(t.rateAmount) || 1
   const rateDays = Math.max(0.01, Number(t.rateDays) || 1)
@@ -33,6 +37,7 @@ function normalizeTracker(t) {
   return {
     id: String(t.id),
     name: String(t.name || '').trim() || 'Untitled',
+    mode: normalizeMode(t.mode),
     rateAmount,
     rateDays,
     cap,
@@ -44,11 +49,18 @@ function normalizeTracker(t) {
   }
 }
 
+function tokensPerMs(t) {
+  return t.rateAmount / (t.rateDays * DAY_MS)
+}
+
 function currentBalance(t, now = Date.now()) {
+  const elapsed = Math.max(0, now - t.lastTickAt)
+  const delta = elapsed * tokensPerMs(t)
+  if (t.mode === 'maintain') {
+    return Math.max(0, Math.min(t.cap, t.balance - delta))
+  }
   if (t.balance >= t.cap) return t.cap
-  const tokensPerMs = t.rateAmount / (t.rateDays * DAY_MS)
-  const gained = Math.max(0, now - t.lastTickAt) * tokensPerMs
-  return Math.min(t.cap, t.balance + gained)
+  return Math.min(t.cap, t.balance + delta)
 }
 
 function settleTracker(t, now = Date.now()) {
@@ -62,8 +74,7 @@ function progressToNextToken(t, now = Date.now()) {
 
   const nextWhole = Math.min(t.cap, Math.floor(bal) + 1)
   const need = Math.max(0, nextWhole - bal)
-  const tokensPerMs = t.rateAmount / (t.rateDays * DAY_MS)
-  const msUntilNext = need / tokensPerMs
+  const msUntilNext = need / tokensPerMs(t)
   const progress = bal - Math.floor(bal)
   return {
     atCap: false,
@@ -71,6 +82,21 @@ function progressToNextToken(t, now = Date.now()) {
     msUntilNext,
     nextLabel: `Next in ${formatDuration(msUntilNext)}`,
     nextWhole,
+  }
+}
+
+function progressMaintain(t, now = Date.now()) {
+  const bal = currentBalance(t, now)
+  const progress = t.cap > 0 ? Math.min(1, Math.max(0, bal / t.cap)) : 0
+  if (bal <= 1e-9) {
+    return { empty: true, progress: 0, msUntilEmpty: null, nextLabel: 'Empty' }
+  }
+  const msUntilEmpty = bal / tokensPerMs(t)
+  return {
+    empty: false,
+    progress,
+    msUntilEmpty,
+    nextLabel: `Empty in ${formatDuration(msUntilEmpty)}`,
   }
 }
 
@@ -125,7 +151,7 @@ function ratesStorage() {
       saveState({ trackers })
     },
 
-    create({ name, rateAmount, rateDays, cap, balance = 0 }) {
+    create({ name, mode = 'refill', rateAmount, rateDays, cap, balance = 0 }) {
       const state = loadState()
       const now = Date.now()
       const capped = Math.floor(Math.max(1, Number(cap) || 1))
@@ -133,6 +159,7 @@ function ratesStorage() {
       const tracker = normalizeTracker({
         id: crypto.randomUUID(),
         name,
+        mode,
         rateAmount,
         rateDays,
         cap: capped,
@@ -197,12 +224,15 @@ function ratesStorage() {
       return { tracker: next, ok: true }
     },
 
-    /** Add one token. Capped at max. */
-    add(id) {
+    /** Add one token up to the cap. Used by refill long-press and maintain top-up. */
+    topUp(id) {
       const state = loadState()
       const idx = state.trackers.findIndex(t => t.id === id)
       if (idx === -1) return null
       const settled = settleTracker(normalizeTracker(state.trackers[idx]))
+      if (settled.balance >= settled.cap - 1e-9) {
+        return { tracker: settled, ok: false }
+      }
       const now = Date.now()
       const next = {
         ...settled,
@@ -210,7 +240,7 @@ function ratesStorage() {
         lastTickAt: now,
         updatedAt: new Date(now).toISOString(),
         log: [
-          { id: crypto.randomUUID(), type: 'add', amount: 1, at: new Date(now).toISOString() },
+          { id: crypto.randomUUID(), type: 'topup', amount: 1, at: new Date(now).toISOString() },
           ...(settled.log || []),
         ].slice(0, 50),
       }
@@ -226,6 +256,7 @@ const storage = ratesStorage()
 export function renderRates(container, { navigate }) {
   let editingId = null
   let modalMode = null // 'add' | 'edit'
+  let formTrackerMode = 'refill' // selected mode in create/edit modal
   let toast = ''
 
   function showToast(msg) {
@@ -242,18 +273,22 @@ export function renderRates(container, { navigate }) {
   function openAdd() {
     editingId = null
     modalMode = 'add'
+    formTrackerMode = 'refill'
     rerender()
   }
 
   function openEdit(id) {
     editingId = id
     modalMode = 'edit'
+    const existing = storage.get(id)
+    formTrackerMode = normalizeMode(existing?.mode)
     rerender()
   }
 
   function closeModal() {
     editingId = null
     modalMode = null
+    formTrackerMode = 'refill'
     rerender()
   }
 
@@ -263,6 +298,9 @@ export function renderRates(container, { navigate }) {
     const rateDays = Number(root.querySelector('#rates-days')?.value)
     const cap = Number(root.querySelector('#rates-cap')?.value)
     const balance = Number(root.querySelector('#rates-start')?.value)
+    const mode = normalizeMode(
+      root.querySelector('.rates-mode-btn.is-active')?.dataset.mode || formTrackerMode
+    )
     if (!name) return { error: 'Give it a name.' }
     if (!Number.isFinite(rateAmount)) return { error: 'Rate amount must be a valid number.' }
     if (!Number.isFinite(rateDays) || rateDays <= 0) return { error: 'Period must be greater than 0 days.' }
@@ -270,7 +308,7 @@ export function renderRates(container, { navigate }) {
     if (!Number.isFinite(balance) || balance < 0) return { error: 'Starting tokens can’t be negative.' }
     const capInt = Math.floor(cap)
     if (balance > capInt) return { error: 'Starting tokens can’t exceed the cap.' }
-    return { name, rateAmount, rateDays, cap: capInt, balance }
+    return { name, mode, rateAmount, rateDays, cap: capInt, balance }
   }
 
   function saveModal() {
@@ -290,8 +328,25 @@ export function renderRates(container, { navigate }) {
   function renderCard(t) {
     const bal = currentBalance(t)
     const whole = Math.floor(bal + 1e-9)
-    const prog = progressToNextToken(t)
-    const barPct = prog.atCap ? 100 : Math.round(prog.progress * 100)
+    const isMaintain = t.mode === 'maintain'
+    const prog = isMaintain ? progressMaintain(t) : progressToNextToken(t)
+    const barPct = Math.round((prog.progress || 0) * 100)
+    const tokenLabel = whole === 1 ? '1 token' : `${whole} tokens`
+    const metaLeft = isMaintain ? tokenLabel : `${tokenLabel} left`
+    const modeLabel = isMaintain ? 'maintain' : 'refill'
+    const canTopUp = bal < t.cap - 1e-9
+    const actionBtn = isMaintain
+      ? `<button
+          type="button"
+          class="btn btn-cta rates-log-btn"
+          data-topup-tracker="${t.id}"
+          ${canTopUp ? '' : 'disabled'}
+        >Top up</button>`
+      : `<button
+          type="button"
+          class="btn btn-cta rates-log-btn"
+          data-log-tracker="${t.id}"
+        >Log</button>`
 
     return `
       <li class="rates-card" data-tracker-id="${t.id}">
@@ -301,7 +356,7 @@ export function renderRates(container, { navigate }) {
             <span class="rates-card-balance">${formatBalance(bal)}</span>
           </div>
           <div class="rates-card-meta text-body-sm">
-            <span>${whole === 1 ? '1 token' : `${whole} tokens`} left</span>
+            <span>${escapeHtml(metaLeft)}</span>
             <span class="rates-card-dot">·</span>
             <span>${escapeHtml(prog.nextLabel)}</span>
           </div>
@@ -309,18 +364,22 @@ export function renderRates(container, { navigate }) {
             <div class="rates-progress-fill" style="width:${barPct}%"></div>
           </div>
           <div class="rates-card-footer text-body-sm">
+            <span>${escapeHtml(modeLabel)}</span>
+            <span class="rates-card-dot">·</span>
             <span>${escapeHtml(formatRate(t))}</span>
             <span class="rates-card-dot">·</span>
             <span>cap ${t.cap}</span>
           </div>
         </button>
-        <button
-          type="button"
-          class="btn btn-cta rates-log-btn"
-          data-log-tracker="${t.id}"
-        >Log</button>
+        ${actionBtn}
       </li>
     `
+  }
+
+  function modeHint(mode) {
+    return mode === 'maintain'
+      ? 'Tokens decay over time. Topping up adds 1 token, up to the cap.'
+      : 'Tokens refill over time up to the cap. Logging spends 1 token.'
   }
 
   function renderModal() {
@@ -334,12 +393,20 @@ export function renderRates(container, { navigate }) {
     const cap = isEdit ? existing.cap : 5
     const startBal = isEdit ? formatBalance(currentBalance(existing)) : 0
     const startLabel = isEdit ? 'Current tokens' : 'Starting tokens'
+    const mode = formTrackerMode
 
     return `
       <div class="modal-backdrop" id="rates-modal">
         <div class="modal rates-modal">
           <div class="modal-handle"></div>
           <div class="modal-title">${title}</div>
+          <div class="rates-field">
+            <span class="rates-field-label">Mode</span>
+            <div class="rates-mode-toggle" role="group" aria-label="Rate mode">
+              <button type="button" class="rates-mode-btn${mode === 'refill' ? ' is-active' : ''}" data-mode="refill">Refill</button>
+              <button type="button" class="rates-mode-btn${mode === 'maintain' ? ' is-active' : ''}" data-mode="maintain">Maintain</button>
+            </div>
+          </div>
           <label class="rates-field">
             <span class="rates-field-label">Name</span>
             <input class="input" id="rates-name" type="text" maxlength="80" placeholder="e.g. Drinks" value="${escapeHtml(name)}" autocomplete="off" />
@@ -365,7 +432,7 @@ export function renderRates(container, { navigate }) {
               <input class="input" id="rates-cap" type="number" min="1" step="1" inputmode="numeric" value="${cap}" />
             </label>
           </div>
-          <p class="diet-modal-hint">Tokens refill over time up to the cap. Logging spends 1 token.</p>
+          <p class="diet-modal-hint" id="rates-mode-hint">${escapeHtml(modeHint(mode))}</p>
           <div class="modal-actions">
             <button class="btn btn-secondary" id="rates-modal-cancel" type="button">Cancel</button>
             <button class="btn btn-cta" id="rates-modal-save" type="button">${isEdit ? 'Save' : 'Add'}</button>
@@ -398,8 +465,8 @@ export function renderRates(container, { navigate }) {
         <div class="scroll">
           ${trackers.length === 0 ? `
             <div class="empty-state rates-empty">
-              <p>Track anything with a refill rate — drinks, treats, check-ins.</p>
-              <p class="text-body-sm" style="color:var(--text-secondary);margin-top:8px">Example: 1 drink every 3 days, capped at 5.</p>
+              <p>Track refill rates you spend down, or levels you maintain as they decay.</p>
+              <p class="text-body-sm" style="color:var(--text-secondary);margin-top:8px">Example: 1 drink every 3 days, or a stock that empties over a week.</p>
             </div>
           ` : `
             <ul class="rates-list">
@@ -438,6 +505,18 @@ export function renderRates(container, { navigate }) {
       btn.addEventListener('click', () => openEdit(btn.dataset.editTracker))
     })
 
+    container.querySelectorAll('[data-topup-tracker]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation()
+        const result = storage.topUp(btn.dataset.topupTracker)
+        if (!result?.ok) {
+          showToast('Already at cap')
+          return
+        }
+        showToast('Topped up +1')
+      })
+    })
+
     container.querySelectorAll('[data-log-tracker]').forEach(btn => {
       let pressTimer = null
       let isLongPress = false
@@ -449,8 +528,11 @@ export function renderRates(container, { navigate }) {
         pressTimer = setTimeout(() => {
           isLongPress = true
           const id = btn.dataset.logTracker
-          const result = storage.add(id)
-          if (!result) return
+          const result = storage.topUp(id)
+          if (!result?.ok) {
+            showToast('Already at cap')
+            return
+          }
           showToast('Added +1')
         }, 1000)
       }
@@ -498,6 +580,17 @@ export function renderRates(container, { navigate }) {
       if (!confirm('Delete this rate?')) return
       storage.remove(editingId)
       closeModal()
+    })
+
+    container.querySelectorAll('.rates-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        formTrackerMode = normalizeMode(btn.dataset.mode)
+        container.querySelectorAll('.rates-mode-btn').forEach(b => {
+          b.classList.toggle('is-active', b.dataset.mode === formTrackerMode)
+        })
+        const hint = container.querySelector('#rates-mode-hint')
+        if (hint) hint.textContent = modeHint(formTrackerMode)
+      })
     })
 
     const nameInput = container.querySelector('#rates-name')
