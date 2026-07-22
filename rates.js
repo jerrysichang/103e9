@@ -69,7 +69,7 @@ function progressToNextToken(t, now = Date.now()) {
     atCap: false,
     progress,
     msUntilNext,
-    nextLabel: `Next in ${formatDuration(msUntilNext)}`,
+    nextLabel: `in ${formatDuration(msUntilNext)}`,
     nextWhole,
   }
 }
@@ -94,13 +94,6 @@ function formatBalance(bal) {
   const frac = bal - whole
   if (frac < 0.05) return String(whole)
   return bal.toFixed(1).replace(/\.0$/, '')
-}
-
-function formatRate(t) {
-  const amount = Number.isInteger(t.rateAmount) ? String(t.rateAmount) : String(t.rateAmount)
-  const days = Number.isInteger(t.rateDays) ? String(t.rateDays) : String(t.rateDays)
-  const unit = t.rateDays === 1 ? 'day' : 'days'
-  return `${amount} / ${days} ${unit}`
 }
 
 function escapeHtml(str) {
@@ -289,36 +282,25 @@ export function renderRates(container, { navigate }) {
 
   function renderCard(t) {
     const bal = currentBalance(t)
-    const whole = Math.floor(bal + 1e-9)
     const prog = progressToNextToken(t)
-    const barPct = prog.atCap ? 100 : Math.round(prog.progress * 100)
+    const countText = formatBalance(bal)
+    const countLabel = `${countText} tokens`
 
     return `
-      <li class="rates-card" data-tracker-id="${t.id}">
-        <button type="button" class="rates-card-main" data-edit-tracker="${t.id}">
-          <div class="rates-card-top">
-            <span class="rates-card-name">${escapeHtml(t.name)}</span>
-            <span class="rates-card-balance">${formatBalance(bal)}</span>
-          </div>
-          <div class="rates-card-meta text-body-sm">
-            <span>${whole === 1 ? '1 token' : `${whole} tokens`} left</span>
-            <span class="rates-card-dot">·</span>
-            <span>${escapeHtml(prog.nextLabel)}</span>
-          </div>
-          <div class="rates-progress" aria-hidden="true">
-            <div class="rates-progress-fill" style="width:${barPct}%"></div>
-          </div>
-          <div class="rates-card-footer text-body-sm">
-            <span>${escapeHtml(formatRate(t))}</span>
-            <span class="rates-card-dot">·</span>
-            <span>cap ${t.cap}</span>
+      <li class="item rates-item" data-tracker-id="${t.id}">
+        <button type="button" class="rates-item-main" data-edit-tracker="${t.id}">
+          <span class="rates-item-name item-title">${escapeHtml(t.name)}</span>
+          <div class="rates-item-stats">
+            <span class="rates-token" aria-label="${countLabel}">${escapeHtml(countText)}</span>
+            <span class="rates-next text-body-sm">${escapeHtml(prog.nextLabel)}</span>
           </div>
         </button>
         <button
           type="button"
-          class="btn btn-cta rates-log-btn"
+          class="rates-use-btn"
           data-log-tracker="${t.id}"
-        >Log</button>
+          aria-label="Use 1 token. Long press to add 1."
+        >−1</button>
       </li>
     `
   }
@@ -365,7 +347,7 @@ export function renderRates(container, { navigate }) {
               <input class="input" id="rates-cap" type="number" min="1" step="1" inputmode="numeric" value="${cap}" />
             </label>
           </div>
-          <p class="diet-modal-hint">Tokens refill over time up to the cap. Logging spends 1 token.</p>
+          <p class="diet-modal-hint">Tokens refill over time up to the cap. Tap −1 to spend; long-press to add +1.</p>
           <div class="modal-actions">
             <button class="btn btn-secondary" id="rates-modal-cancel" type="button">Cancel</button>
             <button class="btn btn-cta" id="rates-modal-save" type="button">${isEdit ? 'Save' : 'Add'}</button>
@@ -402,7 +384,10 @@ export function renderRates(container, { navigate }) {
               <p class="text-body-sm" style="color:var(--text-secondary);margin-top:8px">Example: 1 drink every 3 days, capped at 5.</p>
             </div>
           ` : `
-            <ul class="rates-list">
+            <div class="section-header">
+              <span class="section-label">Your rates</span>
+            </div>
+            <ul class="item-list rates-list">
               ${trackers.map(renderCard).join('')}
             </ul>
           `}
@@ -465,7 +450,7 @@ export function renderRates(container, { navigate }) {
           const id = btn.dataset.logTracker
           const result = storage.consume(id)
           if (!result) return
-          showToast('Logged −1')
+          showToast('Used −1')
         }
         isLongPress = false
       }
