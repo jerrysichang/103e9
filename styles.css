@@ -235,7 +235,7 @@ h4 { font: var(--text-h4); }
 .theme-toggle {
   width: 44px;
   height: 44px;
-  border-radius: var(--radius);
+  border-radius: 50%;
   background: var(--surface);
   color: var(--text);
   font-size: 20px;
@@ -275,7 +275,7 @@ h4 { font: var(--text-h4); }
 .btn-icon {
   width: 44px;
   height: 44px;
-  border-radius: var(--radius);
+  border-radius: 50%;
   background: var(--surface);
   color: var(--text);
   font-size: 20px;
