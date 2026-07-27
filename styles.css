@@ -360,12 +360,13 @@ h4 { font: var(--text-h4); }
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 20px calc(12px + var(--safe-bottom));
+  padding: 16px 20px calc(16px + var(--safe-bottom));
   pointer-events: none;
+  min-height: calc(64px + 32px + var(--safe-bottom));
   background: linear-gradient(
     to top,
     var(--bg) 0%,
-    color-mix(in srgb, var(--bg) 70%, transparent) 45%,
+    color-mix(in srgb, var(--bg) 80%, transparent) 50%,
     transparent 100%
   );
 }
@@ -454,7 +455,7 @@ h4 { font: var(--text-h4); }
 }
 
 .view:has(.bottom-chrome) > .scroll {
-  padding-bottom: calc(88px + var(--safe-bottom));
+  padding-bottom: calc(96px + var(--safe-bottom));
 }
 
 /* Legacy circular FAB alias (prefer .fab-text in bottom-chrome) */
@@ -2006,7 +2007,7 @@ textarea.coach-input {
 }
 
 #view-issues > .scroll {
-  padding-bottom: calc(88px + var(--safe-bottom)) !important;
+  padding-bottom: calc(96px + var(--safe-bottom)) !important;
 }
 
 .prompt-answer-drawer {
@@ -2079,7 +2080,7 @@ textarea.coach-input {
 
 /* ─── Citibike ───────────────────────────────────────────────────────────── */
 #view-citibike .citibike-scroll {
-  padding-bottom: calc(88px + var(--safe-bottom));
+  padding-bottom: calc(96px + var(--safe-bottom));
   overscroll-behavior-y: contain;
 }
 
@@ -3174,7 +3175,7 @@ textarea.coach-input {
 }
 
 .bars-view:has(.bottom-chrome) > .bars-scroll {
-  padding-bottom: calc(88px + var(--safe-bottom));
+  padding-bottom: calc(96px + var(--safe-bottom));
 }
 
 .bars-notice {

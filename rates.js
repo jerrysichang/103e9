@@ -126,7 +126,11 @@ function formatDuration(ms) {
 /** Display balance as a whole number, truncated toward zero (0.7→0, −2.5→−2). */
 function formatBalance(bal) {
   if (!Number.isFinite(bal)) return '0'
-  return String(Math.trunc(bal + (bal < 0 ? -1e-9 : 1e-9)))
+  // Truncate toward zero while preserving sign for negative values
+  if (bal < 0) {
+    return String(Math.ceil(bal - 1e-9))
+  }
+  return String(Math.floor(bal + 1e-9))
 }
 
 function escapeHtml(str) {
@@ -541,13 +545,25 @@ export function renderRates(container, { navigate }) {
     container.querySelectorAll('[data-rate-action]').forEach(btn => {
       let pressTimer = null
       let isLongPress = false
+      let startX = 0
+      let startY = 0
+      let hasMoved = false
       const mode = btn.dataset.mode
+      const MOVE_THRESHOLD = 10 // pixels
 
       const startPress = (e) => {
         e.stopPropagation()
         e.preventDefault()
         isLongPress = false
+        hasMoved = false
+        
+        // Record starting position
+        const touch = e.touches?.[0] || e
+        startX = touch.clientX || 0
+        startY = touch.clientY || 0
+        
         pressTimer = setTimeout(() => {
+          if (hasMoved) return // Don't trigger long press if dragging
           isLongPress = true
           const id = btn.dataset.rateAction
           if (mode === 'maintain') {
@@ -562,13 +578,30 @@ export function renderRates(container, { navigate }) {
         }, 1000)
       }
 
+      const movePress = (e) => {
+        if (!pressTimer && !isLongPress) return
+        const touch = e.touches?.[0] || e
+        const currentX = touch.clientX || 0
+        const currentY = touch.clientY || 0
+        const deltaX = Math.abs(currentX - startX)
+        const deltaY = Math.abs(currentY - startY)
+        
+        // If moved more than threshold, cancel the press
+        if (deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD) {
+          hasMoved = true
+          cancelPress()
+        }
+      }
+
       const endPress = (e) => {
         e.stopPropagation()
         if (pressTimer) {
           clearTimeout(pressTimer)
           pressTimer = null
         }
-        if (!isLongPress) {
+        
+        // Don't trigger if we detected movement (drag)
+        if (!isLongPress && !hasMoved) {
           const id = btn.dataset.rateAction
           if (mode === 'maintain') {
             const result = storage.add(id)
@@ -581,6 +614,7 @@ export function renderRates(container, { navigate }) {
           }
         }
         isLongPress = false
+        hasMoved = false
       }
 
       const cancelPress = () => {
@@ -592,7 +626,9 @@ export function renderRates(container, { navigate }) {
       }
 
       btn.addEventListener('mousedown', startPress)
-      btn.addEventListener('touchstart', startPress)
+      btn.addEventListener('touchstart', startPress, { passive: false })
+      btn.addEventListener('mousemove', movePress)
+      btn.addEventListener('touchmove', movePress, { passive: false })
       btn.addEventListener('mouseup', endPress)
       btn.addEventListener('touchend', endPress)
       btn.addEventListener('mouseleave', cancelPress)
