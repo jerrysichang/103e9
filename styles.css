@@ -233,8 +233,8 @@ h4 { font: var(--text-h4); }
 
 /* ─── Theme Toggle ───────────────────────────────────────────────────────── */
 .theme-toggle {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: var(--surface);
   color: var(--text);
@@ -273,8 +273,8 @@ h4 { font: var(--text-h4); }
 .btn:active { opacity: 0.65; transform: scale(0.97); }
 
 .btn-icon {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: var(--surface);
   color: var(--text);
@@ -339,6 +339,7 @@ h4 { font: var(--text-h4); }
   border-radius: 100px;
   font-weight: 600;
   width: 100%;
+  min-height: 48px;
 }
 
 .btn-cta--wide {
@@ -385,8 +386,8 @@ h4 { font: var(--text-h4); }
 }
 
 .bottom-chrome .menu-grid-btn {
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
   flex-shrink: 0;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
 }
@@ -461,11 +462,11 @@ h4 { font: var(--text-h4); }
   position: absolute;
   right: 20px;
   bottom: calc(18px + var(--safe-bottom));
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   padding: 0;
-  font-size: 26px;
+  font-size: 28px;
   line-height: 1;
   z-index: 35;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
@@ -479,6 +480,7 @@ h4 { font: var(--text-h4); }
   border-radius: 100px;
   font-weight: 500;
   border: 0.5px solid var(--border);
+  min-height: 48px;
 }
 
 .btn-achieved {
@@ -488,6 +490,7 @@ h4 { font: var(--text-h4); }
   border-radius: 100px;
   font-weight: 600;
   border: 1px solid #16a34a33;
+  min-height: 48px;
 }
 
 .btn-danger {
@@ -497,6 +500,7 @@ h4 { font: var(--text-h4); }
   border-radius: 100px;
   font-weight: 500;
   border: 1px solid #dc262630;
+  min-height: 48px;
 }
 
 /* ─── View System ────────────────────────────────────────────────────────── */
@@ -2894,8 +2898,8 @@ textarea.coach-input {
 }
 
 .citibike-compass-btn-lg {
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
 }
 
 .citibike-compass-btn-lg .citibike-compass-arrow {
@@ -2997,8 +3001,8 @@ textarea.coach-input {
 }
 
 .citibike-compass-btn {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--surface-raised);
