@@ -7,6 +7,7 @@
 
 import { getProfile, patchProfile } from './coach-profile.js'
 import { getCurrentTheme, toggleTheme } from './theme.js'
+import { bottomChrome, gridMenuFab, textFab } from './chrome.js'
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
@@ -141,11 +142,7 @@ export function renderCoachChat(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-coach-chat">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-back" id="btn-back-coach">
-              ${ICONS.back} Back
-            </button>
-          </div>
+          <div class="header-left"></div>
           <div class="header-title">Coach</div>
           <div class="header-right">
             <button class="btn btn-icon" id="btn-coach-profile" aria-label="View profile">
@@ -157,18 +154,24 @@ export function renderCoachChat(container, { navigate }) {
 
         <div class="coach-messages" id="coach-messages"></div>
 
-        <div class="coach-input-bar">
-          <div class="coach-input-row">
-            <textarea
-              class="input coach-input"
-              id="coach-input"
-              placeholder="Message…"
-              rows="1"
-              autocomplete="off"
-              spellcheck="true"
-            ></textarea>
-            <button class="btn btn-primary coach-send" id="coach-send">Send</button>
+        <div class="coach-bottom-stack">
+          <div class="coach-input-bar">
+            <div class="coach-input-row">
+              <textarea
+                class="input coach-input"
+                id="coach-input"
+                placeholder="Message…"
+                rows="1"
+                autocomplete="off"
+                spellcheck="true"
+              ></textarea>
+              <button class="btn btn-primary coach-send" id="coach-send">Send</button>
+            </div>
           </div>
+          ${bottomChrome({
+            left: gridMenuFab('btn-back-coach'),
+            right: '',
+          })}
         </div>
       </div>
     `
@@ -377,11 +380,7 @@ export function renderCoachProfile(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-coach-profile">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-back" id="btn-back-profile">
-              ${ICONS.back} Back
-            </button>
-          </div>
+          <div class="header-left"></div>
           <div class="header-title">Profile</div>
           <div class="header-right"></div>
         </header>
@@ -392,6 +391,10 @@ export function renderCoachProfile(container, { navigate }) {
             ${sectionsHtml}
           </div>
         </div>
+        ${bottomChrome({
+          left: textFab({ id: 'btn-back-profile', label: `${ICONS.back} Coach` }),
+          right: '',
+        })}
       </div>
     `
 

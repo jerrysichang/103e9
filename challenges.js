@@ -1,4 +1,5 @@
 import { getCurrentTheme, toggleTheme } from './theme.js'
+import { bottomChrome, gridMenuFab } from './chrome.js'
 
 const KEY = 'ps_challenges_v1'
 
@@ -176,11 +177,7 @@ export function renderChallenges(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-challenges">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn header-menu-btn" id="btn-challenges-home" aria-label="Menu">
-              <span class="menu-grid-icon" aria-hidden="true"></span>
-            </button>
-          </div>
+          <div class="header-left"></div>
           <div class="header-title">Challenges</div>
           <div class="header-right">
             <button class="btn btn-secondary" id="btn-diff-down" type="button">-</button>
@@ -230,6 +227,10 @@ export function renderChallenges(container, { navigate }) {
             `).join('')}
           </ul>
         </div>
+        ${bottomChrome({
+          left: gridMenuFab('btn-challenges-home'),
+          right: '',
+        })}
       </div>
     `
 

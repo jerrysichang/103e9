@@ -1,4 +1,5 @@
 import { getCurrentTheme, toggleTheme } from './theme.js'
+import { bottomChrome, gridMenuFab } from './chrome.js'
 
 const KEY = 'ps_bars_v1'
 const API_KEY_KEY = 'ps_bars_api_key'
@@ -446,11 +447,7 @@ export function renderBars(container, { navigate }) {
     container.innerHTML = `
       <div class="view bars-view" id="view-bars">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn header-menu-btn" id="btn-bars-home" aria-label="Menu">
-              <span class="menu-grid-icon" aria-hidden="true"></span>
-            </button>
-          </div>
+          <div class="header-left"></div>
           <div class="header-title">Bars</div>
           <div class="header-right">
             <button class="btn btn-icon" id="btn-bars-settings" aria-label="Data source settings">⚙</button>
@@ -463,6 +460,10 @@ export function renderBars(container, { navigate }) {
           ${renderMapPanel()}
           ${renderListPanel()}
         </div>
+        ${bottomChrome({
+          left: gridMenuFab('btn-bars-home'),
+          right: '',
+        })}
         ${renderDrawer()}
         ${renderSettingsModal()}
       </div>

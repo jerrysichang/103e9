@@ -17,6 +17,7 @@ import {
   deleteFavorite,
 } from './diet-storage.js'
 import { getCurrentTheme, toggleTheme } from './theme.js'
+import { bottomChrome, gridMenuFab, textFab } from './chrome.js'
 
 // ─── Config (match coach.js worker) ───────────────────────────────────────
 
@@ -440,11 +441,7 @@ export function renderDietTracker(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-diet">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn header-menu-btn" id="btn-diet-back" aria-label="Menu">
-              <span class="menu-grid-icon" aria-hidden="true"></span>
-            </button>
-          </div>
+          <div class="header-left"></div>
           <div class="header-title">Fuel</div>
           <div class="header-right">
             <button class="btn btn-icon" id="btn-diet-goals" aria-label="Edit goals">${ICONS.target}</button>
@@ -474,9 +471,10 @@ export function renderDietTracker(container, { navigate }) {
           </ul>
         </div>
 
-        <div class="diet-footer">
-          <button class="btn btn-primary diet-log-btn" id="btn-open-log">Log food</button>
-        </div>
+        ${bottomChrome({
+          left: gridMenuFab('btn-diet-back'),
+          right: textFab({ id: 'btn-open-log', label: 'Log food' }),
+        })}
 
         <div class="modal-backdrop hidden" id="diet-log-modal">
           <div class="modal diet-log-modal-inner">
@@ -1193,10 +1191,9 @@ export function renderDietGoals(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-diet-goals">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-back" id="btn-goals-back">${ICONS.back} Fuel</button>
-            <div class="header-title">Goals</div>
-          </div>
+          <div class="header-left"></div>
+          <div class="header-title">Goals</div>
+          <div class="header-right"></div>
         </header>
         <div class="scroll">
           <p class="diet-goals-intro">Daily targets reset at midnight (local time). Logs are grouped by calendar day.</p>
@@ -1217,9 +1214,12 @@ export function renderDietGoals(container, { navigate }) {
               <span>Fat (g)</span>
               <input class="input" type="number" min="0" step="1" id="goal-f" value="${g.fatG}" />
             </label>
-            <button class="btn btn-primary" id="btn-save-goals" style="margin-top:12px">Save goals</button>
           </div>
         </div>
+        ${bottomChrome({
+          left: textFab({ id: 'btn-goals-back', label: `${ICONS.back} Fuel` }),
+          right: textFab({ id: 'btn-save-goals', label: 'Save' }),
+        })}
       </div>
     `
 

@@ -1,4 +1,5 @@
 import { getCurrentTheme, toggleTheme } from './theme.js'
+import { bottomChrome, gridMenuFab, textFab } from './chrome.js'
 
 const KEY = 'ps_rates_v1'
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -486,11 +487,7 @@ export function renderRates(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-rates">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn header-menu-btn" id="btn-rates-home" aria-label="Menu">
-              <span class="menu-grid-icon" aria-hidden="true"></span>
-            </button>
-          </div>
+          <div class="header-left"></div>
           <div class="header-title">Rates</div>
           <div class="header-right">
             <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
@@ -509,7 +506,10 @@ export function renderRates(container, { navigate }) {
           `}
         </div>
 
-        <button class="btn btn-primary fab-btn" id="btn-rates-add" aria-label="Add rate">＋</button>
+        ${bottomChrome({
+          left: gridMenuFab('btn-rates-home'),
+          right: textFab({ id: 'btn-rates-add', label: 'Add' }),
+        })}
         ${toast ? `<div class="rates-toast" role="status">${escapeHtml(toast)}</div>` : ''}
         ${renderModal()}
       </div>

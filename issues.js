@@ -1,6 +1,7 @@
 import { issueStorage, suppressRemoteRender } from './storage.js'
 import { makeSortable } from './sortable.js'
 import { getCurrentTheme, toggleTheme } from './theme.js'
+import { bottomChrome, gridMenuFab, textFab } from './chrome.js'
 
 export function renderIssuesList(container, { navigate }) {
   let openSortable = null
@@ -22,11 +23,7 @@ export function renderIssuesList(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-issues">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn header-menu-btn" id="btn-home-issues" aria-label="Menu">
-              <span class="menu-grid-icon" aria-hidden="true"></span>
-            </button>
-          </div>
+          <div class="header-left"></div>
           <div class="header-title">Changes</div>
           <div class="header-right">
             <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
@@ -58,7 +55,10 @@ export function renderIssuesList(container, { navigate }) {
             ${complete.length ? complete.map(issue => renderIssue(issue, 'complete')).join('') : renderEmpty('Nothing completed yet')}
           </ul>
         </div>
-        <button class="btn btn-primary fab-btn" id="btn-add-issue-fab" aria-label="Add change">＋</button>
+        ${bottomChrome({
+          left: gridMenuFab('btn-home-issues'),
+          right: textFab({ id: 'btn-add-issue-fab', label: 'Add' }),
+        })}
       </div>
     `
 

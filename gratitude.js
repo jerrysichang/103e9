@@ -1,6 +1,7 @@
 import { gratitudeStorage, suppressRemoteRender } from './storage.js'
 import { makeSortable }      from './sortable.js'
 import { getCurrentTheme, toggleTheme } from './theme.js'
+import { bottomChrome, gridMenuFab, textFab } from './chrome.js'
 
 // ─── Journal Prompts ──────────────────────────────────────────────────────
 
@@ -51,11 +52,7 @@ export function renderGratitudeList(container, { navigate }) {
     container.innerHTML = `
       <div class="view" id="view-list">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn header-menu-btn" id="btn-home-list" aria-label="Menu">
-              <span class="menu-grid-icon" aria-hidden="true"></span>
-            </button>
-          </div>
+          <div class="header-left"></div>
           <div class="header-title">Gratitude</div>
           <div class="header-right">
             <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
@@ -83,7 +80,10 @@ export function renderGratitudeList(container, { navigate }) {
             ${pursuing.length === 0 ? renderEmpty('Nothing yet — tap + to add your first goal') : pursuing.map(renderItem).join('')}
           </ul>
         </div>
-        <button class="btn btn-primary fab-btn" id="btn-add" aria-label="Add goal">＋</button>
+        ${bottomChrome({
+          left: gridMenuFab('btn-home-list'),
+          right: textFab({ id: 'btn-add', label: 'Add' }),
+        })}
 
         <!-- Add modal (hidden by default) -->
         <div class="modal-backdrop hidden" id="add-modal">
@@ -237,16 +237,9 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
     container.innerHTML = `
       <div class="view" id="view-detail">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-back" id="btn-back">
-              ${ICONS.back} Back
-            </button>
-          </div>
-          <div class="header-right">
-            <button class="btn btn-icon menu-grid-btn header-menu-btn" id="btn-home-detail" aria-label="Menu">
-              <span class="menu-grid-icon" aria-hidden="true"></span>
-            </button>
-          </div>
+          <div class="header-left"></div>
+          <div class="header-title">Goal</div>
+          <div class="header-right"></div>
         </header>
 
         <div class="scroll">
@@ -275,17 +268,16 @@ export function renderGratitudeDetail(container, { navigate, itemId }) {
             ${PROMPTS.map(p => renderPrompt(p, item)).join('')}
           </div>
 
-          <div class="detail-actions detail-actions-bottom">
-            ${item.achieved
-              ? `<button class="btn btn-secondary" id="btn-toggle-achieved">↩ Still Pursuing</button>`
-              : `<button class="btn btn-achieved" id="btn-toggle-achieved">✓ Mark Achieved</button>`
-            }
-          </div>
-
           <div class="danger-zone">
             <button class="btn btn-danger" id="btn-delete">Delete Goal</button>
           </div>
         </div>
+        ${bottomChrome({
+          left: textFab({ id: 'btn-back', label: `${ICONS.back} Gratitude` }),
+          right: item.achieved
+            ? textFab({ id: 'btn-toggle-achieved', label: 'Still Pursuing' })
+            : textFab({ id: 'btn-toggle-achieved', label: 'Mark Achieved', className: 'fab-text-primary' }),
+        })}
       </div>
     `
 
@@ -329,9 +321,8 @@ function bindDetailEvents(navigate, rerender, item) {
   const root = document.getElementById('view-detail')
   if (!root) return
 
-  // Back
+  // Back to top-level Gratitude list
   root.querySelector('#btn-back').addEventListener('click', () => navigate('list'))
-  root.querySelector('#btn-home-detail').addEventListener('click', () => navigate('home'))
 
   // Title save on blur / enter
   const titleInput = root.querySelector('#detail-title-input')

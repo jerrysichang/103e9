@@ -1,4 +1,5 @@
 import { getCurrentTheme, toggleTheme } from './theme.js'
+import { bottomChrome, gridMenuFab, fabSegment } from './chrome.js'
 
 const KEY = 'ps_citibike_v1'
 const COMPASS_PREF_KEY = 'ps_citibike_compass_on'
@@ -1484,11 +1485,7 @@ export function renderCitibike(container, { navigate }) {
     container.innerHTML = `
       <div class="view${state.activeTab === 'nearby' ? ' citibike-view--nearby' : ''}" id="view-citibike">
         <header class="header">
-          <div class="header-left">
-            <button class="btn btn-icon menu-grid-btn header-menu-btn" id="btn-citibike-home" aria-label="Menu">
-              <span class="menu-grid-icon" aria-hidden="true"></span>
-            </button>
-          </div>
+          <div class="header-left"></div>
           <div class="header-title">Citibike</div>
           <div class="header-right">
             <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
@@ -1533,20 +1530,18 @@ export function renderCitibike(container, { navigate }) {
           </div>
         ` : ''}
 
-        <nav class="citibike-tab-bar" aria-label="Citibike sections">
-          <button
-            type="button"
-            class="citibike-tab-btn${state.activeTab === 'nearby' ? ' citibike-tab-active' : ''}"
-            data-citibike-tab="nearby"
-            aria-selected="${state.activeTab === 'nearby' ? 'true' : 'false'}"
-          >Nearby</button>
-          <button
-            type="button"
-            class="citibike-tab-btn${state.activeTab === 'saved' ? ' citibike-tab-active' : ''}"
-            data-citibike-tab="saved"
-            aria-selected="${state.activeTab === 'saved' ? 'true' : 'false'}"
-          >Saved</button>
-        </nav>
+        ${bottomChrome({
+          left: gridMenuFab('btn-citibike-home'),
+          right: fabSegment({
+            name: 'Citibike sections',
+            active: state.activeTab,
+            attr: 'data-citibike-tab',
+            options: [
+              { value: 'nearby', label: 'Nearby' },
+              { value: 'saved', label: 'Saved' },
+            ],
+          }),
+        })}
 
         <div class="modal-backdrop${mapDrawerStation ? '' : ' hidden'}" id="citibike-map-drawer">
           <div class="modal citibike-map-drawer-modal">
