@@ -17,6 +17,7 @@ import { renderChallenges } from './challenges.js'
 import { renderCitibike } from './citibike.js'
 import { renderBars } from './bars.js'
 import { renderRates } from './rates.js'
+import { renderSplit } from './split.js'
 import { onRemoteUpdate, handleRemoteData } from './storage.js'
 import { hasPassphrase, getPassphrase, connect, disconnect } from './firebase-sync.js'
 import { initTheme, getCurrentTheme, toggleTheme } from './theme.js'
@@ -30,6 +31,7 @@ const TOOLS = [
     description: 'Track goals and reflect on what you\'ve achieved',
     icon:        '✦',
     defaultView: 'list',
+    hidden:      true,
   },
   {
     id:          'coach',
@@ -51,6 +53,13 @@ const TOOLS = [
     description: 'Track spend and maintain rates over time',
     icon:        '◷',
     defaultView: 'rates',
+  },
+  {
+    id:          'split',
+    name:        'Split',
+    description: 'Track shared expenses and settle up with friends',
+    icon:        '◫',
+    defaultView: 'split',
   },
   {
     id:          'citibike',
@@ -192,6 +201,11 @@ function renderApp() {
 
   if (view === 'rates') {
     renderRates(app, { navigate })
+    return
+  }
+
+  if (view === 'split') {
+    renderSplit(app, { navigate })
     return
   }
 }
