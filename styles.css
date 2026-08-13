@@ -3940,6 +3940,7 @@ textarea.coach-input {
   transform: translate(-50%, -50%);
   z-index: 9999;
   margin: 0;
+  padding: 0;
 }
 
 .joystick-stage {
