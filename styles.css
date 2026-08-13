@@ -3915,6 +3915,33 @@ textarea.coach-input {
   touch-action: none;
 }
 
+.joystick-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg);
+  z-index: 9998;
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
+}
+
+.joystick-overlay.joystick-overlay-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.joystick-container.joystick-active {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  margin: 0;
+}
+
 .joystick-stage {
   position: relative;
   width: 160px;
@@ -3929,9 +3956,14 @@ textarea.coach-input {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--surface-raised);
-  border: 2px solid var(--border);
+  background: #111111;
+  border: 2px solid #111111;
   box-shadow: var(--shadow-inset);
+}
+
+:root[data-theme="dark"] .joystick-track {
+  background: #111111;
+  border-color: #111111;
 }
 
 .joystick-stick {
@@ -3966,19 +3998,19 @@ textarea.coach-input {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 16px;
-  border-radius: var(--radius-sm);
+  padding: 20px 32px;
+  border-radius: var(--radius);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   box-shadow: var(--shadow-drop);
-  font: var(--text-body-sm);
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
   color: var(--text-secondary);
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-  z-index: 1;
+  transition: none;
+  z-index: 10000;
 }
 
 .joystick-label.joystick-label-visible {
@@ -3989,7 +4021,7 @@ textarea.coach-input {
   background: var(--accent);
   color: var(--text-on-accent);
   border-color: var(--accent);
-  transform: scale(1.08);
+  transform: scale(1.12);
 }
 
 .joystick-label-left {
@@ -4003,7 +4035,7 @@ textarea.coach-input {
 }
 
 .joystick-label-left.joystick-label-active {
-  transform: translate(-100%, -50%) scale(1.08);
+  transform: translate(-100%, -50%) scale(1.12);
 }
 
 .joystick-label-right {
@@ -4017,7 +4049,7 @@ textarea.coach-input {
 }
 
 .joystick-label-right.joystick-label-active {
-  transform: translate(100%, -50%) scale(1.08);
+  transform: translate(100%, -50%) scale(1.12);
 }
 
 .joystick-label-up {
@@ -4031,7 +4063,7 @@ textarea.coach-input {
 }
 
 .joystick-label-up.joystick-label-active {
-  transform: translate(-50%, -100%) scale(1.08);
+  transform: translate(-50%, -100%) scale(1.12);
 }
 
 .joystick-label-down {
@@ -4045,7 +4077,7 @@ textarea.coach-input {
 }
 
 .joystick-label-down.joystick-label-active {
-  transform: translate(-50%, 100%) scale(1.08);
+  transform: translate(-50%, 100%) scale(1.12);
 }
 
 .joystick-label-disabled {

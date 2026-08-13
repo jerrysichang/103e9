@@ -208,6 +208,7 @@ function renderJoystick(state, { directions = ['left', 'right', 'up', 'down'] } 
   }
   
   return `
+    <div class="joystick-overlay" id="citibike-joystick-overlay"></div>
     <div class="joystick-container" id="citibike-joystick-container">
       <div class="joystick-stage">
         <div class="joystick-track"></div>
@@ -226,12 +227,14 @@ function attachJoystick(rootEl, { directions = ['left', 'right', 'up', 'down'], 
   
   const stick = rootEl.querySelector('#citibike-joystick-stick')
   const labels = rootEl.querySelectorAll('.joystick-label')
+  const overlay = document.querySelector('#citibike-joystick-overlay')
+  const container = rootEl
   if (!stick) return () => {}
   
   const DEAD_ZONE = 8
   const MAX_DISTANCE = 44
   const ACTIVATION_THRESHOLD = 32
-  const RESISTANCE_FACTOR = 0.35
+  const RESISTANCE_FACTOR = 0.2
   
   const directionAngles = {
     right: 0,
@@ -329,6 +332,8 @@ function attachJoystick(rootEl, { directions = ['left', 'right', 'up', 'down'], 
     activeDirection = null
     
     stick.classList.add('joystick-dragging')
+    if (overlay) overlay.classList.add('joystick-overlay-visible')
+    container.classList.add('joystick-active')
     updateLabels(true, null)
   }
   
@@ -369,6 +374,8 @@ function attachJoystick(rootEl, { directions = ['left', 'right', 'up', 'down'], 
     tracking = false
     
     stick.classList.remove('joystick-dragging')
+    if (overlay) overlay.classList.remove('joystick-overlay-visible')
+    container.classList.remove('joystick-active')
     
     if (activeDirection && onSelect) {
       const mode = directionMap[activeDirection]
@@ -399,6 +406,8 @@ function attachJoystick(rootEl, { directions = ['left', 'right', 'up', 'down'], 
     document.removeEventListener('touchmove', onPointerMove)
     document.removeEventListener('mouseup', onPointerEnd)
     document.removeEventListener('touchend', onPointerEnd)
+    if (overlay) overlay.classList.remove('joystick-overlay-visible')
+    container.classList.remove('joystick-active')
     setStickPosition(0, 0, false)
     updateLabels(false, null)
   }
