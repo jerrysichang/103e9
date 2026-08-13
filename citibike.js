@@ -231,7 +231,7 @@ function attachJoystick(rootEl, { directions = ['left', 'right', 'up', 'down'], 
   const DEAD_ZONE = 8
   const MAX_DISTANCE = 44
   const ACTIVATION_THRESHOLD = 32
-  const RESISTANCE_FACTOR = 0.65
+  const RESISTANCE_FACTOR = 0.35
   
   const directionAngles = {
     right: 0,
@@ -1733,7 +1733,6 @@ export function renderCitibike(container, { navigate }) {
         ${state.activeTab === 'nearby' ? `
           <div class="citibike-map-mode-dock">
             ${renderJoystick(state, { directions: ['left', 'right', 'up'] })}
-            ${renderModeSwitch(state, 'Map filter')}
           </div>
         ` : ''}
 
