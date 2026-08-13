@@ -22,7 +22,7 @@ const TAB_SCHEMA = 2
 const DEFAULT_STATE = {
   saved: [],
   findMode: 'parking',
-  activeTab: 'nearby',
+  activeTab: 'saved',
 }
 
 function loadState() {
@@ -35,11 +35,11 @@ function loadState() {
       return {
         saved: parsed.stationIds.map(stationId => ({ stationId, label: '' })),
         findMode: 'parking',
-        activeTab: 'nearby',
+        activeTab: 'saved',
       }
     }
 
-    let activeTab = 'nearby'
+    let activeTab = 'saved'
     if (parsed?.tabSchema >= TAB_SCHEMA) {
       if (parsed.activeTab === 'nearest') activeTab = 'nearby'
       else if (['nearby', 'saved'].includes(parsed.activeTab)) activeTab = parsed.activeTab
