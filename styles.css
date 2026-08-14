@@ -3915,30 +3915,6 @@ textarea.coach-input {
   touch-action: none;
 }
 
-.joystick-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--bg);
-  z-index: 9998;
-  opacity: 0;
-  pointer-events: none;
-  transition: none;
-}
-
-.joystick-overlay.joystick-overlay-visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.joystick-container.joystick-active {
-  position: fixed;
-  z-index: 9999;
-  margin: 0;
-}
-
 .joystick-stage {
   position: relative;
   width: 160px;

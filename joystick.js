@@ -33,7 +33,6 @@ export function createJoystick({
   
   function render() {
     return `
-      <div class="joystick-overlay" id="${id}-overlay"></div>
       <div class="joystick-container" id="${id}-container" style="${scale !== 1 ? `--joystick-scale: ${scale};` : ''}">
         <div class="joystick-stage">
           <div class="joystick-track"></div>
@@ -52,13 +51,12 @@ export function createJoystick({
     
     const stick = containerEl.querySelector(`#${id}-stick`)
     const labelsNodeList = containerEl.querySelectorAll('.joystick-label')
-    const overlay = document.querySelector(`#${id}-overlay`)
     
     if (!stick) return () => {}
     
     const DEAD_ZONE = 8
-    const MAX_DISTANCE = 44
-    const ACTIVATION_THRESHOLD = 32
+    const MAX_DISTANCE = 22  // Tightened from 44
+    const ACTIVATION_THRESHOLD = 16  // Adjusted proportionally
     const RESISTANCE_FACTOR = 0.2
     
     const directionAngles = {
@@ -142,9 +140,6 @@ export function createJoystick({
       if (e.type === 'mousedown' && e.button !== 0) return
       tracking = true
       
-      // Capture container position before making it fixed
-      const rect = containerEl.getBoundingClientRect()
-      
       const touch = e.touches ? e.touches[0] : e
       startX = touch.clientX
       startY = touch.clientY
@@ -153,13 +148,6 @@ export function createJoystick({
       activeDirection = null
       
       stick.classList.add('joystick-dragging')
-      if (overlay) overlay.classList.add('joystick-overlay-visible')
-      containerEl.classList.add('joystick-active')
-      
-      // Position the fixed container at its original location
-      containerEl.style.top = `${rect.top}px`
-      containerEl.style.left = `${rect.left}px`
-      
       updateLabels(true, null)
     }
     
@@ -200,12 +188,6 @@ export function createJoystick({
       tracking = false
       
       stick.classList.remove('joystick-dragging')
-      if (overlay) overlay.classList.remove('joystick-overlay-visible')
-      containerEl.classList.remove('joystick-active')
-      
-      // Clear inline positioning styles
-      containerEl.style.top = ''
-      containerEl.style.left = ''
       
       if (activeDirection && onSelect) {
         setTimeout(() => onSelect(activeDirection), 50)
@@ -233,8 +215,6 @@ export function createJoystick({
       document.removeEventListener('touchmove', onPointerMove)
       document.removeEventListener('mouseup', onPointerEnd)
       document.removeEventListener('touchend', onPointerEnd)
-      if (overlay) overlay.classList.remove('joystick-overlay-visible')
-      containerEl.classList.remove('joystick-active')
       setStickPosition(0, 0, false)
       updateLabels(false, null)
     }
