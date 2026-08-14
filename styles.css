@@ -3937,7 +3937,7 @@ textarea.coach-input {
   position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(0.8);
   z-index: 9999;
   margin: 0;
   padding: 0;
