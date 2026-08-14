@@ -1,5 +1,6 @@
 import { getCurrentTheme, toggleTheme } from './theme.js'
 import { bottomChrome, gridMenuFab, fabSegment } from './chrome.js'
+import { createJoystick } from './joystick.js'
 
 const KEY = 'ps_citibike_v1'
 const COMPASS_PREF_KEY = 'ps_citibike_compass_on'
@@ -199,218 +200,20 @@ function renderModeSwitch(state, label = 'Find nearest') {
   `
 }
 
-function renderJoystick(state, { directions = ['left', 'right', 'up', 'down'] } = {}) {
-  const labels = {
-    left: 'Any bike',
-    right: 'Parking',
-    up: 'E-bike',
-    down: 'Down',
-  }
-  
-  return `
-    <div class="joystick-overlay" id="citibike-joystick-overlay"></div>
-    <div class="joystick-container" id="citibike-joystick-container">
-      <div class="joystick-stage">
-        <div class="joystick-track"></div>
-        ${directions.includes('left') ? `<div class="joystick-label joystick-label-left" data-direction="left">${labels.left}</div>` : ''}
-        ${directions.includes('right') ? `<div class="joystick-label joystick-label-right" data-direction="right">${labels.right}</div>` : ''}
-        ${directions.includes('up') ? `<div class="joystick-label joystick-label-up" data-direction="up">${labels.up}</div>` : ''}
-        ${directions.includes('down') ? `<div class="joystick-label joystick-label-down" data-direction="down">${labels.down}</div>` : ''}
-        <div class="joystick-stick" id="citibike-joystick-stick"></div>
-      </div>
-    </div>
-  `
-}
-
-function attachJoystick(rootEl, { directions = ['left', 'right', 'up', 'down'], onSelect }) {
-  if (!rootEl) return () => {}
-  
-  const stick = rootEl.querySelector('#citibike-joystick-stick')
-  const labels = rootEl.querySelectorAll('.joystick-label')
-  const overlay = document.querySelector('#citibike-joystick-overlay')
-  const container = rootEl
-  if (!stick) return () => {}
-  
-  const DEAD_ZONE = 8
-  const MAX_DISTANCE = 44
-  const ACTIVATION_THRESHOLD = 32
-  const RESISTANCE_FACTOR = 0.2
-  
-  const directionAngles = {
-    right: 0,
-    up: 90,
-    left: 180,
-    down: 270,
-  }
-  
-  const directionMap = {
-    left: 'bike',
-    right: 'parking',
-    up: 'ebike',
-    down: null,
-  }
-  
-  let tracking = false
-  let startX = 0
-  let startY = 0
-  let offsetX = 0
-  let offsetY = 0
-  let activeDirection = null
-  
-  const applyResistance = (value, max) => {
-    const sign = value >= 0 ? 1 : -1
-    const abs = Math.abs(value)
-    if (abs <= max) return value
-    const excess = abs - max
-    return sign * (max + excess * RESISTANCE_FACTOR)
-  }
-  
-  const getDirection = (dx, dy) => {
-    const dist = Math.hypot(dx, dy)
-    if (dist < DEAD_ZONE) return null
-    
-    let angle = Math.atan2(-dy, dx) * (180 / Math.PI)
-    if (angle < 0) angle += 360
-    
-    let closestDir = null
-    let minDiff = Infinity
-    
-    for (const dir of directions) {
-      const dirAngle = directionAngles[dir]
-      let diff = Math.abs(angle - dirAngle)
-      if (diff > 180) diff = 360 - diff
-      
-      if (diff < minDiff && diff < 60) {
-        minDiff = diff
-        closestDir = dir
-      }
-    }
-    
-    return closestDir
-  }
-  
-  const updateLabels = (showLabels, activeDir) => {
-    labels.forEach(label => {
-      const dir = label.dataset.direction
-      if (!directions.includes(dir)) {
-        label.classList.add('joystick-label-disabled')
-        return
-      }
-      
-      if (showLabels) {
-        label.classList.add('joystick-label-visible')
-      } else {
-        label.classList.remove('joystick-label-visible')
-      }
-      
-      if (dir === activeDir) {
-        label.classList.add('joystick-label-active')
-      } else {
-        label.classList.remove('joystick-label-active')
-      }
-    })
-  }
-  
-  const setStickPosition = (x, y, animate = false) => {
-    stick.classList.toggle('joystick-snapping', animate)
-    stick.classList.toggle('joystick-dragging', !animate && tracking)
-    stick.style.transform = `translate3d(${x}px, ${y}px, 0)`
-    if (animate) {
-      setTimeout(() => stick.classList.remove('joystick-snapping'), 350)
-    }
-  }
-  
-  const onPointerStart = e => {
-    if (e.type === 'mousedown' && e.button !== 0) return
-    tracking = true
-    
-    const touch = e.touches ? e.touches[0] : e
-    startX = touch.clientX
-    startY = touch.clientY
-    offsetX = 0
-    offsetY = 0
-    activeDirection = null
-    
-    stick.classList.add('joystick-dragging')
-    if (overlay) overlay.classList.add('joystick-overlay-visible')
-    container.classList.add('joystick-active')
-    updateLabels(true, null)
-  }
-  
-  const onPointerMove = e => {
-    if (!tracking) return
-    e.preventDefault()
-    
-    const touch = e.touches ? e.touches[0] : e
-    let dx = touch.clientX - startX
-    let dy = touch.clientY - startY
-    
-    dx = applyResistance(dx, MAX_DISTANCE)
-    dy = applyResistance(dy, MAX_DISTANCE)
-    
-    offsetX = dx
-    offsetY = dy
-    
-    const direction = getDirection(dx, dy)
-    const dist = Math.hypot(dx, dy)
-    
-    if (direction && dist > ACTIVATION_THRESHOLD) {
-      if (activeDirection !== direction) {
-        activeDirection = direction
-        updateLabels(true, activeDirection)
-      }
-    } else {
-      if (activeDirection !== null) {
-        activeDirection = null
-        updateLabels(true, null)
-      }
-    }
-    
-    setStickPosition(dx, dy, false)
-  }
-  
-  const onPointerEnd = () => {
-    if (!tracking) return
-    tracking = false
-    
-    stick.classList.remove('joystick-dragging')
-    if (overlay) overlay.classList.remove('joystick-overlay-visible')
-    container.classList.remove('joystick-active')
-    
-    if (activeDirection && onSelect) {
-      const mode = directionMap[activeDirection]
-      if (mode) {
-        setTimeout(() => onSelect(mode), 50)
-      }
-    }
-    
-    setStickPosition(0, 0, true)
-    updateLabels(false, null)
-    
-    activeDirection = null
-    offsetX = 0
-    offsetY = 0
-  }
-  
-  stick.addEventListener('mousedown', onPointerStart)
-  stick.addEventListener('touchstart', onPointerStart, { passive: true })
-  document.addEventListener('mousemove', onPointerMove)
-  document.addEventListener('touchmove', onPointerMove, { passive: false })
-  document.addEventListener('mouseup', onPointerEnd)
-  document.addEventListener('touchend', onPointerEnd)
-  
-  return () => {
-    stick.removeEventListener('mousedown', onPointerStart)
-    stick.removeEventListener('touchstart', onPointerStart)
-    document.removeEventListener('mousemove', onPointerMove)
-    document.removeEventListener('touchmove', onPointerMove)
-    document.removeEventListener('mouseup', onPointerEnd)
-    document.removeEventListener('touchend', onPointerEnd)
-    if (overlay) overlay.classList.remove('joystick-overlay-visible')
-    container.classList.remove('joystick-active')
-    setStickPosition(0, 0, false)
-    updateLabels(false, null)
-  }
+function createCitibikeJoystick(onSelect) {
+  return createJoystick({
+    directions: ['left', 'right', 'up'],
+    labels: {
+      left: 'Any bike',
+      right: 'Parking',
+      up: 'E-bike',
+    },
+    onSelect: (direction) => {
+      const modeMap = { left: 'bike', right: 'parking', up: 'ebike' }
+      const mode = modeMap[direction]
+      if (mode && onSelect) onSelect(mode)
+    },
+  })
 }
 
 const ICON_SVG = {
@@ -1003,6 +806,7 @@ export function renderCitibike(container, { navigate }) {
   let pullCleanup = null
   let modeSwipeCleanup = null
   let joystickCleanup = null
+  let joystickInstance = null
   let mapInstance = null
   let mapNearestPins = []
   let mapMarkers = []
@@ -1741,7 +1545,7 @@ export function renderCitibike(container, { navigate }) {
 
         ${state.activeTab === 'nearby' ? `
           <div class="citibike-map-mode-dock">
-            ${renderJoystick(state, { directions: ['left', 'right', 'up'] })}
+            ${joystickInstance.render()}
           </div>
         ` : ''}
 
@@ -2167,11 +1971,10 @@ export function renderCitibike(container, { navigate }) {
         onCommitIndex: idx => commitFindModeIndex(idx),
       })
       
-      const joystickContainer = container.querySelector('#citibike-joystick-container')
-      joystickCleanup = attachJoystick(joystickContainer, {
-        directions: ['left', 'right', 'up'],
-        onSelect: mode => setFindMode(mode),
-      })
+      const joystickContainer = container.querySelector('.joystick-container')
+      if (joystickInstance && joystickContainer) {
+        joystickCleanup = joystickInstance.attach(joystickContainer)
+      }
     } else {
       const scrollEl = container.querySelector('.citibike-scroll')
       pullCleanup = attachCitibikePullRefresh(scrollEl, () => {
