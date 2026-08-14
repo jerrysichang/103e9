@@ -142,6 +142,9 @@ export function createJoystick({
       if (e.type === 'mousedown' && e.button !== 0) return
       tracking = true
       
+      // Capture container position before making it fixed
+      const rect = containerEl.getBoundingClientRect()
+      
       const touch = e.touches ? e.touches[0] : e
       startX = touch.clientX
       startY = touch.clientY
@@ -152,6 +155,11 @@ export function createJoystick({
       stick.classList.add('joystick-dragging')
       if (overlay) overlay.classList.add('joystick-overlay-visible')
       containerEl.classList.add('joystick-active')
+      
+      // Position the fixed container at its original location
+      containerEl.style.top = `${rect.top}px`
+      containerEl.style.left = `${rect.left}px`
+      
       updateLabels(true, null)
     }
     
@@ -194,6 +202,10 @@ export function createJoystick({
       stick.classList.remove('joystick-dragging')
       if (overlay) overlay.classList.remove('joystick-overlay-visible')
       containerEl.classList.remove('joystick-active')
+      
+      // Clear inline positioning styles
+      containerEl.style.top = ''
+      containerEl.style.left = ''
       
       if (activeDirection && onSelect) {
         setTimeout(() => onSelect(activeDirection), 50)
