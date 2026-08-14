@@ -1500,6 +1500,9 @@ export function renderCitibike(container, { navigate }) {
     nearestMagneticBearing = nearest?.station
       ? bearingToStation(nearest.station)
       : null
+    
+    // Create joystick instance for this render
+    joystickInstance = createCitibikeJoystick(mode => setFindMode(mode))
 
     container.innerHTML = `
       <div class="view${state.activeTab === 'nearby' ? ' citibike-view--nearby' : ''}" id="view-citibike">
