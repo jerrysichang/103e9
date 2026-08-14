@@ -3909,7 +3909,7 @@ textarea.coach-input {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  margin-bottom: 16px;
+  margin-bottom: 4px;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
@@ -3994,7 +3994,6 @@ textarea.coach-input {
   background: var(--accent);
   color: var(--text-on-accent);
   border-color: var(--accent);
-  transform: scale(1.12);
 }
 
 .joystick-label-left {
@@ -4008,7 +4007,7 @@ textarea.coach-input {
 }
 
 .joystick-label-left.joystick-label-active {
-  transform: translate(-100%, -50%) scale(1.12);
+  transform: translate(-100%, -50%);
 }
 
 .joystick-label-right {
@@ -4022,7 +4021,7 @@ textarea.coach-input {
 }
 
 .joystick-label-right.joystick-label-active {
-  transform: translate(100%, -50%) scale(1.12);
+  transform: translate(100%, -50%);
 }
 
 .joystick-label-up {
@@ -4036,7 +4035,7 @@ textarea.coach-input {
 }
 
 .joystick-label-up.joystick-label-active {
-  transform: translate(-50%, -100%) scale(1.12);
+  transform: translate(-50%, -100%);
 }
 
 .joystick-label-down {
@@ -4050,7 +4049,7 @@ textarea.coach-input {
 }
 
 .joystick-label-down.joystick-label-active {
-  transform: translate(-50%, 100%) scale(1.12);
+  transform: translate(-50%, 100%);
 }
 
 .joystick-label-disabled {

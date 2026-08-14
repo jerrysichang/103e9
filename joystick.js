@@ -173,14 +173,23 @@ export function createJoystick({
           activeDirection = direction
           updateLabels(true, activeDirection)
         }
+        
+        // Snap to the direction position
+        const snapPositions = {
+          right: [MAX_DISTANCE, 0],
+          left: [-MAX_DISTANCE, 0],
+          up: [0, -MAX_DISTANCE],
+          down: [0, MAX_DISTANCE],
+        }
+        const [snapX, snapY] = snapPositions[direction] || [dx, dy]
+        setStickPosition(snapX, snapY, false)
       } else {
         if (activeDirection !== null) {
           activeDirection = null
           updateLabels(true, null)
         }
+        setStickPosition(dx, dy, false)
       }
-      
-      setStickPosition(dx, dy, false)
     }
     
     const onPointerEnd = () => {
