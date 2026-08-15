@@ -54,10 +54,11 @@ export function createJoystick({
     
     if (!stick) return () => {}
     
-    const DEAD_ZONE = 8
-    const MAX_DISTANCE = 22  // Tightened from 44
-    const ACTIVATION_THRESHOLD = 16  // Adjusted proportionally
+    const DEAD_ZONE = 4  // Reduced for better responsiveness
+    const MAX_DISTANCE = 22
+    const ACTIVATION_THRESHOLD = 10  // Lower threshold = easier to activate
     const RESISTANCE_FACTOR = 0.2
+    const ANGLE_TOLERANCE = 75  // Wider angle acceptance
     
     const directionAngles = {
       right: 0,
@@ -96,7 +97,7 @@ export function createJoystick({
         let diff = Math.abs(angle - dirAngle)
         if (diff > 180) diff = 360 - diff
         
-        if (diff < minDiff && diff < 60) {
+        if (diff < minDiff && diff < ANGLE_TOLERANCE) {
           minDiff = diff
           closestDir = dir
         }
