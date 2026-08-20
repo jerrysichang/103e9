@@ -1966,13 +1966,7 @@ export function renderCitibike(container, { navigate }) {
     joystickCleanup?.()
 
     if (state.activeTab === 'nearby') {
-      const nearbyView = container.querySelector('#view-citibike')
-      modeSwipeCleanup = attachNearbyModeDrag(nearbyView, {
-        canDrag: () => !mapDrawerStation,
-        getModeIndex: () => FIND_MODES.indexOf(loadState().findMode),
-        getModeSwitch: () => container.querySelector('.citibike-map-mode-dock .citibike-mode-switch'),
-        onCommitIndex: idx => commitFindModeIndex(idx),
-      })
+      // Joystick handles mode switching - removed conflicting swipe gesture
       
       const joystickContainer = container.querySelector('.joystick-container')
       if (joystickInstance && joystickContainer) {
