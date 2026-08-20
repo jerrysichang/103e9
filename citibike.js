@@ -189,18 +189,10 @@ function loadLeaflet() {
   return leafletPromise
 }
 
-function renderModeSwitch(state, label = 'Find nearest') {
-  return `
-    <div class="citibike-mode-switch" role="tablist" aria-label="${label}">
-      <span class="citibike-mode-indicator" aria-hidden="true"></span>
-      <button type="button" class="citibike-mode-btn${state.findMode === 'bike' ? ' citibike-mode-active' : ''}" data-find-mode="bike" role="tab">Any bike</button>
-      <button type="button" class="citibike-mode-btn${state.findMode === 'ebike' ? ' citibike-mode-active' : ''}" data-find-mode="ebike" role="tab">E-bike</button>
-      <button type="button" class="citibike-mode-btn${state.findMode === 'parking' ? ' citibike-mode-active' : ''}" data-find-mode="parking" role="tab">Parking</button>
-    </div>
-  `
-}
+const JOYSTICK_DIRECTION_TO_MODE = { left: 'bike', right: 'parking', up: 'ebike' }
+const JOYSTICK_MODE_TO_DIRECTION = { bike: 'left', parking: 'right', ebike: 'up' }
 
-function createCitibikeJoystick(onSelect) {
+function createCitibikeJoystick(currentMode, onSelect) {
   return createJoystick({
     directions: ['left', 'right', 'up'],
     labels: {
@@ -208,9 +200,9 @@ function createCitibikeJoystick(onSelect) {
       right: 'Parking',
       up: 'E-bike',
     },
-    onSelect: (direction) => {
-      const modeMap = { left: 'bike', right: 'parking', up: 'ebike' }
-      const mode = modeMap[direction]
+    value: JOYSTICK_MODE_TO_DIRECTION[currentMode],
+    onSelect: direction => {
+      const mode = JOYSTICK_DIRECTION_TO_MODE[direction]
       if (mode && onSelect) onSelect(mode)
     },
   })
@@ -303,8 +295,6 @@ function snapMapZoom(zoom) {
 /** Extra tile canvas beyond viewport so rotation never exposes empty edges. */
 const MAP_ROTATION_COVERAGE = 1.95
 const FIND_MODES = ['bike', 'ebike', 'parking']
-const MODE_SWIPE_MIN_PX = 56
-const MODE_SWIPE_MAX_VERTICAL_PX = 48
 
 const CITIBIKE_PULL_ICON_SVG = `
   <svg class="citibike-pull-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -511,12 +501,6 @@ function attachCitibikePullRefresh(rootEl, onRefresh, { fixed = false } = {}) {
   }
 }
 
-function modeSwitchSegmentWidth(switchEl) {
-  const buttons = switchEl?.querySelectorAll('.citibike-mode-btn')
-  if (!buttons || buttons.length < 2) return switchEl?.offsetWidth ? switchEl.offsetWidth / 3 : 120
-  return buttons[1].offsetLeft - buttons[0].offsetLeft
-}
-
 function applyModeIndicatorAtIndex(switchEl, virtualIdx, { animate = false } = {}) {
   const buttons = [...switchEl.querySelectorAll('.citibike-mode-btn')]
   const indicator = switchEl.querySelector('.citibike-mode-indicator')
@@ -536,83 +520,6 @@ function applyModeIndicatorAtIndex(switchEl, virtualIdx, { animate = false } = {
   buttons.forEach((btn, i) => {
     btn.classList.toggle('citibike-mode-active', i === activeRound)
   })
-}
-
-function attachNearbyModeDrag(rootEl, { getModeIndex, getModeSwitch, onCommitIndex, canDrag = () => true }) {
-  if (!rootEl) return () => {}
-
-  let startX = 0
-  let startY = 0
-  let startIdx = 0
-  let tracking = false
-  let dragging = false
-
-  const onTouchStart = e => {
-    if (e.touches.length !== 1 || !canDrag()) return
-    startX = e.touches[0].clientX
-    startY = e.touches[0].clientY
-    startIdx = getModeIndex()
-    tracking = true
-    dragging = false
-  }
-
-  const onTouchMove = e => {
-    if (!tracking) return
-    const dx = e.touches[0].clientX - startX
-    const dy = e.touches[0].clientY - startY
-    if (!dragging) {
-      if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy)) return
-      dragging = true
-      const switchEl = getModeSwitch()
-      switchEl?.classList.add('citibike-mode-dragging')
-    }
-    e.preventDefault()
-    const switchEl = getModeSwitch()
-    if (!switchEl) return
-    const seg = modeSwitchSegmentWidth(switchEl)
-    // Swipe right moves the selector left (lower index).
-    applyModeIndicatorAtIndex(switchEl, startIdx - dx / seg)
-  }
-
-  const onTouchEnd = e => {
-    if (!tracking) return
-    tracking = false
-    const touch = e.changedTouches[0]
-    const dx = touch.clientX - startX
-    const dy = touch.clientY - startY
-    const switchEl = getModeSwitch()
-
-    if (dragging && switchEl) {
-      const seg = modeSwitchSegmentWidth(switchEl)
-      const virtualIdx = Math.max(0, Math.min(FIND_MODES.length - 1, startIdx - dx / seg))
-      const targetIdx = Math.round(virtualIdx)
-      switchEl.classList.remove('citibike-mode-dragging')
-      applyModeIndicatorAtIndex(switchEl, targetIdx, { animate: true })
-      if (targetIdx !== startIdx) onCommitIndex(targetIdx)
-      else onCommitIndex(startIdx)
-    } else if (
-      Math.abs(dx) >= MODE_SWIPE_MIN_PX
-      && (Math.abs(dy) <= Math.abs(dx) || Math.abs(dy) <= MODE_SWIPE_MAX_VERTICAL_PX)
-    ) {
-      const targetIdx = Math.max(0, Math.min(FIND_MODES.length - 1, startIdx + (dx > 0 ? -1 : 1)))
-      if (targetIdx !== startIdx) onCommitIndex(targetIdx)
-    }
-
-    dragging = false
-  }
-
-  rootEl.addEventListener('touchstart', onTouchStart, { passive: true })
-  rootEl.addEventListener('touchmove', onTouchMove, { passive: false })
-  rootEl.addEventListener('touchend', onTouchEnd)
-  rootEl.addEventListener('touchcancel', onTouchEnd)
-
-  return () => {
-    rootEl.removeEventListener('touchstart', onTouchStart)
-    rootEl.removeEventListener('touchmove', onTouchMove)
-    rootEl.removeEventListener('touchend', onTouchEnd)
-    rootEl.removeEventListener('touchcancel', onTouchEnd)
-    getModeSwitch()?.classList.remove('citibike-mode-dragging')
-  }
 }
 
 function availabilityPillsRow(station) {
@@ -804,7 +711,6 @@ export function renderCitibike(container, { navigate }) {
   let positionFixWaiters = []
   let nearMeAgoTimer = null
   let pullCleanup = null
-  let modeSwipeCleanup = null
   let joystickCleanup = null
   let joystickInstance = null
   let mapInstance = null
@@ -1326,6 +1232,7 @@ export function renderCitibike(container, { navigate }) {
     state.findMode = mode
     saveState(state)
     syncModeSwitchUi(mode)
+    joystickInstance?.setValue(JOYSTICK_MODE_TO_DIRECTION[mode])
 
     if (state.activeTab === 'nearby') {
       if (mapInstance && userPos) {
@@ -1337,16 +1244,6 @@ export function renderCitibike(container, { navigate }) {
     }
 
     rerender({ preserveSearch: state.activeTab === 'saved' })
-  }
-
-  function commitFindModeIndex(idx) {
-    const mode = FIND_MODES[idx]
-    if (!mode) return
-    if (loadState().findMode === mode) {
-      syncModeSwitchUi(mode)
-      return
-    }
-    setFindMode(mode)
   }
 
   function renderNearbyMapPanel(state) {
@@ -1501,8 +1398,7 @@ export function renderCitibike(container, { navigate }) {
       ? bearingToStation(nearest.station)
       : null
     
-    // Create joystick instance for this render
-    joystickInstance = createCitibikeJoystick(mode => setFindMode(mode))
+    joystickInstance = createCitibikeJoystick(state.findMode, mode => setFindMode(mode))
 
     container.innerHTML = `
       <div class="view${state.activeTab === 'nearby' ? ' citibike-view--nearby' : ''}" id="view-citibike">
@@ -1893,8 +1789,6 @@ export function renderCitibike(container, { navigate }) {
     destroyNearbyMap()
     pullCleanup?.()
     pullCleanup = null
-    modeSwipeCleanup?.()
-    modeSwipeCleanup = null
     joystickCleanup?.()
     joystickCleanup = null
     positionFixWaiters = []
@@ -1962,12 +1856,9 @@ export function renderCitibike(container, { navigate }) {
 
   function bind(state) {
     pullCleanup?.()
-    modeSwipeCleanup?.()
     joystickCleanup?.()
 
     if (state.activeTab === 'nearby') {
-      // Joystick handles mode switching - removed conflicting swipe gesture
-      
       const joystickContainer = container.querySelector('.joystick-container')
       if (joystickInstance && joystickContainer) {
         joystickCleanup = joystickInstance.attach(joystickContainer)
