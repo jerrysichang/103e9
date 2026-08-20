@@ -196,19 +196,23 @@ export function createJoystick({
     const onPointerEnd = () => {
       if (!tracking) return
       tracking = false
-      
+
+      // Read the direction before the reset below, otherwise the deferred
+      // callback observes the cleared value instead of the selection.
+      const selected = activeDirection
+
       stick.classList.remove('joystick-dragging')
-      
-      if (activeDirection && onSelect) {
-        setTimeout(() => onSelect(activeDirection), 50)
-      }
-      
+
       setStickPosition(0, 0, true)
       updateLabels(false, null)
-      
+
       activeDirection = null
       offsetX = 0
       offsetY = 0
+
+      if (selected && onSelect) {
+        setTimeout(() => onSelect(selected), 50)
+      }
     }
     
     stick.addEventListener('mousedown', onPointerStart)
