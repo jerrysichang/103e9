@@ -16,6 +16,7 @@ const joystick = createJoystick({
     up: 'Confirm',
     down: 'Cancel'
   },
+  value: 'up',   // Optional: direction to mark as currently selected
   onSelect: (direction) => {
     console.log('Selected direction:', direction)
     // Handle the direction selection
@@ -29,14 +30,18 @@ container.innerHTML = joystick.render()
 // Attach event handlers
 const cleanup = joystick.attach(container.querySelector('.joystick-container'))
 
+// Reflect a selection change without re-rendering
+joystick.setValue('left')
+
 // Later, cleanup when done
 cleanup()
 ```
 
 ## Features
 
-- **Automatic overlay**: Shows a full-screen overlay when dragging begins
 - **Directional labels**: Configurable labels that appear and highlight based on drag direction
+- **Persistent selection**: The selected direction's label stays legible at rest, so the current value is always visible
+- **Snapping**: Once past the activation threshold the stick snaps to the direction, so selection is unambiguous
 - **Resistance physics**: Natural feel with resistance beyond max distance
 - **Dead zone**: Ignores tiny movements for better UX
 - **Touch & mouse support**: Works with both touch and mouse events
@@ -68,10 +73,29 @@ Callback function called when user releases after dragging past the activation t
 
 Receives: `direction` (string: 'left', 'right', 'up', or 'down')
 
+### `value`
+Direction to mark as the current selection. Its label stays visible while the
+joystick is at rest so the active value is always readable.
+
+Default: `null`
+
 ### `scale`
 Optional scale multiplier for the joystick size.
 
 Default: `1`
+
+## Methods
+
+### `render()`
+Returns the component's HTML string.
+
+### `attach(containerEl)`
+Binds pointer handlers to the rendered `.joystick-container`. Returns a cleanup
+function that removes every listener.
+
+### `setValue(direction)`
+Updates the current selection in place. Use this when the owning view changes
+state without re-rendering the joystick.
 
 ## Example: Custom Three-Way Selector
 
@@ -104,6 +128,7 @@ The component uses CSS classes from `styles.css`:
 - `.joystick-stage` - Fixed-size interaction area
 - `.joystick-stick` - Draggable circular handle
 - `.joystick-label` - Direction labels
-- `.joystick-overlay` - Full-screen overlay during drag
+- `.joystick-label-current` - The selected direction, shown at rest
+- `.joystick-label-active` - The direction currently under the stick while dragging
 
 All styles are already defined and will work out of the box.

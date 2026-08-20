@@ -3990,6 +3990,13 @@ textarea.coach-input {
   opacity: 1;
 }
 
+/* Selected direction stays legible while the joystick is at rest. */
+.joystick-label.joystick-label-current {
+  opacity: 1;
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 .joystick-label.joystick-label-active {
   background: var(--accent);
   color: var(--text-on-accent);

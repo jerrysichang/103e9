@@ -19,31 +19,49 @@ export function createJoystick({
   labels = {},
   onSelect = null,
   scale = 1,
+  value = null,
 } = {}) {
   const id = `joystick-${joystickIdCounter++}`
-  
+
   const defaultLabels = {
     left: 'Left',
     right: 'Right',
     up: 'Up',
     down: 'Down',
   }
-  
+
   const mergedLabels = { ...defaultLabels, ...labels }
-  
+  let currentValue = directions.includes(value) ? value : null
+
+  const labelHtml = dir => {
+    if (!directions.includes(dir)) return ''
+    const current = dir === currentValue ? ' joystick-label-current' : ''
+    return `<div class="joystick-label joystick-label-${dir}${current}" data-direction="${dir}">${mergedLabels[dir]}</div>`
+  }
+
   function render() {
     return `
       <div class="joystick-container" id="${id}-container" style="${scale !== 1 ? `--joystick-scale: ${scale};` : ''}">
         <div class="joystick-stage">
           <div class="joystick-track"></div>
-          ${directions.includes('left') ? `<div class="joystick-label joystick-label-left" data-direction="left">${mergedLabels.left}</div>` : ''}
-          ${directions.includes('right') ? `<div class="joystick-label joystick-label-right" data-direction="right">${mergedLabels.right}</div>` : ''}
-          ${directions.includes('up') ? `<div class="joystick-label joystick-label-up" data-direction="up">${mergedLabels.up}</div>` : ''}
-          ${directions.includes('down') ? `<div class="joystick-label joystick-label-down" data-direction="down">${mergedLabels.down}</div>` : ''}
+          ${labelHtml('left')}
+          ${labelHtml('right')}
+          ${labelHtml('up')}
+          ${labelHtml('down')}
           <div class="joystick-stick" id="${id}-stick"></div>
         </div>
       </div>
     `
+  }
+
+  /** Marks which direction is currently selected so it stays legible at rest. */
+  function setValue(dir) {
+    currentValue = directions.includes(dir) ? dir : null
+    const containerEl = document.querySelector(`#${id}-container`)
+    if (!containerEl) return
+    containerEl.querySelectorAll('.joystick-label').forEach(label => {
+      label.classList.toggle('joystick-label-current', label.dataset.direction === currentValue)
+    })
   }
   
   function attach(containerEl) {
@@ -237,6 +255,7 @@ export function createJoystick({
   return {
     render,
     attach,
+    setValue,
     id,
   }
 }
