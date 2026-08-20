@@ -3966,6 +3966,44 @@ textarea.coach-input {
   transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* Marks the selected direction on the edge of the stick it points toward. */
+.joystick-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+}
+
+.joystick-stick[data-current] .joystick-dot {
+  opacity: 1;
+}
+
+.joystick-stick[data-current="left"] .joystick-dot {
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.joystick-stick[data-current="right"] .joystick-dot {
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.joystick-stick[data-current="up"] .joystick-dot {
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.joystick-stick[data-current="down"] .joystick-dot {
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
 .joystick-label {
   position: absolute;
   display: flex;
@@ -3988,13 +4026,6 @@ textarea.coach-input {
 
 .joystick-label.joystick-label-visible {
   opacity: 1;
-}
-
-/* Selected direction stays legible while the joystick is at rest. */
-.joystick-label.joystick-label-current {
-  opacity: 1;
-  border-color: var(--accent);
-  color: var(--text);
 }
 
 .joystick-label.joystick-label-active {

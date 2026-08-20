@@ -40,9 +40,8 @@ cleanup()
 ## Features
 
 - **Directional labels**: Configurable labels that appear and highlight based on drag direction
-- **Persistent selection**: The selected direction's label stays legible at rest, so the current value is always visible
-- **Snapping**: Once past the activation threshold the stick snaps to the direction, so selection is unambiguous
-- **Resistance physics**: Natural feel with resistance beyond max distance
+- **Selection dot**: A dot on the edge of the stick shows the current selection; labels only appear while dragging
+- **Resistance physics**: The stick moves freely, with resistance beyond max distance
 - **Dead zone**: Ignores tiny movements for better UX
 - **Touch & mouse support**: Works with both touch and mouse events
 - **Auto-cleanup**: Returns a cleanup function to remove all event listeners
@@ -74,8 +73,8 @@ Callback function called when user releases after dragging past the activation t
 Receives: `direction` (string: 'left', 'right', 'up', or 'down')
 
 ### `value`
-Direction to mark as the current selection. Its label stays visible while the
-joystick is at rest so the active value is always readable.
+Direction to mark as the current selection. A dot is drawn on that edge of the
+stick, so the active value reads at a glance without showing any label.
 
 Default: `null`
 
@@ -94,8 +93,8 @@ Binds pointer handlers to the rendered `.joystick-container`. Returns a cleanup
 function that removes every listener.
 
 ### `setValue(direction)`
-Updates the current selection in place. Use this when the owning view changes
-state without re-rendering the joystick.
+Moves the selection dot in place. Use this when the owning view changes state
+without re-rendering the joystick.
 
 ## Example: Custom Three-Way Selector
 
@@ -127,8 +126,8 @@ The component uses CSS classes from `styles.css`:
 - `.joystick-container` - Main container
 - `.joystick-stage` - Fixed-size interaction area
 - `.joystick-stick` - Draggable circular handle
-- `.joystick-label` - Direction labels
-- `.joystick-label-current` - The selected direction, shown at rest
+- `.joystick-dot` - Selection dot, positioned via `.joystick-stick[data-current]`
+- `.joystick-label` - Direction labels, only visible while dragging
 - `.joystick-label-active` - The direction currently under the stick while dragging
 
 All styles are already defined and will work out of the box.

@@ -35,8 +35,7 @@ export function createJoystick({
 
   const labelHtml = dir => {
     if (!directions.includes(dir)) return ''
-    const current = dir === currentValue ? ' joystick-label-current' : ''
-    return `<div class="joystick-label joystick-label-${dir}${current}" data-direction="${dir}">${mergedLabels[dir]}</div>`
+    return `<div class="joystick-label joystick-label-${dir}" data-direction="${dir}">${mergedLabels[dir]}</div>`
   }
 
   function render() {
@@ -48,20 +47,21 @@ export function createJoystick({
           ${labelHtml('right')}
           ${labelHtml('up')}
           ${labelHtml('down')}
-          <div class="joystick-stick" id="${id}-stick"></div>
+          <div class="joystick-stick" id="${id}-stick"${currentValue ? ` data-current="${currentValue}"` : ''}>
+            <span class="joystick-dot" aria-hidden="true"></span>
+          </div>
         </div>
       </div>
     `
   }
 
-  /** Marks which direction is currently selected so it stays legible at rest. */
+  /** Marks the selected direction with a dot on that edge of the stick. */
   function setValue(dir) {
     currentValue = directions.includes(dir) ? dir : null
-    const containerEl = document.querySelector(`#${id}-container`)
-    if (!containerEl) return
-    containerEl.querySelectorAll('.joystick-label').forEach(label => {
-      label.classList.toggle('joystick-label-current', label.dataset.direction === currentValue)
-    })
+    const stickEl = document.querySelector(`#${id}-stick`)
+    if (!stickEl) return
+    if (currentValue) stickEl.dataset.current = currentValue
+    else delete stickEl.dataset.current
   }
   
   function attach(containerEl) {
@@ -192,23 +192,12 @@ export function createJoystick({
           activeDirection = direction
           updateLabels(true, activeDirection)
         }
-        
-        // Snap to the direction position
-        const snapPositions = {
-          right: [MAX_DISTANCE, 0],
-          left: [-MAX_DISTANCE, 0],
-          up: [0, -MAX_DISTANCE],
-          down: [0, MAX_DISTANCE],
-        }
-        const [snapX, snapY] = snapPositions[direction] || [dx, dy]
-        setStickPosition(snapX, snapY, false)
-      } else {
-        if (activeDirection !== null) {
-          activeDirection = null
-          updateLabels(true, null)
-        }
-        setStickPosition(dx, dy, false)
+      } else if (activeDirection !== null) {
+        activeDirection = null
+        updateLabels(true, null)
       }
+
+      setStickPosition(dx, dy, false)
     }
     
     const onPointerEnd = () => {
