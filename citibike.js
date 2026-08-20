@@ -1951,8 +1951,8 @@ export function renderCitibike(container, { navigate }) {
       <li class="item citibike-saved-item">
         <button class="citibike-saved-row" type="button" data-edit-station="${stationId}">
           <div class="citibike-row-main">
-            <span class="item-title issue-title">${escapeHtml(station.name)}</span>
-            ${nickname ? `<span class="item-subtitle">${escapeHtml(nickname)}</span>` : ''}
+            <span class="item-title issue-title">${escapeHtml(nickname || station.name)}</span>
+            ${nickname ? `<span class="item-subtitle">${escapeHtml(station.name)}</span>` : ''}
           </div>
           ${availabilityAside(station)}
         </button>
