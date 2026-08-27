@@ -299,10 +299,26 @@ function renderHome(container) {
       <div class="scroll">
         <div class="home-header">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-            <h1 class="home-title" style="margin:0">103e9</h1>
+            <h1 class="home-title" style="margin:0">I never thought I'd be saying this, but I'm here to create problems.</h1>
             <button class="btn-icon theme-toggle" id="btn-theme-toggle" aria-label="Toggle theme"></button>
           </div>
-          <div style="margin-top:14px">
+          <div style="margin-top:24px">
+            <p class="text-body" style="margin:0 0 24px 0">Over my fifteen-year career, design has passed through eras of challenges and tooling. As the bottleneck shifts away from UI execution, it becomes essential for design teams to provide better problems to solve.</p>
+            
+            <div style="margin:24px 0">
+              <div class="text-body" style="text-align:center;padding:60px 20px;background:rgba(128,128,128,0.1);border-radius:8px">(Video)</div>
+            </div>
+            
+            <div style="margin:24px 0">
+              <div class="text-body" style="text-align:center;padding:60px 20px;background:rgba(128,128,128,0.1);border-radius:8px">(Working processes section)</div>
+            </div>
+            
+            <p class="text-body" style="margin:24px 0 0 0">This makes better products today, and it will drive the products of the future.</p>
+            
+            <div style="margin:32px 0">
+              <div class="text-body" style="text-align:center;padding:40px 20px;background:rgba(128,128,128,0.1);border-radius:8px">(Email)</div>
+            </div>
+            
             <button class="btn btn-secondary" id="btn-logout">Logout this device</button>
           </div>
         </div>
