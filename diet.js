@@ -10,7 +10,6 @@ import {
   addEntry,
   removeEntry,
   setGoals,
-  dayTotals,
   getFavorites,
   createFavorite,
   updateFavorite,
@@ -18,6 +17,13 @@ import {
 } from './diet-storage.js'
 import { getCurrentTheme, toggleTheme } from './theme.js'
 import { bottomChrome, gridMenuFab, textFab } from './chrome.js'
+import {
+  getNotionDay,
+  getNotionError,
+  refreshNotionDay,
+  getNotionKey,
+  setNotionKey,
+} from './notion-diet.js'
 
 // ─── Config (match coach.js worker) ───────────────────────────────────────
 
@@ -444,13 +450,41 @@ export function homeDietReadoutHtml() {
 // ─── Main tracker view ────────────────────────────────────────────────────
 
 export function renderDietTracker(container, { navigate }) {
-  function render() {
+  /** Local entries + what Claude logged to Notion (J-OS Diet). Notion targets win for the day. */
+  function mergedToday() {
     const dateKey = todayKey()
     const state = load()
-    const goals = state.goals
     const day = getDay(dateKey)
-    const entries = Array.isArray(day?.entries) ? day.entries : []
-    const { consumed, pct } = dayTotals(dateKey, goals)
+    const localEntries = Array.isArray(day?.entries) ? day.entries : []
+    const notion = getNotionDay(dateKey)
+    const notionError = getNotionError(dateKey)
+    const notionEntries = Array.isArray(notion?.entries) ? notion.entries : []
+    const t = notion?.targets
+    const goals = t && t.calories > 0
+      ? { calories: t.calories, proteinG: t.proteinG, carbsG: t.carbsG, fatG: t.fatG }
+      : state.goals
+    const dayType = t?.dayType || ''
+    const entries = [...notionEntries, ...localEntries]
+      .sort((a, b) => (String(a.loggedAt) < String(b.loggedAt) ? 1 : -1))
+    const consumed = entries.reduce((acc, e) => ({
+      calories: acc.calories + (Number(e.analysis?.calories) || 0),
+      proteinG: acc.proteinG + (Number(e.analysis?.proteinG) || 0),
+      carbsG: acc.carbsG + (Number(e.analysis?.carbsG) || 0),
+      fatG: acc.fatG + (Number(e.analysis?.fatG) || 0),
+    }), { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 })
+    const pctOf = (n, g) => (g ? Math.min(100, (n / g) * 100) : 0)
+    const pct = {
+      calories: pctOf(consumed.calories, goals.calories),
+      proteinG: pctOf(consumed.proteinG, goals.proteinG),
+      carbsG: pctOf(consumed.carbsG, goals.carbsG),
+      fatG: pctOf(consumed.fatG, goals.fatG),
+    }
+    return { goals, consumed, pct, entries, dayType, notionError }
+  }
+
+  function render() {
+    const dateKey = todayKey()
+    const { goals, consumed, pct, entries, dayType, notionError } = mergedToday()
 
     container.innerHTML = `
       <div class="view" id="view-diet">
@@ -464,7 +498,8 @@ export function renderDietTracker(container, { navigate }) {
         </header>
 
         <div class="scroll">
-          <p class="diet-date-line">${formatDateHeading(dateKey)}</p>
+          <p class="diet-date-line">${formatDateHeading(dateKey)}${dayType ? ` · ${escapeHtml(dayType)} day` : ''}</p>
+          ${notionError ? `<p class="diet-notion-error">${escapeHtml(notionError)}</p>` : ''}
 
           <div class="diet-summary-card">
             ${macroBar('Calories', consumed.calories, goals.calories, pct.calories)}
@@ -561,11 +596,12 @@ export function renderDietTracker(container, { navigate }) {
     const desc = trimmedDesc
       ? escapeHtml(trimmedDesc.slice(0, 120)) + (trimmedDesc.length > 120 ? '…' : '')
       : '<span class="diet-entry-no-desc">Photo log</span>'
+    const fromNotion = entry.source === 'notion'
     return `
-      <li class="diet-entry" data-id="${entry.id}">
+      <li class="diet-entry${fromNotion ? ' diet-entry-notion' : ''}" data-id="${entry.id}">
         ${thumb}
         <div class="diet-entry-body">
-          <div class="diet-entry-summary">${escapeHtml(safeAnalysis.summary || 'Logged meal')}</div>
+          <div class="diet-entry-summary">${escapeHtml(safeAnalysis.summary || 'Logged meal')}${fromNotion ? ' <span class="diet-entry-badge">via Claude</span>' : ''}</div>
           <div class="diet-entry-meta">${desc}</div>
           <div class="diet-entry-macros">
             ${Math.round(Number(safeAnalysis.calories) || 0)} kcal ·
@@ -574,7 +610,7 @@ export function renderDietTracker(container, { navigate }) {
             F ${fmtMacro(Number(safeAnalysis.fatG) || 0)}
           </div>
         </div>
-        <button type="button" class="btn diet-entry-remove" data-remove="${entry.id}" aria-label="Remove">×</button>
+        ${fromNotion ? '' : `<button type="button" class="btn diet-entry-remove" data-remove="${entry.id}" aria-label="Remove">×</button>`}
       </li>
     `
   }
@@ -651,7 +687,7 @@ export function renderDietTracker(container, { navigate }) {
       { key: 'f',   macroKey: 'fatG' },
     ]
     let currentMode = 'auto'
-    const currentTotals = dayTotals(todayKey(), load().goals).consumed
+    const currentTotals = mergedToday().consumed
 
     backdrop?.classList.remove('hidden')
     if (desc) desc.value = ''
@@ -805,7 +841,7 @@ export function renderDietTracker(container, { navigate }) {
           if (desc) desc.value = fav.description
           if (analysisDescEl) analysisDescEl.textContent = fav.description || 'Saved favorite'
           if (analysisEl) {
-            const goals = load().goals
+            const goals = mergedToday().goals
             analysisEl.innerHTML = `
               <div class="diet-analysis-title">Estimate</div>
               <p class="diet-analysis-line">${escapeHtml(fav.analysis.summary || fav.label)}</p>
@@ -861,7 +897,7 @@ export function renderDietTracker(container, { navigate }) {
         const result = await analyzeMealReliable(prompt, pendingImage)
         pendingAnalysis = applyExplicitMacroOverrides(prompt, result)
         pendingDescription = text
-        const goals = load().goals
+        const goals = mergedToday().goals
         if (analysisDescEl) {
           analysisDescEl.textContent = text || 'Photo-only entry'
         }
@@ -993,6 +1029,20 @@ export function renderDietTracker(container, { navigate }) {
   }
 
   render()
+  refreshNotionDay(todayKey(), () => {
+    if (container.querySelector('#view-diet') && !document.querySelector('#diet-log-modal:not(.hidden)')) render()
+  }, { force: true })
+  const onVisible = () => {
+    if (document.visibilityState !== 'visible') return
+    if (!container.querySelector('#view-diet')) {
+      document.removeEventListener('visibilitychange', onVisible)
+      return
+    }
+    refreshNotionDay(todayKey(), () => {
+      if (container.querySelector('#view-diet') && !document.querySelector('#diet-log-modal:not(.hidden)')) render()
+    })
+  }
+  document.addEventListener('visibilitychange', onVisible)
 }
 
 function fmtMacro(n) {
@@ -1229,6 +1279,13 @@ export function renderDietGoals(container, { navigate }) {
               <input class="input" type="number" min="0" step="1" id="goal-f" value="${g.fatG}" />
             </label>
           </div>
+          <p class="diet-goals-intro" style="margin-top:20px">Notion sync: food Claude logs to J-OS shows here, and that day's Notion targets replace these.</p>
+          <div class="diet-goals-form">
+            <label class="diet-field">
+              <span>Notion sync key</span>
+              <input class="input" type="password" autocomplete="off" id="goal-notion-key" value="${escapeHtml(getNotionKey())}" placeholder="DIET_KEY from the worker" />
+            </label>
+          </div>
         </div>
         ${bottomChrome({
           left: textFab({ id: 'btn-goals-back', label: `${ICONS.back} Fuel` }),
@@ -1243,6 +1300,7 @@ export function renderDietGoals(container, { navigate }) {
       const p = Number(container.querySelector('#goal-p')?.value)
       const c = Number(container.querySelector('#goal-c')?.value)
       const f = Number(container.querySelector('#goal-f')?.value)
+      setNotionKey(String(container.querySelector('#goal-notion-key')?.value || '').trim())
       setGoals({
         calories: Number.isFinite(cal) ? cal : 2000,
         proteinG: Number.isFinite(p) ? p : 150,
