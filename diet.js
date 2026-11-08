@@ -427,6 +427,20 @@ function formatVal(label, n) {
   return n % 1 === 0 ? `${Math.round(n)}g` : `${n.toFixed(1)}g`
 }
 
+export function homeDietReadoutHtml() {
+  const dateKey = todayKey()
+  const goals = load().goals
+  const { consumed, pct } = dayTotals(dateKey, goals)
+  return `
+    <div class="diet-summary-card">
+      ${macroBar('Calories', consumed.calories, goals.calories, pct.calories)}
+      ${macroBar('Protein', consumed.proteinG, goals.proteinG, pct.proteinG)}
+      ${macroBar('Carbs', consumed.carbsG, goals.carbsG, pct.carbsG)}
+      ${macroBar('Fat', consumed.fatG, goals.fatG, pct.fatG)}
+    </div>
+  `
+}
+
 // ─── Main tracker view ────────────────────────────────────────────────────
 
 export function renderDietTracker(container, { navigate }) {

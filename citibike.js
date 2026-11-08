@@ -112,10 +112,10 @@ async function loadHomeSavedRacks() {
   if (!host?.isConnected) return
   const current = ++homeRacksRequest
   const saved = loadState().saved
-  if (saved.length === 0) {
-    host.innerHTML = ''
-    return
-  }
+    if (saved.length === 0) {
+      host.innerHTML = `<p class="home-racks-status">No saved racks on this device.</p>`
+      return
+    }
   host.innerHTML = `<p class="home-racks-status">Loading…</p>`
   try {
     const stations = await fetchStations()

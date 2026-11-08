@@ -11,10 +11,10 @@
 
 import { renderGratitudeList, renderGratitudeDetail } from './gratitude.js'
 import { renderCoachChat, renderCoachProfile } from './coach.js'
-import { renderDietTracker, renderDietGoals } from './diet.js'
+import { renderDietTracker, renderDietGoals, homeDietReadoutHtml } from './diet.js'
 import { renderIssuesList } from './issues.js'
 import { renderChallenges } from './challenges.js'
-import { renderCitibike, hasSavedRacks, focusSavedRacksTab, mountHomeSavedRacks } from './citibike.js'
+import { renderCitibike, focusSavedRacksTab, mountHomeSavedRacks } from './citibike.js'
 import { renderBars } from './bars.js'
 import { renderRates } from './rates.js'
 import { renderSplit } from './split.js'
@@ -120,6 +120,7 @@ onRemoteUpdate(() => {
   if (currentRoute && (
     currentRoute.view === 'list' ||
     currentRoute.view === 'detail' ||
+    currentRoute.view === 'home' ||
     currentRoute.view === 'diet' ||
     currentRoute.view === 'diet-goals' ||
     currentRoute.view === 'issues' ||
@@ -306,12 +307,16 @@ function renderHome(container) {
             <button class="btn btn-secondary" id="btn-logout">Logout this device</button>
           </div>
         </div>
-        ${hasSavedRacks() ? `
+        <div class="home-readouts">
+          <section class="home-readout" id="home-diet" aria-label="Today's fuel">
+            <h2 class="section-label home-racks-label">Fuel</h2>
+            ${homeDietReadoutHtml()}
+          </section>
           <section class="home-racks" aria-label="Saved Citibike racks">
-            <h2 class="section-label home-racks-label">Saved racks</h2>
+            <h2 class="section-label home-racks-label" id="home-racks-heading">Saved racks</h2>
             <div id="home-racks-body"></div>
           </section>
-        ` : ''}
+        </div>
         <div class="tools-grid">
           ${tools.map(tool => `
             <div class="tool-card" data-tool="${tool.id}">
@@ -339,6 +344,12 @@ function renderHome(container) {
 
   // Theme toggle
   setupThemeToggle(container)
+
+  container.querySelector('#home-diet')?.addEventListener('click', () => navigate('diet'))
+  container.querySelector('#home-racks-heading')?.addEventListener('click', () => {
+    focusSavedRacksTab()
+    navigate('citibike')
+  })
 
   const racksBody = container.querySelector('#home-racks-body')
   if (racksBody) {
