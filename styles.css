@@ -3983,14 +3983,14 @@ textarea.coach-input {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #111111;
-  border: 2px solid #111111;
+  background: var(--neutral-950);
+  border: 2px solid var(--neutral-950);
   box-shadow: var(--shadow-inset);
 }
 
 :root[data-theme="dark"] .joystick-track {
-  background: #111111;
-  border-color: #111111;
+  background: var(--neutral-950);
+  border-color: var(--neutral-950);
 }
 
 .joystick-stick {

@@ -433,55 +433,60 @@ function formatVal(label, n) {
   return n % 1 === 0 ? `${Math.round(n)}g` : `${n.toFixed(1)}g`
 }
 
-export function homeDietReadoutHtml() {
+/** Local entries + what Claude logged to Notion (J-OS Diet). Notion targets win for the day. */
+function mergedToday() {
   const dateKey = todayKey()
-  const goals = load().goals
-  const { consumed, pct } = dayTotals(dateKey, goals)
-  return `
-    <div class="diet-summary-card">
+  const state = load()
+  const day = getDay(dateKey)
+  const localEntries = Array.isArray(day?.entries) ? day.entries : []
+  const notion = getNotionDay(dateKey)
+  const notionError = getNotionError(dateKey)
+  const notionEntries = Array.isArray(notion?.entries) ? notion.entries : []
+  const t = notion?.targets
+  const goals = t && t.calories > 0
+    ? { calories: t.calories, proteinG: t.proteinG, carbsG: t.carbsG, fatG: t.fatG }
+    : state.goals
+  const dayType = t?.dayType || ''
+  const entries = [...notionEntries, ...localEntries]
+    .sort((a, b) => (String(a.loggedAt) < String(b.loggedAt) ? 1 : -1))
+  const consumed = entries.reduce((acc, e) => ({
+    calories: acc.calories + (Number(e.analysis?.calories) || 0),
+    proteinG: acc.proteinG + (Number(e.analysis?.proteinG) || 0),
+    carbsG: acc.carbsG + (Number(e.analysis?.carbsG) || 0),
+    fatG: acc.fatG + (Number(e.analysis?.fatG) || 0),
+  }), { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 })
+  const pctOf = (n, g) => (g ? Math.min(100, (n / g) * 100) : 0)
+  const pct = {
+    calories: pctOf(consumed.calories, goals.calories),
+    proteinG: pctOf(consumed.proteinG, goals.proteinG),
+    carbsG: pctOf(consumed.carbsG, goals.carbsG),
+    fatG: pctOf(consumed.fatG, goals.fatG),
+  }
+  return { goals, consumed, pct, entries, dayType, notionError }
+}
+
+export function homeDietReadoutHtml() {
+  const card = () => {
+    const { goals, consumed, pct } = mergedToday()
+    return `
+    <div class="diet-summary-card" id="home-diet-card">
       ${macroBar('Calories', consumed.calories, goals.calories, pct.calories)}
       ${macroBar('Protein', consumed.proteinG, goals.proteinG, pct.proteinG)}
       ${macroBar('Carbs', consumed.carbsG, goals.carbsG, pct.carbsG)}
       ${macroBar('Fat', consumed.fatG, goals.fatG, pct.fatG)}
     </div>
   `
+  }
+  refreshNotionDay(todayKey(), () => {
+    const el = document.getElementById('home-diet-card')
+    if (el) el.outerHTML = card()
+  })
+  return card()
 }
 
 // ─── Main tracker view ────────────────────────────────────────────────────
 
 export function renderDietTracker(container, { navigate }) {
-  /** Local entries + what Claude logged to Notion (J-OS Diet). Notion targets win for the day. */
-  function mergedToday() {
-    const dateKey = todayKey()
-    const state = load()
-    const day = getDay(dateKey)
-    const localEntries = Array.isArray(day?.entries) ? day.entries : []
-    const notion = getNotionDay(dateKey)
-    const notionError = getNotionError(dateKey)
-    const notionEntries = Array.isArray(notion?.entries) ? notion.entries : []
-    const t = notion?.targets
-    const goals = t && t.calories > 0
-      ? { calories: t.calories, proteinG: t.proteinG, carbsG: t.carbsG, fatG: t.fatG }
-      : state.goals
-    const dayType = t?.dayType || ''
-    const entries = [...notionEntries, ...localEntries]
-      .sort((a, b) => (String(a.loggedAt) < String(b.loggedAt) ? 1 : -1))
-    const consumed = entries.reduce((acc, e) => ({
-      calories: acc.calories + (Number(e.analysis?.calories) || 0),
-      proteinG: acc.proteinG + (Number(e.analysis?.proteinG) || 0),
-      carbsG: acc.carbsG + (Number(e.analysis?.carbsG) || 0),
-      fatG: acc.fatG + (Number(e.analysis?.fatG) || 0),
-    }), { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 })
-    const pctOf = (n, g) => (g ? Math.min(100, (n / g) * 100) : 0)
-    const pct = {
-      calories: pctOf(consumed.calories, goals.calories),
-      proteinG: pctOf(consumed.proteinG, goals.proteinG),
-      carbsG: pctOf(consumed.carbsG, goals.carbsG),
-      fatG: pctOf(consumed.fatG, goals.fatG),
-    }
-    return { goals, consumed, pct, entries, dayType, notionError }
-  }
-
   function render() {
     const dateKey = todayKey()
     const { goals, consumed, pct, entries, dayType, notionError } = mergedToday()
