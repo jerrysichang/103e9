@@ -987,12 +987,27 @@ textarea.input {
   letter-spacing: var(--tracking-display);
 }
 
+.home-readouts {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 4px 20px 8px;
+}
+
+.home-readout {
+  cursor: pointer;
+}
+
 .home-racks {
-  padding: 4px 20px 16px;
+  padding: 0;
 }
 
 .home-racks-label {
   margin: 0 0 10px;
+}
+
+#home-racks-heading {
+  cursor: pointer;
 }
 
 .home-racks-status {
