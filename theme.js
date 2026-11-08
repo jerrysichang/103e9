@@ -29,10 +29,10 @@ function applyTheme(theme) {
   
   if (theme === THEMES.DARK) {
     root.setAttribute('data-theme', 'dark')
-    if (metaTheme) metaTheme.setAttribute('content', '#0a0a0a')
+    if (metaTheme) metaTheme.setAttribute('content', '#1E1B1A')
   } else {
     root.removeAttribute('data-theme')
-    if (metaTheme) metaTheme.setAttribute('content', '#ffffff')
+    if (metaTheme) metaTheme.setAttribute('content', '#F9F7F4')
   }
 }
 
