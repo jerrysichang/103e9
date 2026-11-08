@@ -4,6 +4,15 @@
  */
 
 const STORAGE_KEY = 'ps_diet_v1'
+/** Fuel only shows today. Keep a short local window so photos don't fill device storage. */
+const KEEP_DAYS = 7
+
+/** Oldest date key still kept (today minus KEEP_DAYS - 1). */
+function oldestKeptKey() {
+  const d = new Date()
+  d.setDate(d.getDate() - (KEEP_DAYS - 1))
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 /** @returns {DietState} */
 function defaultState() {
@@ -33,8 +42,10 @@ function normalizeState(raw) {
   }
   const days = {}
   const daysRaw = o.days && typeof o.days === 'object' ? /** @type {Record<string, unknown>} */ (o.days) : {}
+  const cutoff = oldestKeptKey()
   for (const [k, v] of Object.entries(daysRaw)) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) continue
+    if (k < cutoff) continue
     const day = v && typeof v === 'object' ? /** @type {Record<string, unknown>} */ (v) : {}
     const entries = Array.isArray(day.entries) ? day.entries.filter(isEntryLike).map(normalizeEntry) : []
     days[k] = { entries }
