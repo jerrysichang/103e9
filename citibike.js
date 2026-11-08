@@ -66,6 +66,92 @@ function saveState(state) {
   localStorage.setItem(KEY, JSON.stringify({ ...state, tabSchema: TAB_SCHEMA }))
 }
 
+export function hasSavedRacks() {
+  return loadState().saved.length > 0
+}
+
+export function focusSavedRacksTab() {
+  const state = loadState()
+  state.activeTab = 'saved'
+  saveState(state)
+}
+
+function savedRackRowHtml(entry, buttonAttrs) {
+  const { station, label } = entry
+  const nickname = String(label || '').trim()
+  return `
+    <li class="item citibike-saved-item">
+      <button class="citibike-saved-row" type="button" ${buttonAttrs}>
+        <div class="citibike-row-main">
+          <span class="item-title issue-title">${escapeHtml(nickname || station.name)}</span>
+          ${nickname ? `<span class="item-subtitle">${escapeHtml(station.name)}</span>` : ''}
+        </div>
+        ${availabilityAside(station)}
+      </button>
+    </li>
+  `
+}
+
+let homeRacksHost = null
+let homeRacksRequest = 0
+let homeRacksOnOpen = null
+let homeRacksListening = false
+
+function onHomeRacksVisible() {
+  if (!homeRacksHost?.isConnected) {
+    document.removeEventListener('visibilitychange', onHomeRacksVisible)
+    homeRacksListening = false
+    homeRacksHost = null
+    return
+  }
+  if (document.visibilityState === 'visible') loadHomeSavedRacks()
+}
+
+async function loadHomeSavedRacks() {
+  const host = homeRacksHost
+  if (!host?.isConnected) return
+  const current = ++homeRacksRequest
+  const saved = loadState().saved
+  if (saved.length === 0) {
+    host.innerHTML = ''
+    return
+  }
+  host.innerHTML = `<p class="home-racks-status">Loading…</p>`
+  try {
+    const stations = await fetchStations()
+    if (current !== homeRacksRequest || !host.isConnected) return
+    const byId = new Map(stations.map(s => [String(s.id), s]))
+    const rows = saved
+      .map(entry => {
+        const station = byId.get(String(entry.stationId))
+        return station ? { ...entry, station } : null
+      })
+      .filter(Boolean)
+    if (rows.length === 0) {
+      host.innerHTML = `<p class="home-racks-status">Saved racks are not in the live feed right now.</p>`
+      return
+    }
+    host.innerHTML = `<ul class="item-list citibike-saved-list">${rows.map(entry => savedRackRowHtml(entry, 'data-open-citibike')).join('')}</ul>`
+    host.querySelectorAll('[data-open-citibike]').forEach(btn => {
+      btn.addEventListener('click', () => homeRacksOnOpen?.())
+    })
+  } catch (err) {
+    console.warn('Home rack status failed:', err)
+    if (current !== homeRacksRequest || !host.isConnected) return
+    host.innerHTML = `<p class="home-racks-status">Could not load rack status.</p>`
+  }
+}
+
+export async function mountHomeSavedRacks(host, { onOpen } = {}) {
+  homeRacksHost = host
+  homeRacksOnOpen = onOpen
+  if (!homeRacksListening) {
+    document.addEventListener('visibilitychange', onHomeRacksVisible)
+    homeRacksListening = true
+  }
+  await loadHomeSavedRacks()
+}
+
 async function fetchStations() {
   const [infoRes, statusRes] = await Promise.all([
     fetch(`${GBFS_BASE}/station_information.json`),
@@ -1838,20 +1924,7 @@ export function renderCitibike(container, { navigate }) {
   }
 
   function renderSaved(entry) {
-    const { station, label, stationId } = entry
-    const nickname = label.trim()
-
-    return `
-      <li class="item citibike-saved-item">
-        <button class="citibike-saved-row" type="button" data-edit-station="${stationId}">
-          <div class="citibike-row-main">
-            <span class="item-title issue-title">${escapeHtml(nickname || station.name)}</span>
-            ${nickname ? `<span class="item-subtitle">${escapeHtml(station.name)}</span>` : ''}
-          </div>
-          ${availabilityAside(station)}
-        </button>
-      </li>
-    `
+    return savedRackRowHtml(entry, `data-edit-station="${escapeHtml(entry.stationId)}"`)
   }
 
   function bind(state) {

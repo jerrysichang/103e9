@@ -987,6 +987,24 @@ textarea.input {
   letter-spacing: var(--tracking-display);
 }
 
+.home-racks {
+  padding: 4px 20px 16px;
+}
+
+.home-racks-label {
+  margin: 0 0 10px;
+}
+
+.home-racks-status {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-secondary);
+}
+
+.home-racks .citibike-saved-list {
+  margin: 0;
+}
+
 .tools-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
