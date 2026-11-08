@@ -14,7 +14,7 @@ import { renderCoachChat, renderCoachProfile } from './coach.js'
 import { renderDietTracker, renderDietGoals } from './diet.js'
 import { renderIssuesList } from './issues.js'
 import { renderChallenges } from './challenges.js'
-import { renderCitibike } from './citibike.js'
+import { renderCitibike, hasSavedRacks, focusSavedRacksTab, mountHomeSavedRacks } from './citibike.js'
 import { renderBars } from './bars.js'
 import { renderRates } from './rates.js'
 import { renderSplit } from './split.js'
@@ -306,6 +306,12 @@ function renderHome(container) {
             <button class="btn btn-secondary" id="btn-logout">Logout this device</button>
           </div>
         </div>
+        ${hasSavedRacks() ? `
+          <section class="home-racks" aria-label="Saved Citibike racks">
+            <h2 class="section-label home-racks-label">Saved racks</h2>
+            <div id="home-racks-body"></div>
+          </section>
+        ` : ''}
         <div class="tools-grid">
           ${tools.map(tool => `
             <div class="tool-card" data-tool="${tool.id}">
@@ -333,6 +339,16 @@ function renderHome(container) {
 
   // Theme toggle
   setupThemeToggle(container)
+
+  const racksBody = container.querySelector('#home-racks-body')
+  if (racksBody) {
+    mountHomeSavedRacks(racksBody, {
+      onOpen: () => {
+        focusSavedRacksTab()
+        navigate('citibike')
+      },
+    })
+  }
 }
 
 // ─── Viewport height (iOS home-screen / PWA) ─────────────────────────────
