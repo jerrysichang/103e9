@@ -11,7 +11,7 @@
 
 import { renderGratitudeList, renderGratitudeDetail } from './gratitude.js'
 import { renderCoachChat, renderCoachProfile } from './coach.js'
-import { renderDietTracker, renderDietGoals, homeDietReadoutHtml } from './diet.js'
+import { renderDietTracker, renderDietGoals, homeDietReadoutHtml, toggleHomeFuelPreview } from './diet.js'
 import { renderIssuesList } from './issues.js'
 import { renderChallenges } from './challenges.js'
 import { renderCitibike, focusSavedRacksTab, mountHomeSavedRacks } from './citibike.js'
@@ -345,7 +345,15 @@ function renderHome(container) {
   // Theme toggle
   setupThemeToggle(container)
 
-  container.querySelector('#home-diet')?.addEventListener('click', () => navigate('diet'))
+  container.querySelector('#home-diet')?.addEventListener('click', e => {
+    const previewBtn = e.target.closest('[data-fuel-preview]')
+    if (previewBtn) {
+      e.preventDefault()
+      toggleHomeFuelPreview(previewBtn.getAttribute('data-fuel-preview') || '')
+      return
+    }
+    navigate('diet')
+  })
   container.querySelector('#home-racks-heading')?.addEventListener('click', () => {
     focusSavedRacksTab()
     navigate('citibike')

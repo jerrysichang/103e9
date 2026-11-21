@@ -399,24 +399,132 @@ function manualMacroRow({ key, label, unit, max, step }) {
   `
 }
 
-function macroBar(label, consumed, goal, pct) {
-  const over = goal > 0 && consumed > goal
-  const overAmount = over ? consumed - goal : 0
-  const fillPct = goal > 0 ? Math.min(100, (consumed / goal) * 75) : 0
+/** Goal sits at 75% of the track so overage can still read past the marker. */
+function toBarPct(value, goal) {
+  return goal > 0 ? Math.min(100, (value / goal) * 75) : 0
+}
+
+/**
+ * @param {string} label
+ * @param {number} consumed
+ * @param {number} goal
+ * @param {number} [pct] unused; kept for call-site compatibility
+ * @param {number} [preview] optional additive preview amount (yellow segment)
+ */
+function macroBar(label, consumed, goal, pct, preview = 0) {
+  const previewAmt = Math.max(0, Number(preview) || 0)
+  const display = consumed + previewAmt
+  const over = goal > 0 && display > goal
+  const overAmount = over ? display - goal : 0
+  const baseOver = goal > 0 && consumed > goal
+  const hasPreview = previewAmt > 0
+  let basePct = toBarPct(consumed, goal)
+  let previewPct = 0
+  if (hasPreview && goal > 0) {
+    const rawBase = (consumed / goal) * 75
+    const rawPreview = (previewAmt / goal) * 75
+    const rawTotal = rawBase + rawPreview
+    if (rawTotal <= 100) {
+      basePct = rawBase
+      previewPct = rawPreview
+    } else {
+      // Keep both segments visible when projected total exceeds the track.
+      basePct = (rawBase / rawTotal) * 100
+      previewPct = (rawPreview / rawTotal) * 100
+    }
+  }
   return `
     <div class="diet-macro">
       <div class="diet-macro-head">
         <span class="diet-macro-label">${label}</span>
         <span class="diet-macro-values ${over ? 'diet-macro-over' : ''}">
-          ${formatVal(label, consumed)} / ${formatVal(label, goal)}${over ? ` (+${formatVal(label, overAmount)})` : ''}
+          ${formatVal(label, display)} / ${formatVal(label, goal)}${over ? ` (+${formatVal(label, overAmount)})` : ''}
         </span>
       </div>
-      <div class="diet-bar-track">
+      <div class="diet-bar-track ${hasPreview ? 'diet-bar-track--stacked' : ''}">
         <span class="diet-target-line" aria-hidden="true"></span>
-        <div class="diet-bar-fill ${over ? 'diet-bar-over' : ''}" style="width:${fillPct}%"></div>
+        <div class="diet-bar-fill ${baseOver ? 'diet-bar-over' : ''}" style="width:${basePct}%"></div>
+        ${hasPreview ? `<div class="diet-bar-fill diet-bar-fill-preview" style="left:${basePct}%;width:${previewPct}%"></div>` : ''}
       </div>
     </div>
   `
+}
+
+/** Typical single-serving estimates for home Fuel “what if” toggles. */
+const HOME_FUEL_PREVIEWS = [
+  {
+    id: 'nyc-pizza',
+    label: 'NYC pizza',
+    macros: { calories: 400, proteinG: 16, carbsG: 44, fatG: 18 },
+  },
+  {
+    id: 'burger-fries',
+    label: 'Burger + fries',
+    macros: { calories: 770, proteinG: 28, carbsG: 70, fatG: 41 },
+  },
+  {
+    id: 'chipotle',
+    label: 'Chipotle bowl',
+    macros: { calories: 900, proteinG: 48, carbsG: 85, fatG: 38 },
+  },
+]
+
+/** @type {string | null} */
+let selectedHomeFuelPreview = null
+
+function selectedPreviewMacros() {
+  if (!selectedHomeFuelPreview) return null
+  return HOME_FUEL_PREVIEWS.find(p => p.id === selectedHomeFuelPreview)?.macros || null
+}
+
+function homeDietCardHtml() {
+  const { goals, consumed, pct } = mergedToday()
+  const preview = selectedPreviewMacros()
+  return `
+    <div class="diet-summary-card" id="home-diet-card">
+      ${macroBar('Calories', consumed.calories, goals.calories, pct.calories, preview?.calories)}
+      ${macroBar('Protein', consumed.proteinG, goals.proteinG, pct.proteinG, preview?.proteinG)}
+      ${macroBar('Carbs', consumed.carbsG, goals.carbsG, pct.carbsG, preview?.carbsG)}
+      ${macroBar('Fat', consumed.fatG, goals.fatG, pct.fatG, preview?.fatG)}
+    </div>
+  `
+}
+
+function homeFuelPreviewButtonsHtml() {
+  return `
+    <div class="home-fuel-previews" role="group" aria-label="Preview a meal on the gauges">
+      ${HOME_FUEL_PREVIEWS.map(p => {
+        const on = selectedHomeFuelPreview === p.id
+        return `
+          <button
+            type="button"
+            class="home-fuel-preview-btn ${on ? 'is-active' : ''}"
+            data-fuel-preview="${p.id}"
+            aria-pressed="${on ? 'true' : 'false'}"
+          >${p.label}</button>
+        `
+      }).join('')}
+    </div>
+  `
+}
+
+function refreshHomeDietCard() {
+  const el = document.getElementById('home-diet-card')
+  if (el) el.outerHTML = homeDietCardHtml()
+  document.querySelectorAll('[data-fuel-preview]').forEach(btn => {
+    const on = btn.getAttribute('data-fuel-preview') === selectedHomeFuelPreview
+    btn.classList.toggle('is-active', on)
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false')
+  })
+}
+
+/**
+ * Exclusive toggle: selecting the active option clears it; picking another swaps.
+ * @param {string} id
+ */
+export function toggleHomeFuelPreview(id) {
+  selectedHomeFuelPreview = selectedHomeFuelPreview === id ? null : id
+  refreshHomeDietCard()
 }
 
 function macroRemaining(consumed, goals) {
@@ -466,22 +574,13 @@ function mergedToday() {
 }
 
 export function homeDietReadoutHtml() {
-  const card = () => {
-    const { goals, consumed, pct } = mergedToday()
-    return `
-    <div class="diet-summary-card" id="home-diet-card">
-      ${macroBar('Calories', consumed.calories, goals.calories, pct.calories)}
-      ${macroBar('Protein', consumed.proteinG, goals.proteinG, pct.proteinG)}
-      ${macroBar('Carbs', consumed.carbsG, goals.carbsG, pct.carbsG)}
-      ${macroBar('Fat', consumed.fatG, goals.fatG, pct.fatG)}
-    </div>
-  `
-  }
   refreshNotionDay(todayKey(), () => {
-    const el = document.getElementById('home-diet-card')
-    if (el) el.outerHTML = card()
+    refreshHomeDietCard()
   })
-  return card()
+  return `
+    ${homeDietCardHtml()}
+    ${homeFuelPreviewButtonsHtml()}
+  `
 }
 
 // ─── Main tracker view ────────────────────────────────────────────────────

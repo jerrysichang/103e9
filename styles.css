@@ -1516,6 +1516,18 @@ textarea.coach-input {
   background: var(--danger);
 }
 
+.diet-bar-track--stacked .diet-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: width 0.25s ease, left 0.25s ease;
+}
+
+.diet-bar-fill-preview {
+  background: #eab308;
+  border-radius: 0 4px 4px 0;
+}
+
 .diet-target-line {
   position: absolute;
   left: 75%;
@@ -1524,6 +1536,39 @@ textarea.coach-input {
   width: 2px;
   background: var(--overlay);
   z-index: 1;
+}
+
+.home-fuel-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.home-fuel-preview-btn {
+  border: 0.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: 600 var(--font-size-caption) / 1.2 var(--font);
+  font-family: var(--font);
+  padding: 8px 12px;
+  min-height: 36px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.home-fuel-preview-btn:active {
+  opacity: 0.8;
+  transform: scale(0.97);
+}
+
+.home-fuel-preview-btn.is-active {
+  background: #eab30824;
+  border-color: #eab308;
+  color: var(--text);
 }
 
 .diet-footer {
