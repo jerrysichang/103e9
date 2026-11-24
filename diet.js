@@ -467,6 +467,16 @@ const HOME_FUEL_PREVIEWS = [
     label: 'Chipotle bowl',
     macros: { calories: 900, proteinG: 48, carbsG: 85, fatG: 38 },
   },
+  {
+    id: 'huel-black',
+    label: 'Huel black',
+    macros: { calories: 400, proteinG: 40, carbsG: 37, fatG: 13 },
+  },
+  {
+    id: 'deli-turkey-sandwich',
+    label: 'Deli turkey sandwich',
+    macros: { calories: 380, proteinG: 25, carbsG: 45, fatG: 10 },
+  },
 ]
 
 /** @type {string | null} */
